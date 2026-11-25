@@ -1,9 +1,10 @@
 import { create } from 'zustand'
 import { buildingsById, type CategoryId } from '../data/gameData'
 import { reroute } from './conveyors'
+import type { Route, VehicleKind } from './transport'
 import { FAMILIES, familyOf, nextVariant } from './families'
 import { isBuildingIdAvailable } from './progress'
-import { FOUNDATION, rectsOverlap, rotate, snapAnchor, snapModeOf, worldRect, type Rect, type Rotation, type Vec } from './geometry'
+import { FOUNDATION, isVerticalConnector, rectsOverlap, rotate, snapAnchor, snapModeOf, worldRect, type Rect, type Rotation, type Vec } from './geometry'
 
 export type Purity = 'impure' | 'normal' | 'pure'
 
@@ -24,6 +25,16 @@ export interface PlacedEntity {
   /** taladros/extractores: recurso y pureza del yacimiento */
   resource?: string
   purity?: Purity
+  /** divisores inteligentes/programables: filtros por número de puerto de salida */
+  filters?: Record<number, string[]>
+  /** fusionador prioritario: prioridad por número de puerto de entrada (1 = la más alta) */
+  priorities?: Record<number, number>
+  /** cintas elevadoras y pases de piso: piso superior que alcanza */
+  topFloor?: number
+  /** cintas elevadoras: sentido del transporte */
+  liftDir?: 'up' | 'down'
+  /** amplificadores (somersloops) colocados */
+  somersloops?: number
 }
 
 /** Extremo de una cinta/tubería: un puerto de un edificio o un poste/soporte (port = -1). */
@@ -45,9 +56,28 @@ export interface Conveyor {
   to: End
 }
 
+/** Línea eléctrica entre dos estructuras con conexión de energía. */
+export interface Wire {
+  uid: string
+  from: string
+  to: string
+}
+
+/** Tramo de vía de tren (recorrido libre, sin puertos). */
+export interface Rail {
+  uid: string
+  floor: number
+  points: Vec[]
+}
+
 export interface PlanDoc {
   entities: PlacedEntity[]
   conveyors: Conveyor[]
+  wires?: Wire[]
+  rails?: Rail[]
+  routes?: Route[]
+  /** altura entre pisos en metros (para elevadoras, tuberías verticales y altura de bombeo) */
+  floorHeight?: number
 }
 
 export interface View {
@@ -57,7 +87,7 @@ export interface View {
   offsetY: number
 }
 
-export type Tool = 'select' | 'place' | 'paste' | 'conveyor'
+export type Tool = 'select' | 'place' | 'paste' | 'conveyor' | 'wire' | 'rail' | 'route'
 
 /** Grupo copiado: coordenadas relativas al anclaje de referencia. */
 export interface Clipboard {
@@ -68,6 +98,9 @@ export interface Clipboard {
   /** al cortar: cintas que iban hacia afuera del grupo, para reconectarlas al pegar */
   external?: Conveyor[]
 }
+
+/** Altura entre pisos por defecto (m): un muro de 4 m más el cimiento deja poco lugar; 8 m es lo habitual. */
+export const DEFAULT_FLOOR_HEIGHT = 8
 
 export const BELT_POLE = 'Build_ConveyorPole_C'
 export const PIPE_SUPPORT = 'Build_PipelineSupport_C'
@@ -126,7 +159,28 @@ interface EditorState extends PlanDoc {
   undo: () => void
   redo: () => void
   load: (doc: PlanDoc) => void
+  startWire: () => void
+  routeKind: VehicleKind
+  startRail: () => void
+  startRoute: (kind: VehicleKind, from?: string) => void
+  /** estación de origen elegida para la ruta en curso */
+  routeFrom: string | null
+  setRouteFrom: (uid: string | null) => void
+  addRail: (points: Vec[]) => void
+  addRoute: (kind: VehicleKind, from: string, to: string) => void
+  updateRoute: (uid: string, patch: Partial<Route>) => void
+  addWire: (from: string, to: string) => void
+  setFloorHeight: (h: number) => void
 }
+
+/** Copia del documento para el historial y el guardado. */
+export const snapshot = (s: PlanDoc): PlanDoc => ({
+  entities: s.entities,
+  conveyors: s.conveyors,
+  wires: s.wires,
+  rails: s.rails,
+  routes: s.routes,
+})
 
 const remember = (m: Record<string, string>, id: string) => {
   const f = familyOf(id)
@@ -137,7 +191,15 @@ export const newUid = () => Math.random().toString(36).slice(2, 10)
 const nextRot = (r: Rotation, dir: 1 | -1): Rotation => ((r + 90 * dir + 360) % 360) as Rotation
 
 /** Los cimientos van en su propia capa: las máquinas se apoyan encima. */
-const layerOf = (buildingId: string) => (buildingsById.get(buildingId)?.kind === 'foundation' ? 'base' : 'top')
+const layerOf = (buildingId: string) =>
+  buildingsById.get(buildingId)?.kind === 'foundation' && !isVerticalConnector(buildingId) ? 'base' : 'top'
+
+/** ¿La estructura ocupa este piso? Los conectores verticales ocupan todos los pisos que atraviesan. */
+export const onFloor = (e: PlacedEntity, floor: number) =>
+  e.floor === floor || (isVerticalConnector(e.buildingId) && floor > e.floor && floor <= (e.topFloor ?? e.floor + 1))
+
+/** Piso en el que está un puerto (los conectores tienen un puerto abajo y otro arriba). */
+export const portFloor = (e: PlacedEntity, level?: 'bottom' | 'top') => (level === 'top' ? e.topFloor ?? e.floor + 1 : e.floor)
 
 export function entityRect(e: PlacedEntity): Rect | null {
   const b = buildingsById.get(e.buildingId)
@@ -178,7 +240,7 @@ export const useEditor = create<EditorState>((set, get) => {
   const commit = (doc: Partial<PlanDoc>) =>
     set((s) => ({
       ...doc,
-      past: [...s.past.slice(-99), { entities: s.entities, conveyors: s.conveyors }],
+      past: [...s.past.slice(-99), snapshot(s)],
       future: [],
     }))
 
@@ -188,6 +250,9 @@ export const useEditor = create<EditorState>((set, get) => {
     const gone = new Set(uids)
     return {
       entities: entities.filter((e) => !gone.has(e.uid)),
+      wires: (get().wires ?? []).filter((w) => !gone.has(w.uid) && !gone.has(w.from) && !gone.has(w.to)),
+      rails: (get().rails ?? []).filter((r) => !gone.has(r.uid)),
+      routes: (get().routes ?? []).filter((r) => !gone.has(r.uid) && !gone.has(r.from) && !gone.has(r.to)),
       conveyors: conveyors.filter((c) => !gone.has(c.uid) && !gone.has(c.from.uid) && !gone.has(c.to.uid)),
     }
   }
@@ -212,6 +277,11 @@ export const useEditor = create<EditorState>((set, get) => {
   return {
     entities: [],
     conveyors: [],
+    wires: [],
+    rails: [],
+    routes: [],
+    routeKind: 'truck',
+    floorHeight: DEFAULT_FLOOR_HEIGHT,
     past: [],
     future: [],
     selection: [],
@@ -281,7 +351,7 @@ export const useEditor = create<EditorState>((set, get) => {
       const layer = layerOf(buildingId)
       const { entities, floor } = get()
       return !entities.some((e) => {
-        if (e.floor !== floor || ignore.includes(e.uid) || layerOf(e.buildingId) !== layer) return false
+        if (!onFloor(e, floor) || ignore.includes(e.uid) || layerOf(e.buildingId) !== layer) return false
         const er = entityRect(e)
         return er ? rectsOverlap(r, er) : false
       })
@@ -291,10 +361,20 @@ export const useEditor = create<EditorState>((set, get) => {
       const { placingId, placingRot, placingAngle, floor, entities, canPlace } = get()
       if (!placingId || !canPlace(placingId, anchor, placingRot)) return false
       const pole = isPole(placingId)
+      const vertical = isVerticalConnector(placingId) ? { topFloor: floor + 1, liftDir: 'up' as const } : {}
       commit({
         entities: [
           ...entities,
-          { uid: newUid(), buildingId: placingId, x: anchor.x, y: anchor.y, rot: pole ? 0 : placingRot, floor, ...(pole ? { angle: placingAngle } : {}) },
+          {
+            uid: newUid(),
+            buildingId: placingId,
+            x: anchor.x,
+            y: anchor.y,
+            rot: pole ? 0 : placingRot,
+            floor,
+            ...(pole ? { angle: placingAngle } : {}),
+            ...vertical,
+          },
         ],
       })
       return true
@@ -357,6 +437,7 @@ export const useEditor = create<EditorState>((set, get) => {
 
     deleteSelection: () => {
       const { selection } = get()
+      // removeEntities también borra líneas seleccionadas (por uid)
       if (!selection.length) return
       commit(removeEntities(selection))
       set({ selection: [] })
@@ -404,16 +485,35 @@ export const useEditor = create<EditorState>((set, get) => {
       set((s) => {
         const prev = s.past[s.past.length - 1]
         if (!prev) return s
-        return { ...prev, past: s.past.slice(0, -1), future: [{ entities: s.entities, conveyors: s.conveyors }, ...s.future], selection: [] }
+        return { ...prev, past: s.past.slice(0, -1), future: [snapshot(s), ...s.future], selection: [] }
       }),
     redo: () =>
       set((s) => {
         const next = s.future[0]
         if (!next) return s
-        return { ...next, past: [...s.past, { entities: s.entities, conveyors: s.conveyors }], future: s.future.slice(1), selection: [] }
+        return { ...next, past: [...s.past, snapshot(s)], future: s.future.slice(1), selection: [] }
       }),
 
-    load: (doc) => set({ entities: doc.entities ?? [], conveyors: doc.conveyors ?? [], past: [], future: [], selection: [] }),
+    load: (doc) =>
+      set({ entities: doc.entities ?? [], conveyors: doc.conveyors ?? [], wires: doc.wires ?? [], rails: doc.rails ?? [], routes: doc.routes ?? [], floorHeight: doc.floorHeight ?? DEFAULT_FLOOR_HEIGHT, past: [], future: [], selection: [] }),
+    startWire: () => set({ tool: 'wire', placingId: null, conveyorId: null, selection: [] }),
+    startRail: () => set({ tool: 'rail', placingId: null, conveyorId: null, selection: [] }),
+    startRoute: (routeKind, from) => set({ tool: 'route', routeKind, routeFrom: from ?? null, placingId: null, conveyorId: null, selection: [] }),
+    routeFrom: null,
+    setRouteFrom: (routeFrom) => set({ routeFrom }),
+    addRail: (points) => commit({ rails: [...(get().rails ?? []), { uid: newUid(), floor: get().floor, points }] }),
+    addRoute: (kind, from, to) => {
+      const uid = newUid()
+      commit({ routes: [...(get().routes ?? []), { uid, kind, from, to, count: 1 }] })
+      set({ selection: [uid], tool: 'select' })
+    },
+    updateRoute: (uid, patch) => commit({ routes: (get().routes ?? []).map((r) => (r.uid === uid ? { ...r, ...patch } : r)) }),
+    addWire: (from, to) => {
+      const wires = get().wires ?? []
+      if (from === to || wires.some((w) => (w.from === from && w.to === to) || (w.from === to && w.to === from))) return
+      commit({ wires: [...wires, { uid: newUid(), from, to }] })
+    },
+    setFloorHeight: (h) => set({ floorHeight: Math.max(4, Math.min(48, Math.round(h))) }),
   }
 })
 
@@ -442,8 +542,15 @@ try {
   /* borrador corrupto: se ignora */
 }
 useEditor.subscribe((s, prev) => {
-  if (s.entities !== prev.entities || s.conveyors !== prev.conveyors) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ entities: s.entities, conveyors: s.conveyors }))
+  if (
+    s.entities !== prev.entities ||
+    s.conveyors !== prev.conveyors ||
+    s.wires !== prev.wires ||
+    s.rails !== prev.rails ||
+    s.routes !== prev.routes ||
+    s.floorHeight !== prev.floorHeight
+  ) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...snapshot(s), floorHeight: s.floorHeight }))
   }
 })
 

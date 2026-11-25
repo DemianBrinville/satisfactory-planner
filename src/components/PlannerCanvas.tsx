@@ -6,6 +6,7 @@ import { MAX_SEGMENT, conveyorCost, endInfo, pathLength, route, usedPorts, type 
 import { computeFlows, type EdgeFlow, type FlowResult } from '../editor/flow'
 import {
   FOUNDATION,
+  isVerticalConnector,
   normRect,
   portsOf,
   rectContainsPoint,
@@ -22,6 +23,8 @@ import {
   BELT_POLES,
   PIPE_POLES,
   isPole,
+  onFloor,
+  portFloor,
   entityRect,
   moveStepFor,
   placeClipboard,
@@ -34,6 +37,29 @@ import {
 import ContextMenu, { type MenuState } from './ContextMenu'
 import { HOTKEYS } from '../editor/families'
 import Hotbar from './Hotbar'
+import { computeHeadLift, type HeadIssue } from '../editor/fluids'
+import { curvedPath } from '../editor/dubins'
+import {
+  RAIL_MAX,
+  RAIL_MIN,
+  RAIL_RADIUS,
+  VEHICLES,
+  railCost,
+  roundTrip,
+  routeDistance,
+  routeThroughput,
+  type Route,
+} from '../editor/transport'
+import {
+  computeGrids,
+  connectionsOf,
+  hasPowerConnection,
+  wireCost,
+  wireLength,
+  wireMax,
+  wirePoint,
+  type PowerResult,
+} from '../editor/power'
 
 const COLORS: Record<string, string> = {
   machine: '#c9822b',
@@ -91,13 +117,28 @@ export default function PlannerCanvas() {
   const draftRef = useRef<Draft | null>(null)
   draftRef.current = draft
   const [menu, setMenu] = useState<MenuState | null>(null)
+  const [wireFrom, setWireFrom] = useState<string | null>(null)
+  /** vía en curso: punto y rumbo de salida */
+  const [railDraft, setRailDraft] = useState<{ pos: Vec; th: number | null } | null>(null)
   const inter = useRef<Interaction>(null)
   const spaceDown = useRef(false)
 
   const s = useEditor()
   const { view, entities, conveyors, selection, floor, placingId, placingRot, tool, conveyorId, clipboard, pasteRot, snapStep } = s
 
-  const flows: FlowResult = useMemo(() => computeFlows(entities, conveyors), [entities, conveyors])
+  const routes = s.routes ?? []
+  const rails = s.rails ?? []
+  const flows: FlowResult = useMemo(
+    () => computeFlows(entities, conveyors, routes, s.floorHeight),
+    [entities, conveyors, routes, s.floorHeight],
+  )
+  const wires = s.wires ?? []
+  const power: PowerResult = useMemo(() => computeGrids(entities, wires, flows), [entities, wires, flows])
+  const headIssues = useMemo(() => computeHeadLift(entities, conveyors, s.floorHeight, flows), [entities, conveyors, s.floorHeight, flows])
+  useEffect(() => {
+    if (tool !== 'wire') setWireFrom(null)
+    if (tool !== 'rail') setRailDraft(null)
+  }, [tool])
 
   useEffect(() => {
     const el = wrapRef.current
@@ -170,7 +211,7 @@ export default function PlannerCanvas() {
     y: (py - view.offsetY) / view.scale,
   })
 
-  const visible = useMemo(() => entities.filter((e) => e.floor === floor), [entities, floor])
+  const visible = useMemo(() => entities.filter((e) => onFloor(e, floor)), [entities, floor])
   const below = useMemo(() => entities.filter((e) => e.floor === floor - 1), [entities, floor])
   const visibleConv = useMemo(() => conveyors.filter((c) => c.floor === floor), [conveyors, floor])
   const used = useMemo(() => usedPorts(conveyors), [conveyors])
@@ -184,6 +225,124 @@ export default function PlannerCanvas() {
       }) ?? null
     )
   }
+  const powerTarget = (p: Vec): PlacedEntity | null => {
+    const e = hitEntity(p)
+    const b = e && buildingsById.get(e.buildingId)
+    return e && b && hasPowerConnection(b) ? e : null
+  }
+  const freeConnections = (e: PlacedEntity) => connectionsOf(buildingsById.get(e.buildingId)!) - (power.used.get(e.uid) ?? 0)
+  const visibleWires = wires.filter((w) => {
+    const a = entities.find((x) => x.uid === w.from)
+    const b = entities.find((x) => x.uid === w.to)
+    return a && b && (onFloor(a, floor) || onFloor(b, floor))
+  })
+  const hitWire = (p: Vec) =>
+    visibleWires.find((w) => {
+      const a = entities.find((x) => x.uid === w.from)!
+      const b = entities.find((x) => x.uid === w.to)!
+      return nearPath(p, [wirePoint(a), wirePoint(b)], 0.6)
+    }) ?? null
+
+  /** Herramienta de líneas eléctricas: clic en una estructura y luego en otra; desde un poste se sigue tendiendo. */
+  const wireClick = (p: Vec) => {
+    const target = powerTarget(p)
+    if (!target) return
+    const st = useEditor.getState()
+    if (!wireFrom) {
+      if (freeConnections(target) > 0) setWireFrom(target.uid)
+      return
+    }
+    const from = entities.find((x) => x.uid === wireFrom)
+    if (!from || from.uid === target.uid) return
+    const len = wireLength(from, target, st.floorHeight)
+    if (len > wireMax(from, target) || freeConnections(from) <= 0 || freeConnections(target) <= 0) return
+    st.addWire(from.uid, target.uid)
+    const tb = buildingsById.get(target.buildingId)!
+    setWireFrom(connectionsOf(tb) > 1 && freeConnections(target) > 1 ? target.uid : null)
+  }
+
+  // ---------- vías de tren ----------
+  const visibleRails = rails.filter((r) => r.floor === floor)
+  const hitRail = (p: Vec) => visibleRails.find((r) => nearPath(p, r.points, 2)) ?? null
+  /** Puntos donde se puede enganchar una vía: extremos de otras vías y de las plataformas/estaciones. */
+  const railSnap = (p: Vec): { pos: Vec; th: number } | null => {
+    let best: { pos: Vec; th: number; d: number } | null = null
+    const consider = (pos: Vec, th: number) => {
+      const d = Math.hypot(pos.x - p.x, pos.y - p.y)
+      if (d < 3 && (!best || d < best.d)) best = { pos, th, d }
+    }
+    for (const r of visibleRails) {
+      const n = r.points.length
+      if (n < 2) continue
+      const a = r.points[0]
+      const a2 = r.points[1]
+      const z = r.points[n - 1]
+      const z2 = r.points[n - 2]
+      consider(a, Math.atan2(a.y - a2.y, a.x - a2.x))
+      consider(z, Math.atan2(z.y - z2.y, z.x - z2.x))
+    }
+    for (const e of visible) {
+      if (!/TrainStation|TrainDockingStation|TrainPlatform/.test(e.buildingId)) continue
+      const b = buildingsById.get(e.buildingId)!
+      const f = b.footprint!
+      const cx = (f.minX + f.maxX) / 2
+      const front = toWorld(b, e, e.rot, { x: cx, y: f.minY })
+      const back = toWorld(b, e, e.rot, { x: cx, y: f.maxY })
+      consider(front, Math.atan2(front.y - back.y, front.x - back.x))
+      consider(back, Math.atan2(back.y - front.y, back.x - front.x))
+    }
+    return best ? { pos: (best as { pos: Vec }).pos, th: (best as { th: number }).th } : null
+  }
+  const railPreview = (() => {
+    if (tool !== 'rail' || !railDraft) return null
+    const snap = railSnap(mouse)
+    const end = snap?.pos ?? { x: Math.round(mouse.x), y: Math.round(mouse.y) }
+    // al llegar a un extremo existente se entra en sentido contrario a su salida
+    const pts = curvedPath(railDraft.pos, railDraft.th, end, snap ? snap.th + Math.PI : null, RAIL_RADIUS)
+    const len = pathLength(pts)
+    return { pts, len, ok: len >= RAIL_MIN && len <= RAIL_MAX }
+  })()
+  const railClick = () => {
+    const st = useEditor.getState()
+    if (!railDraft) {
+      const snap = railSnap(mouse)
+      setRailDraft(snap ? { pos: snap.pos, th: snap.th } : { pos: { x: Math.round(mouse.x), y: Math.round(mouse.y) }, th: null })
+      return
+    }
+    if (!railPreview?.ok) return
+    st.addRail(railPreview.pts.map((q) => ({ x: Math.round(q.x * 1000) / 1000, y: Math.round(q.y * 1000) / 1000 })))
+    const n = railPreview.pts.length
+    const z = railPreview.pts[n - 1]
+    const z2 = railPreview.pts[n - 2]
+    // como en el juego, se sigue tendiendo desde el final en la misma dirección
+    setRailDraft({ pos: z, th: Math.atan2(z.y - z2.y, z.x - z2.x) })
+  }
+
+  // ---------- rutas de vehículos ----------
+  const visibleRoutes = routes.filter((r) => {
+    const a = entities.find((x) => x.uid === r.from)
+    const b = entities.find((x) => x.uid === r.to)
+    return a && b && (onFloor(a, floor) || onFloor(b, floor))
+  })
+  const hitRoute = (p: Vec) =>
+    visibleRoutes.find((r) => {
+      const a = entities.find((x) => x.uid === r.from)!
+      const b = entities.find((x) => x.uid === r.to)!
+      return nearPath(p, [wirePoint(a), wirePoint(b)], 1.2)
+    }) ?? null
+  const stationTarget = (p: Vec) => {
+    const e = hitEntity(p)
+    return e && VEHICLES[s.routeKind].stations.test(e.buildingId) ? e : null
+  }
+  const routeClick = (p: Vec) => {
+    const st = useEditor.getState()
+    const t = stationTarget(p)
+    if (!t) return
+    if (!st.routeFrom) return st.setRouteFrom(t.uid)
+    if (t.uid === st.routeFrom) return
+    st.addRoute(st.routeKind, st.routeFrom, t.uid)
+  }
+
   const hitConveyor = (p: Vec): Conveyor | null =>
     [...visibleConv].reverse().find((c) => nearPath(p, c.points, 0.9)) ?? null
 
@@ -199,7 +358,8 @@ export default function PlannerCanvas() {
     for (const e of visible) {
       const b = buildingsById.get(e.buildingId)
       if (!b) continue
-      portsOf(b).forEach((port, i) => {
+      portsOf(b, e).forEach((port, i) => {
+        if (portFloor(e, port.level) !== floor) return
         if ((kind && port.kind !== kind) || used.has(`${e.uid}:${i}`)) return
         // se acepta el clic en el borde o sobre el marcador (que asoma hacia afuera)
         const pos = toWorld(b, e, e.rot, port.pos)
@@ -308,6 +468,9 @@ export default function PlannerCanvas() {
     if (e.evt.button === 2) {
       if (st.tool !== 'select') {
         if (draft) setDraft(null)
+        else if (wireFrom) setWireFrom(null)
+        else if (railDraft) setRailDraft(null)
+        else if (st.routeFrom) st.setRouteFrom(null)
         else st.cancelTool()
         return
       }
@@ -335,6 +498,18 @@ export default function PlannerCanvas() {
       conveyorClick()
       return
     }
+    if (st.tool === 'wire') {
+      wireClick(p)
+      return
+    }
+    if (st.tool === 'rail') {
+      railClick()
+      return
+    }
+    if (st.tool === 'route') {
+      routeClick(p)
+      return
+    }
     // clic sobre un puerto libre: empieza una cinta/tubería desde esa conexión
     const port = portAt(p)
     if (port) {
@@ -347,6 +522,16 @@ export default function PlannerCanvas() {
     const hc = !hit || isBase ? hitConveyor(p) : null
     if (hc) {
       st.select([hc.uid], e.evt.shiftKey)
+      return
+    }
+    const hw = !hit || isBase ? hitWire(p) : null
+    if (hw) {
+      st.select([hw.uid], e.evt.shiftKey)
+      return
+    }
+    const hr = !hit || isBase ? hitRoute(p) ?? hitRail(p) : null
+    if (hr) {
+      st.select([hr.uid], e.evt.shiftKey)
       return
     }
     if (hit) {
@@ -438,6 +623,12 @@ export default function PlannerCanvas() {
     const isBase = ent && buildingsById.get(ent.buildingId)?.kind === 'foundation'
     const conv = !ent || isBase ? hitConveyor(mouse) : null
     if (conv) return { conv, ent: null }
+    const wire = !ent || isBase ? hitWire(mouse) : null
+    if (wire) return { conv: null, ent: null, wire }
+    const route = !ent || isBase ? hitRoute(mouse) : null
+    if (route) return { conv: null, ent: null, route }
+    const rail = !ent || isBase ? hitRail(mouse) : null
+    if (rail) return { conv: null, ent: null, rail }
     if (ent && !isBase) return { conv: null, ent }
     return null
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -473,6 +664,7 @@ export default function PlannerCanvas() {
               c={c}
               scale={view.scale}
               flow={flows.edges.get(c.uid)}
+              headIssue={!!headIssues.get(c.uid)}
               selected={selSet.has(c.uid)}
               offset={dragging && selSet.has(c.from.uid) && selSet.has(c.to.uid) ? drag : null}
             />
@@ -487,7 +679,9 @@ export default function PlannerCanvas() {
                 selected={selSet.has(e.uid)}
                 showLabels={showLabels}
                 usedPorts={used}
+                floor={floor}
                 node={flows.nodes.get(e.uid)?.effective}
+                power={powerStatus(e, power)}
               />
             ))}
           {ghost && (
@@ -508,6 +702,78 @@ export default function PlannerCanvas() {
               ))}
             </>
           )}
+          {visibleRails.map((r) => (
+            <Group key={r.uid}>
+              <Line
+                points={r.points.flatMap((q) => [q.x, q.y])}
+                stroke={selSet.has(r.uid) ? '#4fe0c0' : '#4a443d'}
+                strokeWidth={4.2}
+                lineJoin="round"
+                lineCap="butt"
+              />
+              <Line points={r.points.flatMap((q) => [q.x, q.y])} stroke="#6b5a48" strokeWidth={3.4} dash={[0.35, 0.55]} lineJoin="round" />
+              <Line points={r.points.flatMap((q) => [q.x, q.y])} stroke="#b9bec6" strokeWidth={0.18} lineJoin="round" />
+            </Group>
+          ))}
+          {railPreview && (
+            <Line
+              points={railPreview.pts.flatMap((q) => [q.x, q.y])}
+              stroke={railPreview.ok ? 'rgba(200,190,170,0.75)' : 'rgba(230,80,70,0.85)'}
+              strokeWidth={4}
+              lineJoin="round"
+            />
+          )}
+          {visibleRoutes.map((r) => {
+            const a = entities.find((x) => x.uid === r.from)!
+            const b = entities.find((x) => x.uid === r.to)!
+            const p = wirePoint(a)
+            const q = wirePoint(b)
+            return (
+              <Line
+                key={r.uid}
+                points={[p.x, p.y, q.x, q.y]}
+                stroke={selSet.has(r.uid) ? '#4fe0c0' : ROUTE_COLOR[r.kind]}
+                strokeWidth={(selSet.has(r.uid) ? 4 : 2.5) / view.scale}
+                dash={[10 / view.scale, 6 / view.scale]}
+                opacity={0.9}
+              />
+            )
+          })}
+          {tool === 'route' && s.routeFrom && (() => {
+            const a = entities.find((x) => x.uid === s.routeFrom)
+            if (!a) return null
+            const p = wirePoint(a)
+            const t = stationTarget(mouse)
+            const q = t ? wirePoint(t) : mouse
+            return <Line points={[p.x, p.y, q.x, q.y]} stroke={ROUTE_COLOR[s.routeKind]} strokeWidth={2 / view.scale} dash={[6 / view.scale, 4 / view.scale]} />
+          })()}
+          {visibleWires.map((w) => {
+            const a = entities.find((x) => x.uid === w.from)!
+            const b = entities.find((x) => x.uid === w.to)!
+            const p = wirePoint(a)
+            const q = wirePoint(b)
+            const other = !onFloor(a, floor) || !onFloor(b, floor)
+            return (
+              <Line
+                key={w.uid}
+                points={[p.x, p.y, q.x, q.y]}
+                stroke={selSet.has(w.uid) ? '#4fe0c0' : '#e8c547'}
+                strokeWidth={(selSet.has(w.uid) ? 3 : 1.5) / view.scale}
+                dash={other ? [6 / view.scale, 4 / view.scale] : undefined}
+                opacity={0.85}
+              />
+            )
+          })}
+          {tool === 'wire' && wireFrom && (() => {
+            const a = entities.find((x) => x.uid === wireFrom)
+            if (!a) return null
+            const p = wirePoint(a)
+            const t = powerTarget(mouse)
+            const q = t ? wirePoint(t) : mouse
+            const len = t ? wireLength(a, t, s.floorHeight) : Math.hypot(q.x - p.x, q.y - p.y)
+            const ok = len <= (t ? wireMax(a, t) : 100) && (!t || freeConnections(t) > 0)
+            return <Line points={[p.x, p.y, q.x, q.y]} stroke={ok ? '#e8c547' : '#e05046'} strokeWidth={2 / view.scale} dash={[5 / view.scale, 3 / view.scale]} />
+          })()}
           {tool === 'conveyor' && target && (
             <Circle
               x={target.info.pos.x}
@@ -554,8 +820,59 @@ export default function PlannerCanvas() {
           {preview.reason && <div className="bad">{preview.reason}</div>}
         </div>
       )}
-      {hover?.conv && <ConveyorTooltip c={hover.conv} flow={flows.edges.get(hover.conv.uid)} at={screen} />}
-      {hover?.ent && <EntityTooltip e={hover.ent} flows={flows} at={screen} />}
+      {hover?.conv && <ConveyorTooltip c={hover.conv} flow={flows.edges.get(hover.conv.uid)} head={headIssues.get(hover.conv.uid)} at={screen} />}
+      {hover?.ent && <EntityTooltip e={hover.ent} flows={flows} power={power} at={screen} />}
+      {hover?.route && <RouteTooltip r={hover.route} entities={entities} flows={flows} floorHeight={s.floorHeight} at={screen} />}
+      {hover?.rail && (
+        <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
+          <b>Vía de tren</b>
+          <div className="muted">
+            {pathLength(hover.rail.points).toFixed(1)} m ·{' '}
+            {railCost(pathLength(hover.rail.points))
+              .map((c) => `${c.amount} ${itemName(c.item)}`)
+              .join(', ')}
+          </div>
+        </div>
+      )}
+      {railPreview && (
+        <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
+          <b>{railPreview.len.toFixed(1)} m</b> (de {RAIL_MIN} a {RAIL_MAX} m por tramo)
+          <div className="muted">{railCost(railPreview.len).map((c) => `${c.amount} ${itemName(c.item)}`).join(', ')}</div>
+          {!railPreview.ok && <div className="bad">Largo fuera de rango: un tramo de vía mide entre 12 y 100 m.</div>}
+        </div>
+      )}
+      {tool === 'route' && (
+        <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
+          <b>Ruta de {VEHICLES[s.routeKind].name.toLowerCase()}</b>
+          <div className="muted">{s.routeFrom ? 'Clic en la estación de destino' : 'Clic en la estación de origen'}</div>
+        </div>
+      )}
+      {hover?.wire && <WireTooltip w={hover.wire} entities={entities} floorHeight={s.floorHeight} at={screen} />}
+      {tool === 'wire' && (
+        <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
+          {(() => {
+            const t = powerTarget(mouse)
+            const a = wireFrom ? entities.find((x) => x.uid === wireFrom) : null
+            if (!t) return <span className="muted">{wireFrom ? 'Clic en otra estructura con conexión eléctrica' : 'Clic en un poste, generador o máquina'}</span>
+            const b = buildingsById.get(t.buildingId)!
+            const free = freeConnections(t)
+            const len = a ? wireLength(a, t, s.floorHeight) : 0
+            return (
+              <>
+                <b>{b.name}</b>
+                <div className={free > 0 ? 'muted' : 'bad'}>
+                  Conexiones libres: {free} de {connectionsOf(b)}
+                </div>
+                {a && a.uid !== t.uid && (
+                  <div className={len > wireMax(a, t) ? 'bad' : 'muted'}>
+                    {len.toFixed(1)} m / {wireMax(a, t)} m · {wireCost(len).map((c) => `${c.amount} ${itemName(c.item)}`).join(', ')}
+                  </div>
+                )}
+              </>
+            )
+          })()}
+        </div>
+      )}
       {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
       <Hotbar />
 
@@ -565,6 +882,9 @@ export default function PlannerCanvas() {
         {tool === 'conveyor' &&
           ` · modo ${conveyorMode === 'curve' ? 'curvo' : 'recto'} (R cambia) · clic: empezar/terminar tramo · clic derecho: cortar trazado`}
         {tool === 'paste' && ' · clic: pegar · R: girar · Esc: salir'}
+        {tool === 'wire' && ' · clic: conectar estructuras · clic derecho: cortar'}
+        {tool === 'rail' && ' · clic: empezar/terminar tramo de vía (se engancha a otras vías y andenes) · clic derecho: cortar'}
+        {tool === 'route' && ' · clic: estación de origen y luego de destino'}
       </div>
     </div>
   )
@@ -636,6 +956,7 @@ function ConveyorShape({
   selected,
   ghost,
   offset,
+  headIssue,
 }: {
   c: Conveyor
   scale: number
@@ -643,6 +964,7 @@ function ConveyorShape({
   selected?: boolean
   ghost?: boolean
   offset?: Vec | null
+  headIssue?: boolean
 }) {
   const b = buildingsById.get(c.buildingId)
   const isPipe = b?.kind === 'pipe'
@@ -651,7 +973,7 @@ function ConveyorShape({
   const status = edgeStatus(flow)
   const tint = STATUS_COLOR[status]
   const len = pathLength(pts)
-  const bad = len > MAX_SEGMENT
+  const bad = len > MAX_SEGMENT || headIssue
   return (
     <Group opacity={ghost ? 0.5 : 1}>
       {(selected || tint || bad) && (
@@ -719,6 +1041,8 @@ function EntityShape({
   showLabels,
   usedPorts,
   node,
+  floor,
+  power,
 }: {
   e: PlacedEntity
   scale: number
@@ -728,6 +1052,8 @@ function EntityShape({
   showLabels: boolean
   usedPorts?: Set<string>
   node?: number
+  floor?: number
+  power?: PowerStatus
 }) {
   const b = buildingsById.get(e.buildingId)
   if (!b) return null
@@ -770,6 +1096,16 @@ function EntityShape({
         strokeWidth={(selected ? 2.5 : 1) / scale}
         cornerRadius={isFoundation ? 0 : 0.3}
       />
+      {power && !ghost && (
+        // estado eléctrico: sin conectar (gris), red sobrecargada (rojo), con energía (amarillo)
+        <Text
+          x={r.x0 + 0.25}
+          y={r.y0 + 0.2}
+          text="⚡"
+          fontSize={1.2}
+          fill={power === 'none' ? '#8a8d93' : power === 'over' ? '#e05046' : '#e8c547'}
+        />
+      )}
       {node !== undefined && !ghost && (
         // barra de rendimiento: cuánto está produciendo respecto al 100 %
         <Rect
@@ -781,7 +1117,19 @@ function EntityShape({
         />
       )}
       {!isFoundation && <FrontMark b={b} e={e} scale={scale} />}
-      {!isFoundation && <Ports b={b} e={e} scale={scale} used={usedPorts} />}
+      {!isFoundation && <Ports b={b} e={e} scale={scale} used={usedPorts} floor={floor} />}
+      {isVerticalConnector(b.id) && (
+        <Text
+          x={r.x0}
+          y={r.y0 + h / 2 - 0.55}
+          width={w}
+          align="center"
+          text={(e.liftDir === 'down' ? '▼' : '▲') + (e.topFloor ?? e.floor + 1)}
+          fontSize={1.1}
+          fill="#fff"
+          fontStyle="bold"
+        />
+      )}
       {showLabels && !isFoundation && w * scale > 40 && (
         <Text
           x={r.x0}
@@ -809,12 +1157,13 @@ function FrontMark({ b, e, scale }: { b: Building; e: PlacedEntity; scale: numbe
   return <Line points={[p.x, p.y, q.x, q.y]} stroke="rgba(255,255,255,0.35)" strokeWidth={2 / scale} />
 }
 
-function Ports({ b, e, scale, used }: { b: Building; e: PlacedEntity; scale: number; used?: Set<string> }) {
-  const ports = portsOf(b)
+function Ports({ b, e, scale, used, floor }: { b: Building; e: PlacedEntity; scale: number; used?: Set<string>; floor?: number }) {
+  const ports = portsOf(b, e)
   if (!ports.length) return null
   return (
     <>
       {ports.map((p, i) => {
+        if (floor !== undefined && portFloor(e, p.level) !== floor) return null
         const at = toWorld(b, e, e.rot as Rotation, p.pos)
         const outer = toWorld(b, e, e.rot as Rotation, {
           x: p.pos.x + p.normal.x * 0.9,
@@ -857,7 +1206,7 @@ function Ports({ b, e, scale, used }: { b: Building; e: PlacedEntity; scale: num
 
 // ---------- tooltips ----------
 
-function ConveyorTooltip({ c, flow, at }: { c: Conveyor; flow?: EdgeFlow; at: Vec }) {
+function ConveyorTooltip({ c, flow, head, at }: { c: Conveyor; flow?: EdgeFlow; head?: HeadIssue; at: Vec }) {
   const b = buildingsById.get(c.buildingId)
   const len = pathLength(c.points)
   const unit = b?.kind === 'pipe' ? 'm³/min' : '/min'
@@ -869,6 +1218,12 @@ function ConveyorTooltip({ c, flow, at }: { c: Conveyor; flow?: EdgeFlow; at: Ve
       <div className="muted">
         {len.toFixed(1)} m · capacidad {fmt(flow?.capacity ?? 0)} {unit} · uso {flow?.capacity ? Math.round((totalFlow / flow.capacity) * 100) : 0} %
       </div>
+      {head && (
+        <div className="bad">
+          ⚠ Falta altura de bombeo: el líquido tiene que subir hasta {fmt(head.needed)} m y solo alcanza {fmt(head.reach)} m. Agrega una bomba antes de
+          subir.
+        </div>
+      )}
       {items.length === 0 && <div className="muted">Sin material: conecta una salida con receta o un taladro.</div>}
       {items.map((i) => {
         const o = flow!.offer.get(i) ?? 0
@@ -892,7 +1247,96 @@ function ConveyorTooltip({ c, flow, at }: { c: Conveyor; flow?: EdgeFlow; at: Ve
   )
 }
 
-function EntityTooltip({ e, flows, at }: { e: PlacedEntity; flows: FlowResult; at: Vec }) {
+const ROUTE_COLOR: Record<string, string> = {
+  train: '#c77dff',
+  truck: '#5fb3f0',
+  tractor: '#7fd17f',
+  explorer: '#f0a35f',
+  drone: '#f06f8f',
+}
+
+function RouteTooltip({
+  r,
+  entities,
+  flows,
+  floorHeight,
+  at,
+}: {
+  r: Route
+  entities: PlacedEntity[]
+  flows: FlowResult
+  floorHeight?: number
+  at: Vec
+}) {
+  const f = flows.edges.get(r.uid)
+  const items = f ? [...f.offer.keys()] : []
+  const dist = routeDistance(r, entities, floorHeight)
+  const t = roundTrip(r, entities, floorHeight)
+  return (
+    <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
+      <b>
+        Ruta de {VEHICLES[r.kind].name.toLowerCase()}
+        {r.kind === 'train' && ` · ${r.count ?? 1} vagón(es)`}
+      </b>
+      <div className="muted">
+        {fmt(dist)} m por trayecto · ida y vuelta {fmt(t)} s
+      </div>
+      {items.length === 0 && (
+        <div className="muted">Capacidad: {fmt(routeThroughput(r, null, entities, floorHeight))}/min (ítems de pila 100)</div>
+      )}
+      {items.map((i) => (
+        <div key={i}>
+          <b>{itemName(i)}</b>: {fmt(f!.flow.get(i) ?? 0)} de {fmt(routeThroughput(r, i, entities, floorHeight))}/min
+        </div>
+      ))}
+    </div>
+  )
+}
+
+type PowerStatus = 'none' | 'over' | 'ok' | undefined
+
+function powerStatus(e: PlacedEntity, power: PowerResult): PowerStatus {
+  const b = buildingsById.get(e.buildingId)
+  if (!b || !(b.powerMW > 0)) return undefined
+  const gid = power.gridOf.get(e.uid)
+  if (!gid) return 'none'
+  const g = power.grids.find((x) => x.id === gid)!
+  return g.consumption > g.generation + 1e-6 ? 'over' : 'ok'
+}
+
+function WireTooltip({ w, entities, floorHeight, at }: { w: { from: string; to: string }; entities: PlacedEntity[]; floorHeight?: number; at: Vec }) {
+  const a = entities.find((x) => x.uid === w.from)
+  const b = entities.find((x) => x.uid === w.to)
+  if (!a || !b) return null
+  const len = wireLength(a, b, floorHeight)
+  return (
+    <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
+      <b>Línea eléctrica</b>
+      <div className="muted">
+        {buildingsById.get(a.buildingId)?.name} ↔ {buildingsById.get(b.buildingId)?.name}
+      </div>
+      <div className="muted">
+        {len.toFixed(1)} m · {wireCost(len).map((c) => `${c.amount} ${itemName(c.item)}`).join(', ')}
+      </div>
+    </div>
+  )
+}
+
+/** Línea de estado eléctrico: red, consumo y generación. */
+export function GridLine({ e, b, power }: { e: PlacedEntity; b: Building; power: PowerResult }) {
+  if (!hasPowerConnection(b)) return null
+  const gid = power.gridOf.get(e.uid)
+  if (!gid) return <div className={b.powerMW > 0 ? 'bad' : 'muted'}>⚡ Sin conectar a la red</div>
+  const g = power.grids.find((x) => x.id === gid)!
+  const over = g.consumption > g.generation + 1e-6
+  return (
+    <div className={over ? 'bad' : 'muted'}>
+      ⚡ Red {g.id}: consume {fmt(g.consumption)} MW de {fmt(g.generation)} MW{over && ' · ¡sobrecargada!'}
+    </div>
+  )
+}
+
+function EntityTooltip({ e, flows, power, at }: { e: PlacedEntity; flows: FlowResult; power: PowerResult; at: Vec }) {
   const b = buildingsById.get(e.buildingId)
   const n = flows.nodes.get(e.uid)
   if (!b) return null
@@ -900,6 +1344,7 @@ function EntityTooltip({ e, flows, at }: { e: PlacedEntity; flows: FlowResult; a
     <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
       <b>{b.name}</b>
       {e.clock !== undefined && e.clock !== 1 && <span className="muted"> · reloj {Math.round(e.clock * 1000) / 10} %</span>}
+      <GridLine e={e} b={b} power={power} />
       {n ? (
         <>
           <div className="muted">Rendimiento {Math.round(n.effective * 100)} %</div>

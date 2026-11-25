@@ -29,7 +29,7 @@ export function endInfo(end: End, entities: PlacedEntity[]): EndInfo | null {
     const a = (e.angle * Math.PI) / 180
     return { pos: { x: e.x, y: e.y }, dir: { x: Math.cos(a), y: Math.sin(a) }, port: null, axis: true }
   }
-  const p = portsOf(b)[end.port]
+  const p = portsOf(b, e)[end.port]
   if (!p) return null
   return { pos: toWorld(b, e, e.rot, p.pos), dir: rotate(p.normal, e.rot as Rotation), port: p }
 }

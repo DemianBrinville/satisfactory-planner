@@ -24,10 +24,14 @@ export const FOUNDATION = 8
  *  - El FRENTE (lado de salida) es el borde y = minY. Con rotación 0 mira hacia arriba.
  */
 
+/** Conectores verticales entre pisos: cintas elevadoras y pases de tubería por el suelo. */
+export const isVerticalConnector = (id: string) => /ConveyorLiftMk/.test(id) || id === 'Build_FoundationPassthrough_Pipe_C'
+
 /** Huella con alternativa para objetos sin cajas de colisión en los datos del juego. */
 export function footprintOf(b: Building): Footprint {
   const f = b.footprint
   if (f && f.maxX - f.minX > 0.1 && f.maxY - f.minY > 0.1) return f
+  if (isVerticalConnector(b.id)) return { minX: -1, maxX: 1, minY: -1, maxY: 1, height: 1 }
   switch (b.kind) {
     case 'lift':
       return { minX: -1, maxX: 1, minY: -1, maxY: 1, height: 1 }
@@ -39,6 +43,7 @@ export function footprintOf(b: Building): Footprint {
 export type SnapMode = 'foundationAnchor' | 'foundationCorner' | 'meter'
 
 export function snapModeOf(b: Building): SnapMode {
+  if (isVerticalConnector(b.id)) return 'meter'
   switch (b.kind) {
     case 'machine':
     case 'miner':
@@ -148,6 +153,8 @@ export interface PortDef {
   pos: Vec
   /** dirección local hacia afuera del edificio */
   normal: Vec
+  /** conectores verticales: el puerto está en el piso de abajo o en el de arriba */
+  level?: 'bottom' | 'top'
 }
 
 /**
@@ -155,7 +162,7 @@ export interface PortDef {
  * salidas repartidas a lo ancho del frente, entradas repartidas en la parte trasera.
  * Divisores y uniones: 1 entrada atrás y 3 salidas (o al revés) en los otros lados.
  */
-export function portsOf(b: Building): PortDef[] {
+export function portsOf(b: Building, e?: { liftDir?: 'up' | 'down' }): PortDef[] {
   const f = footprintOf(b)
   const ports: PortDef[] = []
   const front = { x: 0, y: -1 }
@@ -165,6 +172,15 @@ export function portsOf(b: Building): PortDef[] {
   const cx = (f.minX + f.maxX) / 2
   const cy = (f.minY + f.maxY) / 2
 
+  if (isVerticalConnector(b.id)) {
+    // puerto 0 abajo, puerto 1 arriba; en las elevadoras el sentido lo define liftDir
+    const kind: PortKind = b.kind === 'lift' ? 'belt' : 'pipe'
+    const up = (e?.liftDir ?? 'up') === 'up'
+    return [
+      { kind, dir: up ? 'in' : 'out', pos: { x: cx, y: f.maxY }, normal: back, level: 'bottom' },
+      { kind, dir: up ? 'out' : 'in', pos: { x: cx, y: f.minY }, normal: front, level: 'top' },
+    ]
+  }
   if (b.kind === 'splitter') {
     const merger = /Merger/.test(b.id)
     const one: PortDir = merger ? 'out' : 'in'

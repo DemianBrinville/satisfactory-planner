@@ -4,25 +4,48 @@ import { summarize } from '../editor/costs'
 import { conveyorCost, pathLength } from '../editor/conveyors'
 import { PURITY_NAME, computeFlows, extractionRate, extractorResources, recipesFor, type NodeFlow } from '../editor/flow'
 import { useAvailability } from '../editor/progress'
+import { PriorityMergerPanel, RoutePanel, SplitterPanel, StoragePanel } from './LogisticsPanels'
+import { vehicleForStation } from '../editor/transport'
+import ConnectorPanel from './ConnectorPanel'
+import { GridLine } from './PlannerCanvas'
+import { computeGrids } from '../editor/power'
+import { isVerticalConnector } from '../editor/geometry'
 import { useEditor, type PlacedEntity, type Purity } from '../editor/store'
 
 const fmt = (n: number) => n.toLocaleString('es', { maximumFractionDigits: 2 })
 const pct = (clock: number) => `${Math.round(clock * 10000) / 100} %`
 
 export default function SidePanel() {
-  const { entities, conveyors, selection, placingId, placingRot, tool, conveyorId } = useEditor()
+  const { entities, conveyors, selection, placingId, placingRot, tool, conveyorId, floorHeight } = useEditor()
+  const wires = useEditor((s) => s.wires) ?? []
+  const rails = useEditor((s) => s.rails) ?? []
+  const selRails = rails.filter((r) => selection.includes(r.uid))
+  const selWires = useMemo(
+    () => wires.filter((w) => selection.includes(w.uid) || (selection.includes(w.from) && selection.includes(w.to))),
+    [wires, selection],
+  )
   const selEntities = useMemo(() => entities.filter((e) => selection.includes(e.uid)), [entities, selection])
   const selConveyors = useMemo(() => conveyors.filter((c) => selection.includes(c.uid)), [conveyors, selection])
-  const summary = useMemo(() => summarize(selEntities, selConveyors), [selEntities, selConveyors])
-  const total = useMemo(() => summarize(entities, conveyors), [entities, conveyors])
-  const flows = useMemo(() => computeFlows(entities, conveyors), [entities, conveyors])
+  const summary = useMemo(
+    () => summarize(selEntities, selConveyors, floorHeight, selWires, entities, selRails),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selEntities, selConveyors, floorHeight, selWires, entities, selection, rails],
+  )
+  const total = useMemo(
+    () => summarize(entities, conveyors, floorHeight, wires, entities, rails),
+    [entities, conveyors, floorHeight, wires, rails],
+  )
+  const routes = useEditor((s) => s.routes) ?? []
+  const flows = useMemo(() => computeFlows(entities, conveyors, routes, floorHeight), [entities, conveyors, routes, floorHeight])
+  const power = useMemo(() => computeGrids(entities, wires, flows), [entities, wires, flows])
   const placing = tool === 'place' && placingId ? buildingsById.get(placingId) : null
   const conv = tool === 'conveyor' && conveyorId ? buildingsById.get(conveyorId) : null
   const single = selEntities.length === 1 && selConveyors.length === 0 ? selEntities[0] : null
   const singleB = single ? buildingsById.get(single.buildingId) : null
   const configurable =
     singleB && (singleB.kind === 'machine' || singleB.kind === 'miner' || singleB.kind === 'extractor' || singleB.kind === 'generator')
-  const hasSelection = selEntities.length + selConveyors.length > 0
+  const selRoute = (routes.find((r) => selection.includes(r.uid)) ?? null) as import('../editor/transport').Route | null
+  const hasSelection = selEntities.length + selConveyors.length + selWires.length + selRails.length > 0
 
   return (
     <aside className="side">
@@ -55,13 +78,34 @@ export default function SidePanel() {
         </section>
       )}
 
+      {single && singleB && /SplitterSmart|SplitterProgrammable/.test(singleB.id) && <SplitterPanel e={single} b={singleB} />}
+      {single && singleB && isVerticalConnector(singleB.id) && <ConnectorPanel e={single} b={singleB} />}
+      {selRoute && <RoutePanel r={selRoute} entities={entities} floorHeight={floorHeight} flow={flows.edges.get(selRoute.uid)} />}
+      {single && singleB && vehicleForStation(singleB.id) && (
+        <section>
+          <button onClick={() => useEditor.getState().startRoute(vehicleForStation(singleB.id)!, single.uid)}>
+            Crear ruta desde esta estación
+          </button>
+          <p className="muted">Después haz clic en la estación de destino.</p>
+        </section>
+      )}
+      {single && singleB && /StorageContainer|PipeStorageTank|IndustrialTank/.test(singleB.id) && (
+        <StoragePanel
+          e={single}
+          b={singleB}
+          inflow={sumFlows(conveyors.filter((c) => c.to.uid === single.uid), flows)}
+          outflow={sumFlows(conveyors.filter((c) => c.from.uid === single.uid), flows)}
+        />
+      )}
+      {single && singleB && /MergerPriority/.test(singleB.id) && <PriorityMergerPanel e={single} b={singleB} />}
       {single && singleB && configurable && (
         <MachinePanel e={single} b={singleB} node={flows.nodes.get(single.uid)} />
       )}
 
       {hasSelection ? (
         <section>
-          <h2>Selección ({selEntities.length + selConveyors.length})</h2>
+          <h2>Selección ({selEntities.length + selConveyors.length + selWires.length})</h2>
+          {single && singleB && <GridLine e={single} b={singleB} power={power} />}
           <Counts summary={summary} />
           <h3>Materiales</h3>
           <Cost items={summary.materials} />
@@ -79,6 +123,21 @@ export default function SidePanel() {
               {entities.length} estructuras · {conveyors.length} tramos. Arrastra sobre el plano para seleccionar un área y ver sus materiales.
             </p>
             <Counts summary={total} />
+            {power.grids.length > 0 && (
+              <>
+                <h3>Redes eléctricas</h3>
+                {power.grids.map((g) => (
+                  <div key={g.id} className={'flowline' + (g.consumption > g.generation + 1e-6 ? ' bad' : '')}>
+                    <span>
+                      Red {g.id} ({g.members.length})
+                    </span>
+                    <span>
+                      {fmt(g.consumption)} / {fmt(g.generation)} MW
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
             <h3>Materiales</h3>
             <Cost items={total.materials} />
             <Power s={total} />
@@ -99,6 +158,12 @@ export default function SidePanel() {
       </section>
     </aside>
   )
+}
+
+function sumFlows(list: { uid: string }[], flows: ReturnType<typeof computeFlows>) {
+  const m = new Map<string, number>()
+  for (const c of list) for (const [i, v] of flows.edges.get(c.uid)?.flow ?? []) m.set(i, (m.get(i) ?? 0) + v)
+  return m
 }
 
 function Counts({ summary }: { summary: ReturnType<typeof summarize> }) {
@@ -196,6 +261,25 @@ function MachinePanel({ e, b, node }: { e: PlacedEntity; b: Building; node?: Nod
         <p className="warn">
           Overclock: necesita {Math.ceil((clock - 1) / 0.5)} fragmento(s) de energía. Úsalo solo si no hay alternativa.
         </p>
+      )}
+
+      {(b.somersloopSlots ?? 0) > 0 && (
+        <>
+          <h3>Amplificación (somersloops)</h3>
+          <div className="segmented">
+            {Array.from({ length: (b.somersloopSlots ?? 0) + 1 }, (_, n) => (
+              <button key={n} className={(e.somersloops ?? 0) === n ? 'active' : ''} onClick={() => update(e.uid, { somersloops: n })}>
+                {n}
+              </button>
+            ))}
+          </div>
+          {(e.somersloops ?? 0) > 0 && (
+            <p className="muted">
+              Produce +{Math.round(((e.somersloops ?? 0) / (b.somersloopSlots ?? 1)) * 100)} % con las mismas entradas; el consumo eléctrico se
+              multiplica por {fmt(Math.pow(1 + (e.somersloops ?? 0) / (b.somersloopSlots ?? 1), 2))}.
+            </p>
+          )}
+        </>
       )}
 
       {node && (

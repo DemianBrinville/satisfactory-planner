@@ -2,9 +2,18 @@ import { useMemo, useState } from 'react'
 import { CATEGORIES, game, isPathKind, itemName, type Building } from '../data/gameData'
 import { useAvailability } from '../editor/progress'
 import { useEditor } from '../editor/store'
+import { RAIL, type VehicleKind } from '../editor/transport'
+
+/** Las "Rutas de vehículo" del menú del juego abren la herramienta de rutas. */
+const ROUTE_KINDS: Record<string, VehicleKind> = {
+  Build_VehiclePath_Truck_C: 'truck',
+  Build_VehiclePath_Universal_C: 'truck',
+  Build_VehiclePath_Tractor_C: 'tractor',
+  Build_VehiclePath_Explorer_C: 'explorer',
+}
 
 export default function Palette() {
-  const { category, setCategory, startPlacing, startConveyor, placingId, conveyorId } = useEditor()
+  const { category, setCategory, startPlacing, startConveyor, startWire, startRail, startRoute, placingId, conveyorId, tool } = useEditor()
   const [query, setQuery] = useState('')
   const avail = useAvailability()
 
@@ -55,13 +64,20 @@ export default function Palette() {
                   : f
                     ? `${round(f.maxX - f.minX)} × ${round(f.maxY - f.minY)} m`
                     : ''
-                const active = placingId === b.id || conveyorId === b.id
+                const isWire = b.id === 'Build_PowerLine_C'
+                const active = placingId === b.id || conveyorId === b.id || (isWire && tool === 'wire')
                 return (
                   <button
                     key={b.id}
                     className={'item' + (active ? ' active' : '')}
                     title={tooltip(b) + (path ? '\n\nClic en un puerto o en el suelo para empezar y otro clic para terminar el tramo.' : '')}
-                    onClick={() => (path ? startConveyor(b.id) : startPlacing(b.id))}
+                    onClick={() => {
+                      if (isWire) return startWire()
+                      if (b.id === RAIL) return startRail()
+                      const route = ROUTE_KINDS[b.id]
+                      if (route) return startRoute(route)
+                      return path ? startConveyor(b.id) : startPlacing(b.id)
+                    }}
                   >
                     <span className="name">{b.name}</span>
                     <span className="dims">{dims}</span>

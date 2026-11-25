@@ -1,5 +1,6 @@
 import { buildingsById, game, recipesById, type Building } from '../data/gameData'
 import { portsOf } from './geometry'
+import { routeThroughput, type Route } from './transport'
 import type { Conveyor, PlacedEntity, Purity } from './store'
 
 /**
@@ -36,6 +37,28 @@ export interface NodeFlow {
 export interface FlowResult {
   edges: Map<string, EdgeFlow>
   nodes: Map<string, NodeFlow>
+}
+
+const ROUTE_SOLID = '__route_solid'
+const ROUTE_FLUID = '__route_fluid'
+
+/** Filtros especiales de los divisores inteligentes/programables (como en el juego). */
+export const FILTER_ANY = '*any'
+export const FILTER_NONE = '*none'
+export const FILTER_UNDEFINED = '*undefined'
+export const FILTER_OVERFLOW = '*overflow'
+export const FILTER_NAMES: Record<string, string> = {
+  [FILTER_ANY]: 'Cualquiera',
+  [FILTER_NONE]: 'Ninguno',
+  [FILTER_UNDEFINED]: 'Cualquier no definido',
+  [FILTER_OVERFLOW]: 'Excedente',
+}
+
+/** Aumento de producción por somersloops: 0 a 1 (= +100 % con todas las ranuras llenas). */
+export function somersloopBoost(e: PlacedEntity, b: Building): number {
+  const slots = b.somersloopSlots ?? 0
+  if (!slots || !e.somersloops) return 0
+  return Math.min(e.somersloops, slots) / slots
 }
 
 export const PURITY_MULT: Record<Purity, number> = { impure: 0.5, normal: 1, pure: 2 }
@@ -88,7 +111,35 @@ const sumRates = (m: Rates) => [...m.values()].reduce((a, b) => a + b, 0)
 /** Demanda de un ítem; '*' = acepta cualquier ítem (sumideros). */
 const demOf = (m: Rates | undefined, item: string) => m?.get(item) ?? m?.get('*') ?? 0
 
-export function computeFlows(entities: PlacedEntity[], conveyors: Conveyor[]): FlowResult {
+export function computeFlows(
+  entities: PlacedEntity[],
+  baseConveyors: Conveyor[],
+  routes: Route[] = [],
+  floorHeight = 8,
+): FlowResult {
+  // las rutas de vehículos (tren, camión, dron) son aristas virtuales entre estaciones
+  const routeById = new Map(routes.map((r) => [r.uid, r]))
+  const stationFluid = (uid: string) => /Liquid|FluidTruck/.test(entities.find((e) => e.uid === uid)?.buildingId ?? '')
+  const conveyors: Conveyor[] = [
+    ...baseConveyors,
+    ...routes
+      .filter((r) => entities.some((e) => e.uid === r.from) && entities.some((e) => e.uid === r.to))
+      .map((r) => ({
+        uid: r.uid,
+        buildingId: stationFluid(r.from) ? ROUTE_FLUID : ROUTE_SOLID,
+        floor: 0,
+        points: [],
+        from: { uid: r.from, port: -9 },
+        to: { uid: r.to, port: -9 },
+      })),
+  ]
+  /** capacidad de una arista; en las rutas depende del ítem (tamaño de pila o fluido) */
+  const capOf = (uid: string, rates?: Rates) => {
+    const r = routeById.get(uid)
+    if (!r) return cap.get(uid)!
+    const item = rates && rates.size ? [...rates].filter(([i]) => i !== '*').sort((a, b) => b[1] - a[1])[0]?.[0] ?? null : null
+    return routeThroughput(r, item, entities, floorHeight)
+  }
   const inEdges = new Map<string, Conveyor[]>()
   const outEdges = new Map<string, Conveyor[]>()
   for (const c of conveyors) {
@@ -137,6 +188,27 @@ export function computeFlows(entities: PlacedEntity[], conveyors: Conveyor[]): F
     return res
   }
 
+  /** Llena la demanda de cada cinta (por niveles) sin repartir excedente; devuelve lo que sobra. */
+  const fillDemand = (amount: number, edges: Conveyor[], item: string, dem: Map<string, Rates>) => {
+    const alloc = new Map<string, number>()
+    let left = amount
+    let open = edges.filter((e) => demOf(dem.get(e.uid), item) > 1e-9)
+    while (left > 1e-9 && open.length) {
+      const share = left / open.length
+      const next: Conveyor[] = []
+      for (const e of open) {
+        const want = demOf(dem.get(e.uid), item) - (alloc.get(e.uid) ?? 0)
+        const give = Math.min(share, want)
+        alloc.set(e.uid, (alloc.get(e.uid) ?? 0) + give)
+        left -= give
+        if (want - give > 1e-9) next.push(e)
+      }
+      if (next.length === open.length) break
+      open = next
+    }
+    return { alloc, left: Math.max(0, left) }
+  }
+
   /** Reparte una demanda total entre las cintas de entrada según lo que ofrece cada una. */
   const splitDemand = (need: number, edges: Conveyor[], item: string, off: Map<string, Rates>): Map<string, number> => {
     const offers = edges.map((e) => off.get(e.uid)?.get(item) ?? 0)
@@ -146,7 +218,8 @@ export function computeFlows(entities: PlacedEntity[], conveyors: Conveyor[]): F
     return res
   }
 
-  const portKindOf = (c: Conveyor) => (buildingsById.get(c.buildingId)?.kind === 'pipe' ? 'pipe' : 'belt')
+  const portKindOf = (c: Conveyor) =>
+    c.buildingId === ROUTE_FLUID || buildingsById.get(c.buildingId)?.kind === 'pipe' ? 'pipe' : 'belt'
 
   for (let iter = 0; iter < 40; iter++) {
     const nOffer = new Map<string, Rates>(conveyors.map((c) => [c.uid, new Map()]))
@@ -188,6 +261,8 @@ export function computeFlows(entities: PlacedEntity[], conveyors: Conveyor[]): F
 
       if (recipe && (b.kind === 'machine')) {
         const perMin = 60 / recipe.duration
+        // los somersloops multiplican solo los productos (las entradas no cambian)
+        const amp = 1 + somersloopBoost(e, b)
         // entradas limitan cuánto puede producir
         let inputLimited = clock
         for (const ing of recipe.ingredients) {
@@ -200,12 +275,12 @@ export function computeFlows(entities: PlacedEntity[], conveyors: Conveyor[]): F
           const kind = isFluid(p.item) ? 'pipe' : 'belt'
           const connected = outs.filter((c) => portKindOf(c) === kind)
           if (!connected.length) continue
-          outputLimited = Math.min(outputLimited, demOf(outDemand, p.item) / (p.amount * perMin))
+          outputLimited = Math.min(outputLimited, demOf(outDemand, p.item) / (p.amount * perMin * amp))
         }
         for (const p of recipe.products) {
           const kind = isFluid(p.item) ? 'pipe' : 'belt'
           const connected = outs.filter((c) => portKindOf(c) === kind)
-          const r = waterFill(p.amount * perMin * inputLimited, connected, p.item, demand)
+          const r = waterFill(p.amount * perMin * amp * inputLimited, connected, p.item, demand)
           for (const c of connected) nOffer.get(c.uid)!.set(p.item, r.get(c.uid)!)
         }
         for (const ing of recipe.ingredients) {
@@ -226,8 +301,8 @@ export function computeFlows(entities: PlacedEntity[], conveyors: Conveyor[]): F
           })),
           outputs: recipe.products.map((p) => ({
             item: p.item,
-            produce: p.amount * perMin * clock,
-            taken: p.amount * perMin * effective,
+            produce: p.amount * perMin * amp * clock,
+            taken: p.amount * perMin * amp * effective,
           })),
         })
         continue
@@ -255,8 +330,73 @@ export function computeFlows(entities: PlacedEntity[], conveyors: Conveyor[]): F
         continue
       }
 
-      // nodos de paso: divisores, uniones, postes, soportes, bombas, válvulas, contenedores con salida
+      // divisor inteligente / programable: cada salida tiene filtros
+      if (/SplitterSmart|SplitterProgrammable/.test(b.id)) {
+        const filt = (c: Conveyor) => e.filters?.[c.from.port] ?? [FILTER_ANY]
+        const explicitItems = new Set(outs.flatMap((c) => filt(c).filter((f) => !f.startsWith('*'))))
+        const routes = (item: string) => {
+          const cands = outs.filter((c) => {
+            const f = filt(c)
+            return f.includes(item) || f.includes(FILTER_ANY) || (f.includes(FILTER_UNDEFINED) && !explicitItems.has(item))
+          })
+          const overflow = outs.filter((c) => filt(c).includes(FILTER_OVERFLOW))
+          return { cands, overflow }
+        }
+        for (const [item, amount] of inOffer) {
+          const { cands, overflow } = routes(item)
+          const first = fillDemand(amount, cands, item, demand)
+          const second = fillDemand(first.left, overflow, item, demand)
+          // lo que nadie pide se ofrece igual (se acumula y frena la entrada, como en el juego)
+          const rest = cands.length ? cands : overflow
+          for (const c of outs) {
+            const extra = rest.includes(c) && rest.length ? second.left / rest.length : 0
+            nOffer.get(c.uid)!.set(item, (first.alloc.get(c.uid) ?? 0) + (second.alloc.get(c.uid) ?? 0) + extra)
+          }
+        }
+        // demanda hacia atrás: lo que piden las salidas por las que puede ir cada ítem
+        const items = new Set([...outDemand.keys(), ...inOffer.keys()])
+        for (const item of items) {
+          if (item === '*') continue
+          const { cands, overflow } = routes(item)
+          const need = [...cands, ...overflow].reduce((a, c) => a + demOf(demand.get(c.uid), item), 0)
+          const r = splitDemand(need, ins, item, offer)
+          for (const c of ins) nDemand.get(c.uid)!.set(item, r.get(c.uid)!)
+        }
+        continue
+      }
+
+      // fusionador prioritario: la demanda se atiende primero por las entradas de mayor prioridad
+      if (/MergerPriority/.test(b.id)) {
+        for (const [item, amount] of inOffer) for (const c of outs) nOffer.get(c.uid)!.set(item, amount / outs.length)
+        const prio = (c: Conveyor) => e.priorities?.[c.to.port] ?? 1
+        const levels = [...new Set(ins.map(prio))].sort((a, b) => a - b)
+        for (const item of new Set([...outDemand.keys()])) {
+          let left = outDemand.get(item)!
+          for (const lvl of levels) {
+            const group = ins.filter((c) => prio(c) === lvl)
+            const offered = group.reduce((a, c) => a + (item === '*' ? sumRates(offer.get(c.uid)!) : offer.get(c.uid)?.get(item) ?? 0), 0)
+            const give = Math.min(left, offered)
+            const r = splitDemand(give, group, item, offer)
+            for (const c of group) nDemand.get(c.uid)!.set(item, r.get(c.uid)!)
+            left -= give
+          }
+          // si todavía falta, se pide al grupo de menor prioridad (para que el ideal se propague)
+          if (left > 1e-9 && levels.length) {
+            const last = ins.filter((c) => prio(c) === levels[levels.length - 1])
+            const r = splitDemand(left, last, item, offer)
+            for (const c of last) nDemand.get(c.uid)!.set(item, (nDemand.get(c.uid)!.get(item) ?? 0) + r.get(c.uid)!)
+          }
+        }
+        continue
+      }
+
+      // nodos de paso: divisores, uniones, postes, soportes, bombas, válvulas, elevadoras, contenedores con salida
       if (ins.length || outs.length) {
+        // las cintas elevadoras tienen su propia capacidad
+        if (b.itemsPerMinute && (b.kind === 'lift')) {
+          const total = sumRates(inOffer)
+          if (total > b.itemsPerMinute) for (const [i, v] of inOffer) inOffer.set(i, (v * b.itemsPerMinute) / total)
+        }
         for (const [item, amount] of inOffer) {
           const r = waterFill(amount, outs, item, demand)
           for (const c of outs) nOffer.get(c.uid)!.set(item, r.get(c.uid)!)
@@ -271,10 +411,11 @@ export function computeFlows(entities: PlacedEntity[], conveyors: Conveyor[]): F
 
     // capacidad de cada cinta
     for (const c of conveyors) {
-      nOffer.set(c.uid, capRates(nOffer.get(c.uid)!, cap.get(c.uid)!))
+      const k = capOf(c.uid, nOffer.get(c.uid))
+      nOffer.set(c.uid, capRates(nOffer.get(c.uid)!, k))
       const d = nDemand.get(c.uid)!
-      if (d.has('*')) d.set('*', cap.get(c.uid)!)
-      else nDemand.set(c.uid, capRates(d, cap.get(c.uid)!))
+      if (d.has('*')) d.set('*', k)
+      else nDemand.set(c.uid, capRates(d, k))
     }
     offer = nOffer
     demand = nDemand
@@ -288,7 +429,8 @@ export function computeFlows(entities: PlacedEntity[], conveyors: Conveyor[]): F
     for (const [i, v] of o) flow.set(i, Math.min(v, demOf(d, i)))
     // un sumidero acepta lo que llegue: su demanda se muestra igual a lo ofrecido
     const dClean: Rates = d.has('*') ? new Map([...o]) : d
-    edges.set(c.uid, { offer: o, demand: dClean, flow: capRates(flow, cap.get(c.uid)!), capacity: cap.get(c.uid)! })
+    const k = capOf(c.uid, o)
+    edges.set(c.uid, { offer: o, demand: dClean, flow: capRates(flow, k), capacity: k })
   }
   return { edges, nodes }
 }

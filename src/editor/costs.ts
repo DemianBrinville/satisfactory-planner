@@ -1,6 +1,31 @@
 import { buildingsById, type ItemAmount } from '../data/gameData'
 import { conveyorCost, pathLength } from './conveyors'
-import type { Conveyor, PlacedEntity } from './store'
+import { isVerticalConnector } from './geometry'
+import { POWER_LINE, consumptionMW, wireCost, wireLength } from './power'
+import { DEFAULT_FLOOR_HEIGHT, type Conveyor, type PlacedEntity, type Rail, type Wire } from './store'
+import { RAIL, railCost } from './transport'
+
+/** Metros que sube/baja un conector vertical. */
+export const connectorHeight = (e: PlacedEntity, floorHeight = DEFAULT_FLOOR_HEIGHT) =>
+  Math.abs((e.topFloor ?? e.floor + 1) - e.floor) * floorHeight
+
+/** Costo de una estructura; las elevadoras cuestan su base por cada 2 m (altura redondeada a par, wiki). */
+export function entityCost(e: PlacedEntity, floorHeight = DEFAULT_FLOOR_HEIGHT): ItemAmount[] {
+  const b = buildingsById.get(e.buildingId)
+  if (!b) return []
+  if (b.kind === 'lift') {
+    const h = connectorHeight(e, floorHeight)
+    const units = Math.ceil(h / 2)
+    return b.cost.map((c) => ({ item: c.item, amount: c.amount * units }))
+  }
+  if (isVerticalConnector(b.id)) {
+    // pase de tubería por el suelo: el agujero en cada piso atravesado + el tramo vertical de tubería
+    const floors = Math.abs((e.topFloor ?? e.floor + 1) - e.floor)
+    const pipe = conveyorCost({ buildingId: 'Build_Pipeline_C', points: [{ x: 0, y: 0 }, { x: 0, y: connectorHeight(e, floorHeight) }] })
+    return [...b.cost.map((c) => ({ item: c.item, amount: c.amount * floors })), ...pipe]
+  }
+  return b.cost
+}
 
 export interface SelectionSummary {
   /** cantidad de cada edificio (cintas/tuberías: cantidad de tramos) */
@@ -11,7 +36,14 @@ export interface SelectionSummary {
   powerGenMW: number
 }
 
-export function summarize(entities: PlacedEntity[], conveyors: Conveyor[] = []): SelectionSummary {
+export function summarize(
+  entities: PlacedEntity[],
+  conveyors: Conveyor[] = [],
+  floorHeight = DEFAULT_FLOOR_HEIGHT,
+  wires: Wire[] = [],
+  allEntities: PlacedEntity[] = entities,
+  rails: Rail[] = [],
+): SelectionSummary {
   const counts = new Map<string, { count: number; meters: number }>()
   const mats = new Map<string, number>()
   let powerMW = 0
@@ -24,15 +56,28 @@ export function summarize(entities: PlacedEntity[], conveyors: Conveyor[] = []):
     const b = buildingsById.get(e.buildingId)
     if (!b) continue
     bump(b.id)
-    for (const c of b.cost) mats.set(c.item, (mats.get(c.item) ?? 0) + c.amount)
+    for (const c of entityCost(e, floorHeight)) mats.set(c.item, (mats.get(c.item) ?? 0) + c.amount)
     const clock = e.clock ?? 1
     // consumo con reloj: el juego usa exponente ~1,321928 (overclock cuesta más que lineal)
-    powerMW += b.powerMW * Math.pow(clock, 1.321928)
+    powerMW += consumptionMW(e, b)
     powerGenMW += b.powerGenMW * clock
   }
   for (const c of conveyors) {
     bump(c.buildingId, pathLength(c.points))
     for (const x of conveyorCost(c)) mats.set(x.item, (mats.get(x.item) ?? 0) + x.amount)
+  }
+  for (const r of rails) {
+    const len = pathLength(r.points)
+    bump(RAIL, len)
+    for (const x of railCost(len)) mats.set(x.item, (mats.get(x.item) ?? 0) + x.amount)
+  }
+  for (const w of wires) {
+    const a = allEntities.find((e) => e.uid === w.from)
+    const b = allEntities.find((e) => e.uid === w.to)
+    if (!a || !b) continue
+    const len = wireLength(a, b, floorHeight)
+    bump(POWER_LINE, len)
+    for (const x of wireCost(len)) mats.set(x.item, (mats.get(x.item) ?? 0) + x.amount)
   }
   return {
     counts: [...counts]

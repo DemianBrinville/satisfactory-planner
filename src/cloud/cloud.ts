@@ -1,7 +1,7 @@
 import type { User } from '@supabase/supabase-js'
 import { create } from 'zustand'
 import { useProgress } from '../editor/progress'
-import { useEditor, type PlanDoc } from '../editor/store'
+import { snapshot, useEditor, type PlanDoc } from '../editor/store'
 import { supabase } from './supabase'
 
 export interface PlanMeta {
@@ -33,7 +33,7 @@ interface CloudState {
 const CURRENT_KEY = 'satisfactory-planner:current-plan'
 const docOf = (): PlanDoc => {
   const s = useEditor.getState()
-  return { entities: s.entities, conveyors: s.conveyors }
+  return { ...snapshot(s), floorHeight: s.floorHeight }
 }
 
 export const useCloud = create<CloudState>((set, get) => ({
@@ -118,7 +118,7 @@ export const useCloud = create<CloudState>((set, get) => ({
 let suppressSave = false
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 useEditor.subscribe((s, prev) => {
-  if (suppressSave || (s.entities === prev.entities && s.conveyors === prev.conveyors)) return
+  if (suppressSave || (s.entities === prev.entities && s.conveyors === prev.conveyors && s.wires === prev.wires && s.rails === prev.rails && s.routes === prev.routes && s.floorHeight === prev.floorHeight)) return
   const { currentId } = useCloud.getState()
   if (!currentId) return
   useCloud.setState({ saveState: 'saving' })

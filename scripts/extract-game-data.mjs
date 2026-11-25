@@ -274,6 +274,9 @@ for (const c of classes) {
     buildRecipe: recipe.ClassName,
     unlockedBy: recipeUnlockedBy.get(recipe.ClassName) ?? [],
   }
+  // ranuras de amplificación (somersloops) y capacidad de almacenamiento
+  if (num(c.mProductionShardSlotSize) > 0 && c.mCanChangeProductionBoost === 'True') b.somersloopSlots = num(c.mProductionShardSlotSize)
+  if (num(c.mInventorySizeX) > 0) b.inventorySlots = num(c.mInventorySizeX) * num(c.mInventorySizeY)
   if (kind === 'belt' || kind === 'lift') b.itemsPerMinute = num(c.mSpeed) / 2
   if (kind === 'pipe') b.flowPerMinute = num(c.mFlowLimit) * 60
   if (kind === 'miner' || kind === 'extractor') {

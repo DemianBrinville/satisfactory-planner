@@ -58,6 +58,10 @@ export interface Building {
   itemsPerMinute?: number
   flowPerMinute?: number
   extractPerMinute?: number
+  /** ranuras para somersloops (amplificación de producción) */
+  somersloopSlots?: number
+  /** espacios de inventario (contenedores) */
+  inventorySlots?: number
 }
 
 export interface Recipe {
@@ -74,6 +78,8 @@ export interface Recipe {
 export interface Item {
   name: string
   form: 'solid' | 'liquid' | 'gas' | 'invalid'
+  /** tamaño de pila: ONE, SMALL (50), MEDIUM (100), BIG (200), HUGE (500), FLUID */
+  stackSize: string | null
   sinkPoints: number | null
   energyMJ: number | null
 }

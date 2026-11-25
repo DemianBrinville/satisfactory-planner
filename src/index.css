@@ -650,3 +650,42 @@ kbd {
   color: var(--muted);
   padding: 0 6px 4px;
 }
+
+/* ---------- filtros de divisores ---------- */
+.filter-row h3 {
+  margin: 10px 0 4px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #3a3b40;
+  border-radius: 10px;
+  padding: 1px 4px 1px 8px;
+  font-size: 12px;
+}
+.chip button {
+  padding: 0 5px;
+  border: none;
+  background: transparent;
+}
+.chips select {
+  width: auto;
+}
+.small-input {
+  width: 56px;
+  background: #3a3b40;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 3px 6px;
+}
+.small-input.wide {
+  width: 80px;
+}
