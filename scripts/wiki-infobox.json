@@ -1,0 +1,943 @@
+{
+ "Desc_Workshop_C": {
+  "className": "Desc_Workshop_C",
+  "size_width": "10",
+  "size_length": "7",
+  "size_height": "5"
+ },
+ "Desc_DroneTransport_C": {
+  "className": "Desc_DroneTransport_C",
+  "inventorySize": "9 slots",
+  "size_width": "16",
+  "size_length": "6",
+  "size_height": "3",
+  "maxSpeed": "252"
+ },
+ "Desc_ManufacturerMk1_C": {
+  "className": "Desc_ManufacturerMk1_C",
+  "beltInputs": "4",
+  "beltOutputs": "1",
+  "overclockable": "1",
+  "size_width": "18",
+  "size_length": "20",
+  "size_height": "12"
+ },
+ "Desc_ConveyorLiftMk1_C": {
+  "className": "Desc_ConveyorLiftMk1_C",
+  "size_width": "2",
+  "size_length": "2",
+  "size_height": "7–51"
+ },
+ "Desc_ConveyorLiftMk2_C": {
+  "className": "Desc_ConveyorLiftMk2_C",
+  "size_width": "2",
+  "size_length": "2",
+  "size_height": "7–51"
+ },
+ "Desc_ConveyorLiftMk3_C": {
+  "className": "Desc_ConveyorLiftMk3_C",
+  "size_width": "2",
+  "size_length": "2",
+  "size_height": "7–51"
+ },
+ "Desc_ConveyorLiftMk4_C": {
+  "className": "Desc_ConveyorLiftMk4_C",
+  "size_width": "2",
+  "size_length": "2",
+  "size_height": "7–51"
+ },
+ "Desc_ConveyorLiftMk5_C": {
+  "className": "Desc_ConveyorLiftMk5_C",
+  "size_width": "2",
+  "size_length": "2",
+  "size_height": "7–51"
+ },
+ "Desc_ConveyorLiftMk6_C": {
+  "className": "Desc_ConveyorLiftMk6_C",
+  "size_width": "2",
+  "size_length": "2",
+  "size_height": "7–51"
+ },
+ "Desc_Ladder_C": {
+  "className": "Desc_Ladder_C",
+  "size_width": "1",
+  "size_length": "0.5",
+  "size_height": "3–21",
+  "size_note": "Stackable"
+ },
+ "Desc_PipeHyperStart_C": {
+  "className": "Desc_PipeHyperStart_C",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "2"
+ },
+ "Desc_GeneratorBiomass_Automated_C": {
+  "className": "Desc_GeneratorBiomass_Automated_C",
+  "beltInputs": "1",
+  "size_width": "8",
+  "size_length": "8",
+  "size_height": "10"
+ },
+ "Desc_FoundryMk1_C": {
+  "className": "Desc_FoundryMk1_C",
+  "overclockable": "1",
+  "beltInputs": "2",
+  "beltOutputs": "1",
+  "size_width": "10",
+  "size_length": "10",
+  "size_height": "9"
+ },
+ "Desc_StorageContainerMk1_C": {
+  "className": "Desc_StorageContainerMk1_C",
+  "inventorySize": "24 slots",
+  "beltInputs": "1",
+  "beltOutputs": "1",
+  "size_width": "5",
+  "size_length": "11",
+  "size_height": "4",
+  "size_note": "Stackable"
+ },
+ "Desc_StorageContainerMk2_C": {
+  "className": "Desc_StorageContainerMk2_C",
+  "inventorySize": "48 slots",
+  "beltInputs": "2",
+  "beltOutputs": "2",
+  "size_width": "5",
+  "size_length": "11",
+  "size_height": "8",
+  "size_note": "Stackable"
+ },
+ "Desc_PipelineJunction_Cross_C": {
+  "className": "Desc_PipelineJunction_Cross_C",
+  "pipeInputs": "1-4",
+  "pipeOutputs": "1-4",
+  "size_width": "4",
+  "size_length": "4",
+  "size_height": "2"
+ },
+ "Desc_PipelineJunction_T_C": {
+  "className": "Desc_PipelineJunction_T_C",
+  "pipeInputs": "1-3",
+  "pipeOutputs": "1-3",
+  "size_width": "3",
+  "size_length": "4",
+  "size_height": "2"
+ },
+ "Desc_PowerLine_C": {
+  "className": "Desc_PowerLine_C",
+  "size_width": "0",
+  "size_length": "1-300",
+  "size_height": "0"
+ },
+ "Desc_HadronCollider_C": {
+  "className": "Desc_HadronCollider_C",
+  "beltInputs": "2",
+  "beltOutputs": "1",
+  "pipeInputs": "1",
+  "overclockable": "1",
+  "size_width": "24",
+  "size_length": "38",
+  "size_height": "32"
+ },
+ "Desc_WaterPump_C": {
+  "className": "Desc_WaterPump_C",
+  "pipeOutputs": "1",
+  "overclockable": "1",
+  "size_width": "20",
+  "size_length": "19.5",
+  "size_height": "26",
+  "size_note": "Underwater: 9 m<br>Above water: 17 m"
+ },
+ "Desc_TrainStation_C": {
+  "className": "Desc_TrainStation_C",
+  "size_width": "34",
+  "size_length": "16",
+  "size_height": "20"
+ },
+ "Desc_RadarTower_C": {
+  "className": "Desc_RadarTower_C",
+  "size_width": "10",
+  "size_length": "10",
+  "size_height": "118"
+ },
+ "Desc_LightsControlPanel_C": {
+  "className": "Desc_LightsControlPanel_C",
+  "size_width": "1",
+  "size_length": "2",
+  "size_height": "3"
+ },
+ "Desc_FloodlightWall_C": {
+  "className": "Desc_FloodlightWall_C",
+  "ingredient3": "Encased Industrial Beam",
+  "size_width": "1",
+  "size_length": "8",
+  "size_height": "5"
+ },
+ "Desc_StreetLight_C": {
+  "className": "Desc_StreetLight_C",
+  "size_width": "1",
+  "size_length": "1",
+  "size_height": "10"
+ },
+ "Desc_FloodlightPole_C": {
+  "className": "Desc_FloodlightPole_C",
+  "size_width": "8",
+  "size_length": "8",
+  "size_height": "34"
+ },
+ "Desc_CeilingLight_C": {
+  "className": "Desc_CeilingLight_C",
+  "size_width": "12",
+  "size_length": "12",
+  "size_height": "1"
+ },
+ "Desc_Valve_C": {
+  "className": "Desc_Valve_C",
+  "size_width": "2",
+  "size_length": "2",
+  "size_height": "2"
+ },
+ "Desc_GeneratorFuel_C": {
+  "className": "Desc_GeneratorFuel_C",
+  "size_width": "20",
+  "size_length": "20",
+  "size_height": "27"
+ },
+ "Desc_Blender_C": {
+  "className": "Desc_Blender_C",
+  "overclockable": "1",
+  "beltInputs": "2",
+  "pipeInputs": "2",
+  "beltOutputs": "1",
+  "pipeOutputs": "1",
+  "size_width": "18",
+  "size_length": "16",
+  "size_height": "15"
+ },
+ "Desc_TradingPost_C": {
+  "className": "Desc_TradingPost_C",
+  "size_width": "14",
+  "size_length": "26",
+  "size_height": "28"
+ },
+ "Desc_LookoutTower_C": {
+  "className": "Desc_LookoutTower_C",
+  "size_width": "9",
+  "size_length": "9",
+  "size_height": "24"
+ },
+ "Desc_GeneratorGeoThermal_C": {
+  "className": "Desc_GeneratorGeoThermal_C",
+  "overclockable": "0",
+  "size_width": "19",
+  "size_length": "20",
+  "size_height": "34"
+ },
+ "Desc_ConveyorBeltMk1_C": {
+  "className": "Desc_ConveyorBeltMk1_C",
+  "size_width": "2",
+  "size_length": "1–56",
+  "size_height": "1"
+ },
+ "Desc_ConveyorBeltMk2_C": {
+  "className": "Desc_ConveyorBeltMk2_C",
+  "size_width": "2",
+  "size_length": "1–56",
+  "size_height": "1"
+ },
+ "Desc_ConveyorBeltMk3_C": {
+  "className": "Desc_ConveyorBeltMk3_C",
+  "size_width": "2",
+  "size_length": "1–56",
+  "size_height": "1"
+ },
+ "Desc_ConveyorBeltMk4_C": {
+  "className": "Desc_ConveyorBeltMk4_C",
+  "size_width": "2",
+  "size_length": "1–56",
+  "size_height": "1"
+ },
+ "Desc_ConveyorBeltMk5_C": {
+  "className": "Desc_ConveyorBeltMk5_C",
+  "size_width": "2",
+  "size_length": "1–56",
+  "size_height": "1"
+ },
+ "Desc_ConveyorBeltMk6_C": {
+  "className": "Desc_ConveyorBeltMk6_C",
+  "size_width": "2",
+  "size_length": "1–56",
+  "size_height": "1"
+ },
+ "Desc_OilPump_C": {
+  "className": "Desc_OilPump_C",
+  "overclockable": "1",
+  "pipeOutputs": "1",
+  "size_width": "8",
+  "size_length": "14",
+  "size_height": "20"
+ },
+ "Desc_Beam_C": {
+  "className": "Desc_Beam_C",
+  "size_width": "0.8",
+  "size_length": "1–40",
+  "size_height": "1"
+ },
+ "Desc_Beam_Painted_C": {
+  "className": "Desc_Beam_Painted_C",
+  "size_width": "1",
+  "size_length": "1–40",
+  "size_height": "1"
+ },
+ "Desc_Beam_Support_C": {
+  "className": "Desc_Beam_Support_C",
+  "size_width": "2",
+  "size_length": "2",
+  "size_height": "0.5"
+ },
+ "Desc_Beam_Connector_C": {
+  "className": "Desc_Beam_Connector_C",
+  "size_width": "1.25",
+  "size_length": "1.25",
+  "size_height": "1.25"
+ },
+ "Desc_Beam_Connector_Double_C": {
+  "className": "Desc_Beam_Connector_Double_C",
+  "size_width": "1.25",
+  "size_length": "2.25",
+  "size_height": "1.25"
+ },
+ "Desc_Beam_H_C": {
+  "className": "Desc_Beam_H_C",
+  "size_width": "1",
+  "size_length": "1–40",
+  "size_height": "1"
+ },
+ "Desc_Beam_Shelf_C": {
+  "className": "Desc_Beam_Shelf_C",
+  "size_width": "1",
+  "size_length": "1–40",
+  "size_height": "1"
+ },
+ "Desc_Beam_Cross_C": {
+  "className": "Desc_Beam_Cross_C",
+  "size_width": "1",
+  "size_length": "1–40",
+  "size_height": "1"
+ },
+ "Desc_Beam_Concrete_C": {
+  "className": "Desc_Beam_Concrete_C",
+  "size_width": "1",
+  "size_length": "1–40",
+  "size_height": "1"
+ },
+ "Desc_Beam_Cable_C": {
+  "className": "Desc_Beam_Cable_C",
+  "size_width": "1",
+  "size_length": "1–40",
+  "size_height": "1"
+ },
+ "Desc_Beam_Cable_Cluster_C": {
+  "className": "Desc_Beam_Cable_Cluster_C",
+  "size_width": "1",
+  "size_length": "1–40",
+  "size_height": "1"
+ },
+ "Desc_StoragePlayer_C": {
+  "className": "Desc_StoragePlayer_C",
+  "inventorySize": "25 slots",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "1"
+ },
+ "Desc_StorageMedkit_C": {
+  "className": "Desc_StorageMedkit_C",
+  "inventorySize": "25 slots",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "1"
+ },
+ "Desc_StorageHazard_C": {
+  "className": "Desc_StorageHazard_C",
+  "inventorySize": "25 slots",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "1"
+ },
+ "Desc_MinerMk1_C": {
+  "className": "Desc_MinerMk1_C",
+  "overclockable": "1",
+  "beltOutputs": "1",
+  "size_width": "6",
+  "size_length": "14",
+  "size_height": "18"
+ },
+ "Desc_MinerMk2_C": {
+  "className": "Desc_MinerMk2_C",
+  "beltOutputs": "1",
+  "overclockable": "1",
+  "size_width": "6",
+  "size_length": "14",
+  "size_height": "18"
+ },
+ "Desc_MinerMk3_C": {
+  "className": "Desc_MinerMk3_C",
+  "beltOutputs": "1",
+  "overclockable": "1",
+  "size_width": "6",
+  "size_length": "14",
+  "size_height": "18"
+ },
+ "Desc_GeneratorNuclear_C": {
+  "className": "Desc_GeneratorNuclear_C",
+  "beltInputs": "1",
+  "beltOutputs": "1",
+  "pipeInputs": "1",
+  "overclockable": "1",
+  "size_width": "36",
+  "size_length": "43",
+  "size_height": "39"
+ },
+ "Desc_Truck_C": {
+  "className": "Desc_Truck_C",
+  "maxSpeed": "89",
+  "time0_50": "4",
+  "inventorySize": "48 slots",
+  "size_width": "6.5",
+  "size_length": "10.5",
+  "size_height": "6"
+ },
+ "Desc_FluidTruck_C": {
+  "className": "Desc_FluidTruck_C",
+  "maxSpeed": "89",
+  "time0_50": "4",
+  "inventorySize": "3200 m<sup>3</sup>",
+  "size_width": "6.5",
+  "size_length": "10.5",
+  "size_height": "6"
+ },
+ "Desc_PipelinePump_C": {
+  "className": "Desc_PipelinePump_C",
+  "pipeInputs": "1",
+  "pipeOutputs": "1",
+  "overclockable": "0",
+  "size_width": "2",
+  "size_length": "4",
+  "size_height": "2"
+ },
+ "Desc_PipelinePumpMk2_C": {
+  "className": "Desc_PipelinePumpMk2_C",
+  "pipeInputs": "1",
+  "pipeOutputs": "1",
+  "overclockable": "0",
+  "size_width": "2",
+  "size_length": "5",
+  "size_height": "2"
+ },
+ "Desc_Tractor_C": {
+  "className": "Desc_Tractor_C",
+  "maxSpeed": "69",
+  "time0_50": "6.7",
+  "inventorySize": "25 slots",
+  "size_width": "4",
+  "size_length": "5",
+  "size_height": "3.5"
+ },
+ "Desc_BlueprintDesigner_C": {
+  "className": "Desc_BlueprintDesigner_C",
+  "size_width": "40",
+  "size_length": "40",
+  "size_height": "34 (cannot be placed beneath anything)"
+ },
+ "Desc_BlueprintDesigner_MK2_C": {
+  "className": "Desc_BlueprintDesigner_MK2_C",
+  "size_width": "48",
+  "size_length": "48",
+  "size_height": "42 (cannot be placed beneath anything)"
+ },
+ "Desc_BlueprintDesigner_MK3_C": {
+  "className": "Desc_BlueprintDesigner_MK3_C",
+  "size_width": "56",
+  "size_length": "56",
+  "size_height": "50"
+ },
+ "Desc_ConveyorPole_C": {
+  "className": "Desc_ConveyorPole_C",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "(1/3/5/7)"
+ },
+ "Desc_ConveyorPoleStackable_C": {
+  "className": "Desc_ConveyorPoleStackable_C",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "2n+1"
+ },
+ "Desc_ConveyorPoleWall_C": {
+  "className": "Desc_ConveyorPoleWall_C",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "1"
+ },
+ "Desc_ConveyorWallHole_C": {
+  "className": "Desc_ConveyorWallHole_C",
+  "size_width": "2",
+  "size_length": "2",
+  "size_height": "2"
+ },
+ "Desc_FoundationPassthrough_Lift_C": {
+  "className": "Desc_FoundationPassthrough_Lift_C",
+  "size_width": "2",
+  "size_length": "2",
+  "size_height": "2 / 3 / 5"
+ },
+ "Desc_ConveyorCeilingAttachment_C": {
+  "className": "Desc_ConveyorCeilingAttachment_C",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "2n+1"
+ },
+ "Desc_AssemblerMk1_C": {
+  "className": "Desc_AssemblerMk1_C",
+  "beltInputs": "2",
+  "beltOutputs": "1",
+  "overclockable": "1",
+  "size_width": "9",
+  "size_length": "16",
+  "size_height": "11"
+ },
+ "Desc_Locomotive_C": {
+  "className": "Desc_Locomotive_C",
+  "maxSpeed": "120",
+  "size_width": "6",
+  "size_length": "16",
+  "size_height": "6"
+ },
+ "Desc_QuantumEncoder_C": {
+  "className": "Desc_QuantumEncoder_C",
+  "beltInputs": "3",
+  "beltOutputs": "1",
+  "pipeInputs": "1",
+  "pipeOutputs": "1",
+  "overclockable": "1",
+  "size_width": "22",
+  "size_length": "50",
+  "size_height": "18"
+ },
+ "Desc_CyberWagon_C": {
+  "className": "Desc_CyberWagon_C",
+  "maxSpeed": "164",
+  "inventorySize": "1"
+ },
+ "Desc_DroneStation_C": {
+  "className": "Desc_DroneStation_C",
+  "beltInputs": "2",
+  "beltOutputs": "1",
+  "overclockable": "0",
+  "size_width": "24",
+  "size_length": "24",
+  "size_height": "15"
+ },
+ "Desc_OilRefinery_C": {
+  "className": "Desc_OilRefinery_C",
+  "overclockable": "1",
+  "beltInputs": "1",
+  "beltOutputs": "1",
+  "pipeInputs": "1",
+  "pipeOutputs": "1",
+  "size_width": "10",
+  "size_length": "22",
+  "size_height": "30"
+ },
+ "Desc_ResourceSink_C": {
+  "className": "Desc_ResourceSink_C",
+  "overclockable": "0",
+  "beltInputs": "1",
+  "size_width": "16",
+  "size_length": "13",
+  "size_height": "24"
+ },
+ "Desc_Packager_C": {
+  "className": "Desc_Packager_C",
+  "overclockable": "1",
+  "beltInputs": "1",
+  "beltOutputs": "1",
+  "pipeInputs": "1",
+  "pipeOutputs": "1",
+  "size_width": "8",
+  "size_length": "8",
+  "size_height": "12"
+ },
+ "Desc_GeneratorCoal_C": {
+  "className": "Desc_GeneratorCoal_C",
+  "overclockable": "1",
+  "beltInputs": "1",
+  "pipeInputs": "1",
+  "size_width": "10",
+  "size_length": "26",
+  "size_height": "36"
+ },
+ "Desc_PipeStorageTank_C": {
+  "className": "Desc_PipeStorageTank_C",
+  "inventorySize": "400 m³",
+  "pipeInputs": "1",
+  "pipeOutputs": "1",
+  "size_width": "6",
+  "size_length": "6",
+  "size_height": "8",
+  "size_note": "Stackable"
+ },
+ "Desc_IndustrialTank_C": {
+  "className": "Desc_IndustrialTank_C",
+  "inventorySize": "2400 m³",
+  "pipeInputs": "1",
+  "pipeOutputs": "1",
+  "size_width": "14",
+  "size_length": "14",
+  "size_height": "12",
+  "size_note": "Stackable"
+ },
+ "Desc_SpaceElevator_C": {
+  "className": "Desc_SpaceElevator_C",
+  "overclockable": "0",
+  "beltInputs": "6",
+  "size_width": "48",
+  "size_length": "54",
+  "size_height": "118"
+ },
+ "Desc_PowerSwitch_C": {
+  "className": "Desc_PowerSwitch_C",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "3"
+ },
+ "Desc_PipeHyper_C": {
+  "className": "Desc_PipeHyper_C"
+ },
+ "Desc_ConveyorAttachmentSplitterProgrammable_C": {
+  "className": "Desc_ConveyorAttachmentSplitterProgrammable_C",
+  "beltInputs": "1",
+  "beltOutputs": "3",
+  "size_width": "4",
+  "size_length": "4",
+  "size_height": "2n+1",
+  "size_note": "Stackable"
+ },
+ "Desc_FrackingSmasher_C": {
+  "className": "Desc_FrackingSmasher_C",
+  "overclockable": "1",
+  "size_width": "20",
+  "size_length": "20",
+  "size_height": "23"
+ },
+ "Desc_FrackingExtractor_C": {
+  "className": "Desc_FrackingExtractor_C",
+  "overclockable": "0",
+  "pipeOutputs": "1",
+  "size_width": "4",
+  "size_length": "4",
+  "size_height": "5"
+ },
+ "Desc_ConstructorMk1_C": {
+  "className": "Desc_ConstructorMk1_C",
+  "overclockable": "1",
+  "beltInputs": "1",
+  "beltOutputs": "1",
+  "size_width": "8",
+  "size_length": "10",
+  "size_height": "8.5"
+ },
+ "Desc_ConveyorAttachmentSplitter_C": {
+  "className": "Desc_ConveyorAttachmentSplitter_C",
+  "beltInputs": "1",
+  "beltOutputs": "3",
+  "size_width": "4",
+  "size_length": "4",
+  "size_height": "2n+1",
+  "size_note": "Stackable"
+ },
+ "Desc_ConveyorAttachmentMerger_C": {
+  "className": "Desc_ConveyorAttachmentMerger_C",
+  "beltInputs": "3",
+  "beltOutputs": "1",
+  "size_width": "4",
+  "size_length": "4",
+  "size_height": "2n+1",
+  "size_note": "Stackable"
+ },
+ "Desc_JumpPadAdjustable_C": {
+  "className": "Desc_JumpPadAdjustable_C",
+  "size_width": "6",
+  "size_length": "6",
+  "size_height": "6"
+ },
+ "Desc_WorkBench_C": {
+  "className": "Desc_WorkBench_C",
+  "size_width": "6",
+  "size_length": "3",
+  "size_height": "3"
+ },
+ "Desc_PipeHyperSupport_C": {
+  "className": "Desc_PipeHyperSupport_C",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "(1/3/5/7)+2"
+ },
+ "Desc_HyperPoleStackable_C": {
+  "className": "Desc_HyperPoleStackable_C",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "2n+2",
+  "size_note": "Stackable"
+ },
+ "Desc_HyperTubeWallSupport_C": {
+  "className": "Desc_HyperTubeWallSupport_C",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "2"
+ },
+ "Desc_HyperTubeWallHole_C": {
+  "className": "Desc_HyperTubeWallHole_C",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "2"
+ },
+ "Desc_FoundationPassthrough_Hypertube_C": {
+  "className": "Desc_FoundationPassthrough_Hypertube_C",
+  "size_width": "2",
+  "size_length": "2",
+  "size_height": "1-4"
+ },
+ "Desc_FreightWagon_C": {
+  "className": "Desc_FreightWagon_C",
+  "inventorySize": "32 slots or 2400 m³",
+  "size_width": "6",
+  "size_length": "16",
+  "size_height": "6"
+ },
+ "Desc_LandingPad_C": {
+  "className": "Desc_LandingPad_C",
+  "size_width": "10",
+  "size_length": "11",
+  "size_height": "5"
+ },
+ "Desc_TrainPlatformEmpty_C": {
+  "className": "Desc_TrainPlatformEmpty_C",
+  "size_width": "34",
+  "size_length": "16",
+  "size_height": "1"
+ },
+ "Desc_TrainPlatformEmpty_02_C": {
+  "className": "Desc_TrainPlatformEmpty_02_C",
+  "size_width": "34",
+  "size_length": "16",
+  "size_height": "1"
+ },
+ "Desc_ResourceSinkShop_C": {
+  "className": "Desc_ResourceSinkShop_C",
+  "size_width": "4",
+  "size_length": "6",
+  "size_height": "5"
+ },
+ "Desc_ConveyorAttachmentSplitterSmart_C": {
+  "className": "Desc_ConveyorAttachmentSplitterSmart_C",
+  "beltInputs": "1",
+  "beltOutputs": "3",
+  "size_width": "4",
+  "size_length": "4",
+  "size_height": "2n+1",
+  "size_note": "Stackable"
+ },
+ "Desc_Converter_C": {
+  "className": "Desc_Converter_C",
+  "beltInputs": "2",
+  "beltOutputs": "1",
+  "pipeOutputs": "1",
+  "overclockable": "1",
+  "size_width": "16",
+  "size_length": "16",
+  "size_height": "18"
+ },
+ "Desc_Explorer_C": {
+  "className": "Desc_Explorer_C",
+  "inventorySize": "12",
+  "maxSpeed": "107",
+  "time0_50": "1.8"
+ },
+ "Desc_TrainDockingStation_C": {
+  "className": "Desc_TrainDockingStation_C",
+  "overclockable": "0",
+  "inventorySize": "48 slots",
+  "beltInputs": "2",
+  "beltOutputs": "2",
+  "size_width": "34",
+  "size_length": "16",
+  "size_height": "20"
+ },
+ "Desc_TrainDockingStationLiquid_C": {
+  "className": "Desc_TrainDockingStationLiquid_C",
+  "overclockable": "0",
+  "inventorySize": "3200 m³",
+  "pipeInputs": "2",
+  "pipeOutputs": "2",
+  "size_width": "34",
+  "size_length": "16",
+  "size_height": "20"
+ },
+ "Desc_TruckStation_C": {
+  "className": "Desc_TruckStation_C",
+  "overclockable": "0",
+  "beltInputs": "3",
+  "beltOutputs": "2",
+  "size_width": "16",
+  "size_length": "22",
+  "size_height": "12"
+ },
+ "Desc_FluidTruckStation_C": {
+  "className": "Desc_FluidTruckStation_C",
+  "overclockable": "0",
+  "beltInputs": "1",
+  "pipeInputs": "2",
+  "pipeOutputs": "2",
+  "size_width": "16",
+  "size_length": "22",
+  "size_height": "12"
+ },
+ "Desc_PipelineSupport_C": {
+  "className": "Desc_PipelineSupport_C",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "(1/3/5/7)+2"
+ },
+ "Desc_PipeSupportStackable_C": {
+  "className": "Desc_PipeSupportStackable_C",
+  "size_width": "1",
+  "size_length": "2",
+  "size_height": "2n+2",
+  "size_note": "Stackable"
+ },
+ "Desc_PipelineSupportWall_C": {
+  "className": "Desc_PipelineSupportWall_C",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "2"
+ },
+ "Desc_PipelineSupportWallHole_C": {
+  "className": "Desc_PipelineSupportWallHole_C",
+  "size_width": "2",
+  "size_length": "1",
+  "size_height": "2"
+ },
+ "Desc_FoundationPassthrough_Pipe_C": {
+  "className": "Desc_FoundationPassthrough_Pipe_C",
+  "craftedIn": "Build Gun",
+  "size_width": "2",
+  "size_length": "2",
+  "size_height": "1-4"
+ },
+ "Desc_SmelterMk1_C": {
+  "className": "Desc_SmelterMk1_C",
+  "overclockable": "1",
+  "beltInputs": "1",
+  "beltOutputs": "1",
+  "size_width": "5",
+  "size_length": "10",
+  "size_height": "8.5"
+ },
+ "Desc_CentralStorage_C": {
+  "className": "Desc_CentralStorage_C",
+  "beltInputs": "1",
+  "size_note": "Stackable",
+  "size_width": "5",
+  "size_length": "10",
+  "size_height": "4.25"
+ },
+ "Desc_PowerStorageMk1_C": {
+  "className": "Desc_PowerStorageMk1_C",
+  "size_width": "6",
+  "size_length": "6",
+  "size_height": "12"
+ },
+ "Desc_Mam_C": {
+  "className": "Desc_Mam_C",
+  "size_width": "5",
+  "size_length": "9",
+  "size_height": "6"
+ },
+ "Desc_Pipeline_C": {
+  "className": "Desc_Pipeline_C",
+  "size_width": "2",
+  "size_length": "1–56",
+  "size_height": "2"
+ },
+ "Desc_PipelineMK2_C": {
+  "className": "Desc_PipelineMK2_C",
+  "size_width": "2",
+  "size_length": "1–56",
+  "size_height": "2"
+ },
+ "Desc_Pipeline_NoIndicator_C": {
+  "className": "Desc_Pipeline_NoIndicator_C",
+  "size_width": "2",
+  "size_length": "1–56",
+  "size_height": "2"
+ },
+ "Desc_PipelineMK2_NoIndicator_C": {
+  "className": "Desc_PipelineMK2_NoIndicator_C",
+  "size_width": "2",
+  "size_length": "1–56",
+  "size_height": "2"
+ },
+ "Desc_PowerTower_C": {
+  "className": "Desc_PowerTower_C",
+  "size_width": "14",
+  "size_length": "12",
+  "size_height": "30"
+ },
+ "Desc_PowerTowerPlatform_C": {
+  "className": "Desc_PowerTowerPlatform_C",
+  "size_width": "14",
+  "size_length": "12",
+  "size_height": "30"
+ },
+ "Desc_Portal_C": {
+  "className": "Desc_Portal_C",
+  "inventorySize": "1 slot",
+  "beltInputs": "1"
+ },
+ "Desc_AlienPowerBuilding_C": {
+  "className": "Desc_AlienPowerBuilding_C",
+  "overclockable": "0",
+  "beltInputs": "1",
+  "size_width": "28",
+  "size_length": "28",
+  "size_height": "28"
+ },
+ "Desc_RailroadEndStop_C": {
+  "className": "Desc_RailroadEndStop_C",
+  "size_width": "6",
+  "size_length": "6",
+  "size_height": "2.5"
+ },
+ "Desc_ElevatorFloorStop_C": {
+  "className": "Desc_ElevatorFloorStop_C",
+  "size_height": "4",
+  "size_width": "8",
+  "size_length": "8}}</tabber></div>",
+  "Stop": ""
+ },
+ "Desc_PortalPotty_C": {
+  "className": "Desc_PortalPotty_C"
+ },
+ "Desc_VehiclePath_FactoryCart_C}}": {
+  "className": "Desc_VehiclePath_FactoryCart_C}}",
+  "Tractor": "",
+  "Truck": "",
+  "Explorer": "",
+  "class": "\"wikitable\"",
+  "name": "\"Note 2\"",
+  "group": "note",
+  "refs": "",
+  "text": "It is possible to build a Factory Cart Vehicle Path that crosses over any other Path Type, ''<u>but building over a Universal Vehicle Path on which Factory Carts can't be placed invalidates the Universal Path</u>.''}}"
+ }
+}
