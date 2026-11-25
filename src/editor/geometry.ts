@@ -95,11 +95,12 @@ export function worldRect(b: Building, anchor: Vec, rot: Rotation): Rect {
 }
 
 /** Ajusta la posición del mouse (mundo) a la posición válida más cercana para el anclaje. */
-export function snapAnchor(b: Building, mouse: Vec, rot: Rotation): Vec {
+export function snapAnchor(b: Building, mouse: Vec, rot: Rotation, step = 1): Vec {
   const mode = snapModeOf(b)
   if (mode === 'foundationAnchor') {
-    // El anclaje cae en el centro de un cimiento.
-    const s = (v: number) => Math.floor(v / FOUNDATION) * FOUNDATION + FOUNDATION / 2
+    // El anclaje cae en el centro de un cimiento o desplazado desde ahí en pasos de `step` m.
+    const c = FOUNDATION / 2
+    const s = (v: number) => Math.round((v - c) / step) * step + c
     return { x: s(mouse.x), y: s(mouse.y) }
   }
   if (mode === 'foundationCorner') {

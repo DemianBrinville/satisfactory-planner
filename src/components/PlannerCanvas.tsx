@@ -1,22 +1,36 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Group, Layer, Line, Rect, Shape, Stage, Text } from 'react-konva'
+import { Circle, Group, Layer, Line, Rect, Shape, Stage, Text } from 'react-konva'
 import type Konva from 'konva'
-import { buildingsById, type Building } from '../data/gameData'
+import { buildingsById, itemName, type Building } from '../data/gameData'
+import { MAX_SEGMENT, conveyorCost, pathLength, route, usedPorts, type EndInfo } from '../editor/conveyors'
+import { computeFlows, type EdgeFlow, type FlowResult } from '../editor/flow'
 import {
   FOUNDATION,
   normRect,
   portsOf,
   rectContainsPoint,
   rectsOverlap,
+  rotate,
   snapAnchor,
-  snapModeOf,
   toWorld,
   worldRect,
   type Rect as WRect,
   type Rotation,
   type Vec,
 } from '../editor/geometry'
-import { entityRect, useEditor, type PlacedEntity } from '../editor/store'
+import {
+  BELT_POLE,
+  PIPE_SUPPORT,
+  entityRect,
+  moveStepFor,
+  placeClipboard,
+  snapClipboard,
+  useEditor,
+  type Conveyor,
+  type End,
+  type PlacedEntity,
+} from '../editor/store'
+import ContextMenu, { type MenuState } from './ContextMenu'
 
 const COLORS: Record<string, string> = {
   machine: '#c9822b',
@@ -41,19 +55,45 @@ type Interaction =
   | { type: 'box'; start: Vec }
   | null
 
+/** Extremo candidato para la herramienta de cintas. */
+interface Target {
+  end: End | null
+  info: EndInfo
+  dir: 'in' | 'out' | 'any'
+}
+
+interface Draft {
+  from: Target
+  /** si el trazado se empezó desde una entrada, se invierte al terminar */
+  reversed: boolean
+}
+
+const ptSegDist = (p: Vec, a: Vec, b: Vec) => {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const l2 = dx * dx + dy * dy
+  const t = l2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
+}
+const nearPath = (p: Vec, pts: Vec[], tol: number) => pts.some((q, i) => i > 0 && ptSegDist(p, pts[i - 1], q) <= tol)
+
 export default function PlannerCanvas() {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 800, h: 600 })
   const [mouse, setMouse] = useState<Vec>({ x: 0, y: 0 })
+  const [screen, setScreen] = useState<Vec>({ x: 0, y: 0 })
   const [drag, setDrag] = useState<Vec>({ x: 0, y: 0 })
   const [box, setBox] = useState<WRect | null>(null)
+  const [draft, setDraft] = useState<Draft | null>(null)
+  const [menu, setMenu] = useState<MenuState | null>(null)
   const inter = useRef<Interaction>(null)
   const spaceDown = useRef(false)
 
   const s = useEditor()
-  const { view, entities, selection, floor, placingId, placingRot } = s
+  const { view, entities, conveyors, selection, floor, placingId, placingRot, tool, conveyorId, clipboard, pasteRot, snapStep } = s
 
-  // tamaño del lienzo
+  const flows: FlowResult = useMemo(() => computeFlows(entities, conveyors), [entities, conveyors])
+
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
@@ -62,30 +102,44 @@ export default function PlannerCanvas() {
     return () => ro.disconnect()
   }, [])
 
+  // al cambiar de herramienta se descarta el trazado en curso
+  useEffect(() => setDraft(null), [tool, conveyorId, floor])
+
   // teclado
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === 'INPUT') return
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
       const st = useEditor.getState()
+      const ctrl = e.ctrlKey || e.metaKey
       if (e.code === 'Space') spaceDown.current = true
-      if (e.key === 'r' || e.key === 'R') {
-        if (st.placingId) st.rotatePlacing(e.shiftKey ? -1 : 1)
+      if (!ctrl && (e.key === 'r' || e.key === 'R')) {
+        if (st.tool === 'place' || st.tool === 'paste') st.rotatePlacing(e.shiftKey ? -1 : 1)
         else st.rotateSelection()
       }
       if (e.key === 'Escape') {
-        if (st.placingId) st.cancelPlacing()
-        else st.select([])
+        setMenu(null)
+        if (st.tool !== 'select') {
+          setDraft((d) => {
+            if (d) return null
+            st.cancelTool()
+            return null
+          })
+        } else st.select([])
       }
       if (e.key === 'Delete' || e.key === 'Backspace') st.deleteSelection()
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      if (ctrl && e.key.toLowerCase() === 'z') {
         e.preventDefault()
         if (e.shiftKey) st.redo()
         else st.undo()
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+      if (ctrl && e.key.toLowerCase() === 'y') {
         e.preventDefault()
         st.redo()
       }
+      if (ctrl && e.key.toLowerCase() === 'c') st.copySelection()
+      if (ctrl && e.key.toLowerCase() === 'x') st.cutSelection()
+      if (ctrl && e.key.toLowerCase() === 'v') st.startPaste()
     }
     const up = (e: KeyboardEvent) => {
       if (e.code === 'Space') spaceDown.current = false
@@ -105,20 +159,111 @@ export default function PlannerCanvas() {
 
   const visible = useMemo(() => entities.filter((e) => e.floor === floor), [entities, floor])
   const below = useMemo(() => entities.filter((e) => e.floor === floor - 1), [entities, floor])
+  const visibleConv = useMemo(() => conveyors.filter((c) => c.floor === floor), [conveyors, floor])
+  const used = useMemo(() => usedPorts(conveyors), [conveyors])
 
-  const hitTest = (p: Vec): PlacedEntity | null => {
-    // primero lo que está encima (máquinas), luego cimientos
+  const hitEntity = (p: Vec): PlacedEntity | null => {
     const ordered = [...visible].sort((a, b) => layerRank(b) - layerRank(a))
-    return ordered.find((e) => {
-      const r = entityRect(e)
-      return r ? rectContainsPoint(r, p) : false
-    }) ?? null
+    return (
+      ordered.find((e) => {
+        const r = entityRect(e)
+        return r ? rectContainsPoint(r, p) : false
+      }) ?? null
+    )
+  }
+  const hitConveyor = (p: Vec): Conveyor | null =>
+    [...visibleConv].reverse().find((c) => nearPath(p, c.points, 0.9)) ?? null
+
+  // ---------- herramienta de cintas/tuberías ----------
+  const convBuilding = conveyorId ? buildingsById.get(conveyorId) : null
+  const convKind = convBuilding?.kind === 'pipe' ? 'pipe' : 'belt'
+  const poleId = convKind === 'pipe' ? PIPE_SUPPORT : BELT_POLE
+
+  const findTarget = (p: Vec): Target => {
+    // 1) puerto libre del tipo correcto
+    let best: { t: Target; d: number } | null = null
+    for (const e of visible) {
+      const b = buildingsById.get(e.buildingId)
+      if (!b) continue
+      portsOf(b).forEach((port, i) => {
+        if (port.kind !== convKind || used.has(`${e.uid}:${i}`)) return
+        const pos = toWorld(b, e, e.rot, port.pos)
+        const d = Math.hypot(pos.x - p.x, pos.y - p.y)
+        if (d < 1.6 && (!best || d < best.d)) {
+          const dir = b.kind === 'pipeJunction' || convKind === 'pipe' ? 'any' : port.dir
+          best = { d, t: { end: { uid: e.uid, port: i }, info: { pos, dir: rotate(port.normal, e.rot as Rotation), port }, dir } }
+        }
+      })
+    }
+    if (best) return (best as { t: Target }).t
+    // 2) poste/soporte existente
+    const pole = visible.find((e) => e.buildingId === poleId && Math.hypot(e.x - p.x, e.y - p.y) < 1.2)
+    if (pole) return { end: { uid: pole.uid, port: -1 }, info: { pos: { x: pole.x, y: pole.y }, dir: null, port: null }, dir: 'any' }
+    // 3) punto libre (se creará un poste), alineado al inicio si está cerca
+    let q = { x: Math.round(p.x), y: Math.round(p.y) }
+    if (draft) {
+      const o = draft.from.info.pos
+      if (Math.abs(p.x - o.x) < 0.8) q = { ...q, x: o.x }
+      if (Math.abs(p.y - o.y) < 0.8) q = { ...q, y: o.y }
+    }
+    return { end: null, info: { pos: q, dir: null, port: null }, dir: 'any' }
   }
 
+  const target = tool === 'conveyor' ? findTarget(mouse) : null
+
+  /** Trazado candidato entre el inicio del borrador y el objetivo actual. */
+  const preview = useMemo(() => {
+    if (!draft || !target) return null
+    const pts = route(draft.from.info, target.info)
+    const len = pathLength(pts)
+    const sameEnd = draft.from.end && target.end && draft.from.end.uid === target.end.uid && draft.from.end.port === target.end.port
+    const dirOk = draft.reversed ? target.dir !== 'in' : target.dir !== 'out'
+    const ok = len > 0.4 && len <= MAX_SEGMENT && !sameEnd && dirOk
+    return { pts, len, ok, reason: len > MAX_SEGMENT ? `Supera ${MAX_SEGMENT} m: agrega un poste` : !dirOk ? 'Ese puerto tiene el mismo sentido' : '' }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, target?.info.pos.x, target?.info.pos.y, target?.end?.uid, target?.end?.port])
+
+  const conveyorClick = () => {
+    if (!target || !conveyorId) return
+    if (!draft) {
+      setDraft({ from: target, reversed: target.dir === 'in' })
+      return
+    }
+    if (!preview?.ok) return
+    const st = useEditor.getState()
+    const fromEnd: End | Vec = draft.from.end ?? draft.from.info.pos
+    const toEnd: End | Vec = target.end ?? target.info.pos
+    const pts = draft.reversed ? [...preview.pts].reverse() : preview.pts
+    st.addConveyor({
+      buildingId: conveyorId,
+      points: pts,
+      from: draft.reversed ? toEnd : fromEnd,
+      to: draft.reversed ? fromEnd : toEnd,
+    })
+    // como en el juego: si terminó en un poste o punto libre, se sigue trazando desde ahí
+    if (target.dir === 'any' && (!target.end || target.end.port < 0)) {
+      const after = useEditor.getState()
+      const last = after.conveyors[after.conveyors.length - 1]
+      const endRef = draft.reversed ? last.from : last.to
+      const ep = draft.reversed ? pts[0] : pts[pts.length - 1]
+      const prev = draft.reversed ? pts[1] : pts[pts.length - 2]
+      const len = Math.hypot(ep.x - prev.x, ep.y - prev.y) || 1
+      setDraft({
+        from: {
+          end: endRef,
+          info: { pos: ep, dir: { x: (ep.x - prev.x) / len, y: (ep.y - prev.y) / len }, port: null },
+          dir: 'any',
+        },
+        reversed: draft.reversed,
+      })
+    } else setDraft(null)
+  }
+
+  // ---------- eventos del lienzo ----------
   const onWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault()
     const st = useEditor.getState()
-    if (st.placingId && e.evt.shiftKey) {
+    if ((st.tool === 'place' || st.tool === 'paste') && e.evt.shiftKey) {
       st.rotatePlacing(e.evt.deltaY > 0 ? 1 : -1)
       return
     }
@@ -133,32 +278,52 @@ export default function PlannerCanvas() {
     const pos = e.target.getStage()!.getPointerPosition()!
     const p = toWorldPt(pos.x, pos.y)
     const st = useEditor.getState()
+    setMenu(null)
     if (e.evt.button === 1 || (e.evt.button === 0 && spaceDown.current)) {
       inter.current = { type: 'pan', startX: pos.x, startY: pos.y, ox: view.offsetX, oy: view.offsetY }
       return
     }
     if (e.evt.button === 2) {
-      if (st.placingId) st.cancelPlacing()
-      else st.select([])
+      if (st.tool !== 'select') {
+        if (draft) setDraft(null)
+        else st.cancelTool()
+        return
+      }
+      // menú contextual sobre una estructura o cinta
+      const hit = hitEntity(p)
+      const hc = hit && buildingsById.get(hit.buildingId)?.kind !== 'foundation' ? null : hitConveyor(p)
+      const target = hc ?? hit
+      if (target) {
+        if (!st.selection.includes(target.uid)) st.select([target.uid])
+        setMenu({ x: pos.x, y: pos.y, uid: target.uid, isConveyor: !!hc })
+      } else st.select([])
       return
     }
     if (e.evt.button !== 0) return
-    if (st.placingId) {
+    if (st.tool === 'place' && st.placingId) {
       const b = buildingsById.get(st.placingId)!
-      st.place(snapAnchor(b, p, st.placingRot))
+      st.place(snapAnchor(b, p, st.placingRot, st.snapStep))
       return
     }
-    const hit = hitTest(p)
+    if (st.tool === 'paste' && st.clipboard) {
+      st.pasteAt(snapClipboard(st.clipboard, p, st.pasteRot, st.snapStep))
+      return
+    }
+    if (st.tool === 'conveyor') {
+      conveyorClick()
+      return
+    }
+    const hit = hitEntity(p)
+    const isBase = hit && buildingsById.get(hit.buildingId)?.kind === 'foundation'
+    const hc = !hit || isBase ? hitConveyor(p) : null
+    if (hc) {
+      st.select([hc.uid], e.evt.shiftKey)
+      return
+    }
     if (hit) {
-      if (!st.selection.includes(hit.uid)) st.select([hit.uid], e.evt.shiftKey)
       const sel = st.selection.includes(hit.uid) ? st.selection : e.evt.shiftKey ? [...st.selection, hit.uid] : [hit.uid]
-      const step = sel.some((u) => {
-        const b = buildingsById.get(entities.find((x) => x.uid === u)?.buildingId ?? '')
-        return b && snapModeOf(b) !== 'meter'
-      })
-        ? FOUNDATION
-        : 1
-      inter.current = { type: 'move', start: p, step }
+      if (!st.selection.includes(hit.uid)) st.select([hit.uid], e.evt.shiftKey)
+      inter.current = { type: 'move', start: p, step: moveStepFor(sel) }
     } else {
       if (!e.evt.shiftKey) st.select([])
       inter.current = { type: 'box', start: p }
@@ -170,6 +335,7 @@ export default function PlannerCanvas() {
     const pos = e.target.getStage()!.getPointerPosition()!
     const p = toWorldPt(pos.x, pos.y)
     setMouse(p)
+    setScreen(pos)
     const it = inter.current
     if (!it) return
     if (it.type === 'pan') {
@@ -193,7 +359,7 @@ export default function PlannerCanvas() {
         const sel = st.selection
         const ok = sel.every((u) => {
           const en = entities.find((x) => x.uid === u)
-          return en && st.canPlace(en.buildingId, { x: en.x + drag.x, y: en.y + drag.y }, en.rot, sel)
+          return !en || st.canPlace(en.buildingId, { x: en.x + drag.x, y: en.y + drag.y }, en.rot, sel)
         })
         if (ok) st.moveSelection(drag.x, drag.y)
       }
@@ -205,31 +371,55 @@ export default function PlannerCanvas() {
           const r = entityRect(en)
           return r ? rectsOverlap(r, box, 0) : false
         })
-        st.select(hits.map((h) => h.uid), e.evt.shiftKey)
+        const hitConv = visibleConv.filter((c) => c.points.some((p) => rectContainsPoint(box, p)))
+        st.select([...hits.map((h) => h.uid), ...hitConv.map((c) => c.uid)], e.evt.shiftKey)
       }
       setBox(null)
     }
   }
 
-  // ---- fantasma de colocación ----
+  // ---------- fantasmas ----------
   const ghost = useMemo(() => {
-    if (!placingId) return null
+    if (tool !== 'place' || !placingId) return null
     const b = buildingsById.get(placingId)
     if (!b) return null
-    const anchor = snapAnchor(b, mouse, placingRot)
+    const anchor = snapAnchor(b, mouse, placingRot, snapStep)
     return { b, anchor, ok: s.canPlace(placingId, anchor, placingRot) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placingId, placingRot, mouse, entities, floor])
+  }, [tool, placingId, placingRot, mouse, entities, floor, snapStep])
+
+  const pasteGhost = useMemo(() => {
+    if (tool !== 'paste' || !clipboard) return null
+    const anchor = snapClipboard(clipboard, mouse, pasteRot, snapStep)
+    const doc = placeClipboard(clipboard, anchor, pasteRot, floor)
+    const ok = doc.entities.every((e) => s.canPlace(e.buildingId, e, e.rot))
+    return { doc, ok }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, clipboard, mouse, pasteRot, floor, entities, snapStep])
 
   const sorted = useMemo(() => [...visible].sort((a, b) => layerRank(a) - layerRank(b)), [visible])
   const showLabels = view.scale >= 6
+  const dragging = drag.x !== 0 || drag.y !== 0
+  const selSet = new Set(selection)
+
+  // ---------- información al pasar el mouse ----------
+  const hover = useMemo(() => {
+    if (tool !== 'select' || inter.current) return null
+    const ent = hitEntity(mouse)
+    const isBase = ent && buildingsById.get(ent.buildingId)?.kind === 'foundation'
+    const conv = !ent || isBase ? hitConveyor(mouse) : null
+    if (conv) return { conv, ent: null }
+    if (ent && !isBase) return { conv: null, ent }
+    return null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mouse, tool, visible, visibleConv])
 
   return (
     <div
       ref={wrapRef}
       className="canvas-wrap"
       onContextMenu={(e) => e.preventDefault()}
-      style={{ cursor: placingId ? 'crosshair' : 'default' }}
+      style={{ cursor: tool === 'select' ? 'default' : 'crosshair' }}
     >
       <Stage width={size.w} height={size.h} onWheel={onWheel} onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp}>
         <Layer x={view.offsetX} y={view.offsetY} scaleX={view.scale} scaleY={view.scale} listening={false}>
@@ -237,17 +427,74 @@ export default function PlannerCanvas() {
           {below.map((e) => (
             <EntityShape key={e.uid} e={e} scale={view.scale} faded showLabels={false} />
           ))}
-          {sorted.map((e) => {
-            const sel = selection.includes(e.uid)
-            const moved = sel && (drag.x || drag.y) ? { ...e, x: e.x + drag.x, y: e.y + drag.y } : e
-            return <EntityShape key={e.uid} e={moved} scale={view.scale} selected={sel} showLabels={showLabels} />
-          })}
+          {sorted
+            .filter((e) => layerRank(e) === 0)
+            .map((e) => (
+              <EntityShape
+                key={e.uid}
+                e={selSet.has(e.uid) && dragging ? { ...e, x: e.x + drag.x, y: e.y + drag.y } : e}
+                scale={view.scale}
+                selected={selSet.has(e.uid)}
+                showLabels={showLabels}
+              />
+            ))}
+          {visibleConv.map((c) => (
+            <ConveyorShape
+              key={c.uid}
+              c={c}
+              scale={view.scale}
+              flow={flows.edges.get(c.uid)}
+              selected={selSet.has(c.uid)}
+              offset={dragging && selSet.has(c.from.uid) && selSet.has(c.to.uid) ? drag : null}
+            />
+          ))}
+          {sorted
+            .filter((e) => layerRank(e) === 1)
+            .map((e) => (
+              <EntityShape
+                key={e.uid}
+                e={selSet.has(e.uid) && dragging ? { ...e, x: e.x + drag.x, y: e.y + drag.y } : e}
+                scale={view.scale}
+                selected={selSet.has(e.uid)}
+                showLabels={showLabels}
+                usedPorts={used}
+                node={flows.nodes.get(e.uid)?.effective}
+              />
+            ))}
           {ghost && (
             <EntityShape
               e={{ uid: 'ghost', buildingId: ghost.b.id, x: ghost.anchor.x, y: ghost.anchor.y, rot: placingRot, floor }}
               scale={view.scale}
               ghost={ghost.ok ? 'ok' : 'bad'}
               showLabels={showLabels}
+            />
+          )}
+          {pasteGhost && (
+            <>
+              {pasteGhost.doc.conveyors.map((c) => (
+                <ConveyorShape key={c.uid} c={c} scale={view.scale} ghost />
+              ))}
+              {pasteGhost.doc.entities.map((e) => (
+                <EntityShape key={e.uid} e={e} scale={view.scale} ghost={pasteGhost.ok ? 'ok' : 'bad'} showLabels={false} />
+              ))}
+            </>
+          )}
+          {tool === 'conveyor' && target && (
+            <Circle
+              x={target.info.pos.x}
+              y={target.info.pos.y}
+              radius={target.end ? 1.1 : 0.5}
+              stroke={target.end ? '#ffffff' : '#888'}
+              strokeWidth={2 / view.scale}
+            />
+          )}
+          {preview && (
+            <Line
+              points={preview.pts.flatMap((p) => [p.x, p.y])}
+              stroke={preview.ok ? (convKind === 'pipe' ? 'rgba(90,160,220,0.8)' : 'rgba(200,200,200,0.8)') : 'rgba(230,80,70,0.85)'}
+              strokeWidth={convKind === 'pipe' ? 1 : 1.4}
+              lineCap="round"
+              lineJoin="round"
             />
           )}
           {box && (
@@ -264,15 +511,36 @@ export default function PlannerCanvas() {
           )}
         </Layer>
       </Stage>
+
+      {preview && (
+        <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
+          <b>{preview.len.toFixed(1)} m</b> / {MAX_SEGMENT} m
+          {convBuilding && (
+            <div className="muted">
+              {conveyorCost({ buildingId: convBuilding.id, points: preview.pts })
+                .map((c) => `${c.amount} ${itemName(c.item)}`)
+                .join(', ')}
+            </div>
+          )}
+          {preview.reason && <div className="bad">{preview.reason}</div>}
+        </div>
+      )}
+      {hover?.conv && <ConveyorTooltip c={hover.conv} flow={flows.edges.get(hover.conv.uid)} at={screen} />}
+      {hover?.ent && <EntityTooltip e={hover.ent} flows={flows} at={screen} />}
+      {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
+
       <div className="coords">
         x {mouse.x.toFixed(1)} m · y {mouse.y.toFixed(1)} m · cimiento ({Math.floor(mouse.x / FOUNDATION)},{' '}
         {Math.floor(mouse.y / FOUNDATION)})
+        {tool === 'conveyor' && ' · clic: empezar/terminar tramo · clic derecho: cortar trazado'}
+        {tool === 'paste' && ' · clic: pegar · R: girar · Esc: salir'}
       </div>
     </div>
   )
 }
 
 const layerRank = (e: PlacedEntity) => (buildingsById.get(e.buildingId)?.kind === 'foundation' ? 0 : 1)
+const fmt = (n: number) => n.toLocaleString('es', { maximumFractionDigits: 1 })
 
 function Grid({ view, w, h }: { view: { scale: number; offsetX: number; offsetY: number }; w: number; h: number }) {
   return (
@@ -314,6 +582,103 @@ function Grid({ view, w, h }: { view: { scale: number; offsetX: number; offsetY:
   )
 }
 
+/** Estado de una cinta: sobra (oferta > demanda), falta (demanda > oferta) o justo. */
+export function edgeStatus(f: EdgeFlow | undefined): 'empty' | 'ok' | 'surplus' | 'deficit' {
+  if (!f) return 'empty'
+  const items = new Set([...f.offer.keys(), ...f.demand.keys()])
+  if (!items.size) return 'empty'
+  let status: 'ok' | 'surplus' | 'deficit' = 'ok'
+  for (const i of items) {
+    const o = f.offer.get(i) ?? 0
+    const d = f.demand.get(i) ?? 0
+    if (d - o > 0.05) return 'deficit'
+    if (o - d > 0.05) status = 'surplus'
+  }
+  return status
+}
+const STATUS_COLOR = { empty: null, ok: '#4caf6a', surplus: '#e5b445', deficit: '#e05046' }
+
+function ConveyorShape({
+  c,
+  scale,
+  flow,
+  selected,
+  ghost,
+  offset,
+}: {
+  c: Conveyor
+  scale: number
+  flow?: EdgeFlow
+  selected?: boolean
+  ghost?: boolean
+  offset?: Vec | null
+}) {
+  const b = buildingsById.get(c.buildingId)
+  const isPipe = b?.kind === 'pipe'
+  const pts = offset ? c.points.map((p) => ({ x: p.x + offset.x, y: p.y + offset.y })) : c.points
+  const flat = pts.flatMap((p) => [p.x, p.y])
+  const status = edgeStatus(flow)
+  const tint = STATUS_COLOR[status]
+  const len = pathLength(pts)
+  const bad = len > MAX_SEGMENT
+  return (
+    <Group opacity={ghost ? 0.5 : 1}>
+      {(selected || tint || bad) && (
+        <Line
+          points={flat}
+          stroke={bad ? '#e05046' : selected ? '#4fe0c0' : tint!}
+          strokeWidth={(isPipe ? 1 : 1.4) + 6 / scale}
+          lineCap="round"
+          lineJoin="round"
+          opacity={selected ? 1 : 0.55}
+        />
+      )}
+      <Line
+        points={flat}
+        stroke={isPipe ? '#4d7fa6' : '#55585e'}
+        strokeWidth={isPipe ? 1 : 1.4}
+        lineCap={isPipe ? 'round' : 'butt'}
+        lineJoin="round"
+      />
+      {!isPipe && scale >= 4 && (
+        <Line
+          points={flat}
+          stroke="#2b2d31"
+          strokeWidth={0.5}
+          dash={[0.6, 0.9]}
+          lineJoin="round"
+        />
+      )}
+      {scale >= 3 && <FlowArrows pts={pts} color={isPipe ? '#a9d4f5' : '#d9d9d9'} />}
+    </Group>
+  )
+}
+
+/** Flechas a lo largo del trazado para indicar el sentido. */
+function FlowArrows({ pts, color }: { pts: Vec[]; color: string }) {
+  const arrows: number[][] = []
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]
+    const b = pts[i]
+    const len = Math.hypot(b.x - a.x, b.y - a.y)
+    if (len < 1.5) continue
+    const ux = (b.x - a.x) / len
+    const uy = (b.y - a.y) / len
+    for (let d = 2; d < len - 0.5; d += 4) {
+      const cx = a.x + ux * d
+      const cy = a.y + uy * d
+      arrows.push([cx - ux * 0.35 - uy * 0.35, cy - uy * 0.35 + ux * 0.35, cx + ux * 0.35, cy + uy * 0.35, cx - ux * 0.35 + uy * 0.35, cy - uy * 0.35 - ux * 0.35])
+    }
+  }
+  return (
+    <>
+      {arrows.map((p, i) => (
+        <Line key={i} points={p} stroke={color} strokeWidth={0.18} lineCap="round" lineJoin="round" />
+      ))}
+    </>
+  )
+}
+
 function EntityShape({
   e,
   scale,
@@ -321,6 +686,8 @@ function EntityShape({
   faded,
   ghost,
   showLabels,
+  usedPorts,
+  node,
 }: {
   e: PlacedEntity
   scale: number
@@ -328,15 +695,32 @@ function EntityShape({
   faded?: boolean
   ghost?: 'ok' | 'bad'
   showLabels: boolean
+  usedPorts?: Set<string>
+  node?: number
 }) {
   const b = buildingsById.get(e.buildingId)
   if (!b) return null
   const r = worldRect(b, e, e.rot)
   const w = r.x1 - r.x0
   const h = r.y1 - r.y0
+  const isPole = e.buildingId === BELT_POLE || e.buildingId === PIPE_SUPPORT
   const base = COLORS[b.kind] ?? COLORS.structure
   const fill = ghost ? (ghost === 'ok' ? 'rgba(79,170,224,0.45)' : 'rgba(224,80,70,0.5)') : base
   const isFoundation = b.kind === 'foundation'
+  if (isPole) {
+    return (
+      <Rect
+        x={e.x - 0.5}
+        y={e.y - 0.5}
+        width={1}
+        height={1}
+        fill={ghost ? fill : e.buildingId === PIPE_SUPPORT ? '#4d7fa6' : '#8a8d93'}
+        stroke={selected ? '#4fe0c0' : '#111'}
+        strokeWidth={(selected ? 2.5 : 1) / scale}
+        opacity={faded ? 0.18 : 1}
+      />
+    )
+  }
   return (
     <Group opacity={faded ? 0.18 : 1}>
       <Rect
@@ -350,8 +734,18 @@ function EntityShape({
         strokeWidth={(selected ? 2.5 : 1) / scale}
         cornerRadius={isFoundation ? 0 : 0.3}
       />
+      {node !== undefined && !ghost && (
+        // barra de rendimiento: cuánto está produciendo respecto al 100 %
+        <Rect
+          x={r.x0 + 0.3}
+          y={r.y1 - 0.7}
+          width={Math.max(0, (w - 0.6) * Math.min(1, node))}
+          height={0.35}
+          fill={node >= 0.999 ? '#4caf6a' : node > 0 ? '#e5b445' : '#e05046'}
+        />
+      )}
       {!isFoundation && <FrontMark b={b} e={e} scale={scale} />}
-      {!isFoundation && <Ports b={b} e={e} scale={scale} />}
+      {!isFoundation && <Ports b={b} e={e} scale={scale} used={usedPorts} />}
       {showLabels && !isFoundation && w * scale > 40 && (
         <Text
           x={r.x0}
@@ -379,7 +773,7 @@ function FrontMark({ b, e, scale }: { b: Building; e: PlacedEntity; scale: numbe
   return <Line points={[p.x, p.y, q.x, q.y]} stroke="rgba(255,255,255,0.35)" strokeWidth={2 / scale} />
 }
 
-function Ports({ b, e, scale }: { b: Building; e: PlacedEntity; scale: number }) {
+function Ports({ b, e, scale, used }: { b: Building; e: PlacedEntity; scale: number; used?: Set<string> }) {
   const ports = portsOf(b)
   if (!ports.length) return null
   return (
@@ -390,23 +784,21 @@ function Ports({ b, e, scale }: { b: Building; e: PlacedEntity; scale: number })
           x: p.pos.x + p.normal.x * 0.9,
           y: p.pos.y + p.normal.y * 0.9,
         })
+        const connected = used?.has(`${e.uid}:${i}`)
         const color = p.dir === 'in' ? PORT_IN : PORT_OUT
         if (p.kind === 'pipe') {
           return (
-            <Shape
+            <Circle
               key={i}
-              sceneFunc={(ctx, shape) => {
-                ctx.beginPath()
-                ctx.arc(at.x, at.y, 0.7, 0, Math.PI * 2)
-                ctx.fillStrokeShape(shape)
-              }}
-              fill="#16202a"
+              x={at.x}
+              y={at.y}
+              radius={0.7}
+              fill={connected ? color : '#16202a'}
               stroke={color}
               strokeWidth={2 / scale}
             />
           )
         }
-        // triángulo que apunta en el sentido del flujo
         const back = p.dir === 'out' ? at : outer
         const point = p.dir === 'out' ? outer : at
         const nx = -(outer.y - at.y) * 0.6
@@ -417,11 +809,78 @@ function Ports({ b, e, scale }: { b: Building; e: PlacedEntity; scale: number })
             points={[back.x + nx, back.y + ny, point.x, point.y, back.x - nx, back.y - ny]}
             closed
             fill={color}
+            opacity={connected ? 0.45 : 1}
             stroke="#111"
             strokeWidth={0.5 / scale}
           />
         )
       })}
     </>
+  )
+}
+
+// ---------- tooltips ----------
+
+function ConveyorTooltip({ c, flow, at }: { c: Conveyor; flow?: EdgeFlow; at: Vec }) {
+  const b = buildingsById.get(c.buildingId)
+  const len = pathLength(c.points)
+  const unit = b?.kind === 'pipe' ? 'm³/min' : '/min'
+  const items = flow ? [...new Set([...flow.offer.keys(), ...flow.demand.keys()])] : []
+  const totalFlow = flow ? [...flow.flow.values()].reduce((a, v) => a + v, 0) : 0
+  return (
+    <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
+      <b>{b?.name}</b>
+      <div className="muted">
+        {len.toFixed(1)} m · capacidad {fmt(flow?.capacity ?? 0)} {unit} · uso {flow?.capacity ? Math.round((totalFlow / flow.capacity) * 100) : 0} %
+      </div>
+      {items.length === 0 && <div className="muted">Sin material: conecta una salida con receta o un taladro.</div>}
+      {items.map((i) => {
+        const o = flow!.offer.get(i) ?? 0
+        const d = flow!.demand.get(i) ?? 0
+        const f = flow!.flow.get(i) ?? 0
+        const diff = o - d
+        return (
+          <div key={i} className="tt-item">
+            <div>
+              <b>{itemName(i)}</b>: {fmt(f)} {unit}
+            </div>
+            <div className="muted">
+              llega {fmt(o)} · ideal {fmt(d)}
+              {diff > 0.05 && <span className="warn"> · sobran {fmt(diff)}</span>}
+              {diff < -0.05 && <span className="bad"> · faltan {fmt(-diff)}</span>}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function EntityTooltip({ e, flows, at }: { e: PlacedEntity; flows: FlowResult; at: Vec }) {
+  const b = buildingsById.get(e.buildingId)
+  const n = flows.nodes.get(e.uid)
+  if (!b) return null
+  return (
+    <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
+      <b>{b.name}</b>
+      {e.clock !== undefined && e.clock !== 1 && <span className="muted"> · reloj {Math.round(e.clock * 1000) / 10} %</span>}
+      {n ? (
+        <>
+          <div className="muted">Rendimiento {Math.round(n.effective * 100)} %</div>
+          {n.inputs.map((x) => (
+            <div key={x.item} className={x.got + 0.05 < x.need ? 'bad' : ''}>
+              ← {itemName(x.item)}: {fmt(x.got)} / {fmt(x.need)}
+            </div>
+          ))}
+          {n.outputs.map((x) => (
+            <div key={x.item} className={x.taken + 0.05 < x.produce ? 'warn' : ''}>
+              → {itemName(x.item)}: {fmt(x.taken)} / {fmt(x.produce)}
+            </div>
+          ))}
+        </>
+      ) : (
+        b.kind === 'machine' && <div className="muted">{e.recipeId ? 'Sin cintas conectadas' : 'Selecciona la máquina para elegir receta'}</div>
+      )}
+    </div>
   )
 }

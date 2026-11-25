@@ -3,7 +3,7 @@ import { CATEGORIES, game, isPathKind, itemName, type Building } from '../data/g
 import { useEditor } from '../editor/store'
 
 export default function Palette() {
-  const { category, setCategory, startPlacing, placingId } = useEditor()
+  const { category, setCategory, startPlacing, startConveyor, placingId, conveyorId } = useEditor()
   const [query, setQuery] = useState('')
 
   const groups = useMemo(() => {
@@ -43,16 +43,22 @@ export default function Palette() {
             </h3>
             <div className="grid">
               {list.map((b) => {
-                const disabled = isPathKind(b.kind)
+                const path = isPathKind(b.kind)
                 const f = b.footprint
-                const dims = f ? `${round(f.maxX - f.minX)} × ${round(f.maxY - f.minY)} m` : ''
+                const dims = path
+                  ? b.itemsPerMinute
+                    ? `${b.itemsPerMinute}/min`
+                    : `${b.flowPerMinute} m³/min`
+                  : f
+                    ? `${round(f.maxX - f.minX)} × ${round(f.maxY - f.minY)} m`
+                    : ''
+                const active = placingId === b.id || conveyorId === b.id
                 return (
                   <button
                     key={b.id}
-                    className={'item' + (placingId === b.id ? ' active' : '')}
-                    disabled={disabled}
-                    title={tooltip(b) + (disabled ? '\n\nSe traza con la herramienta de cintas/tuberías (próximamente).' : '')}
-                    onClick={() => startPlacing(b.id)}
+                    className={'item' + (active ? ' active' : '')}
+                    title={tooltip(b) + (path ? '\n\nClic en un puerto o en el suelo para empezar y otro clic para terminar el tramo.' : '')}
+                    onClick={() => (path ? startConveyor(b.id) : startPlacing(b.id))}
                   >
                     <span className="name">{b.name}</span>
                     <span className="dims">{dims}</span>
@@ -73,6 +79,10 @@ function tooltip(b: Building) {
   const lines = [b.name]
   if (b.description) lines.push('', b.description)
   if (b.powerMW) lines.push('', `Consumo: ${b.powerMW} MW`)
-  if (b.cost.length) lines.push('', 'Coste: ' + b.cost.map((c) => `${c.amount} ${itemName(c.item)}`).join(', '))
+  if (b.cost.length)
+    lines.push(
+      '',
+      'Coste: ' + b.cost.map((c) => `${c.amount} ${itemName(c.item)}`).join(', ') + (isPathKind(b.kind) ? ' (por cada 2 m aprox.)' : ''),
+    )
   return lines.join('\n')
 }

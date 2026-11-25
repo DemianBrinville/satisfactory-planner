@@ -224,3 +224,159 @@ kbd {
   color: var(--muted);
   line-height: 1.6;
 }
+
+/* ---------- tooltips y menú ---------- */
+.tooltip {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  background: rgba(24, 25, 27, 0.96);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  padding: 7px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  max-width: 300px;
+  border-radius: 3px;
+}
+.tt-item + .tt-item {
+  margin-top: 4px;
+}
+.ok {
+  color: #4caf6a;
+}
+.warn {
+  color: #e5b445;
+}
+.bad {
+  color: #e05046;
+}
+.small {
+  font-size: 11px;
+}
+.ctx-menu {
+  position: absolute;
+  z-index: 20;
+  min-width: 190px;
+  background: #222326;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+.ctx-menu .ctx-title {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 4px 8px 6px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+.ctx-menu button {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 6px 8px;
+}
+.ctx-menu button:hover {
+  background: var(--panel-2);
+}
+.ctx-menu button.danger {
+  color: #ff8a7a;
+}
+
+/* ---------- máquinas y recetas ---------- */
+.side select,
+.clock input {
+  background: #3a3b40;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 4px 6px;
+}
+.side select {
+  width: 100%;
+}
+.clock {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.clock input {
+  width: 90px;
+}
+.segmented {
+  display: flex;
+  margin-top: 6px;
+}
+.segmented button {
+  flex: 1;
+  border-radius: 0;
+}
+.segmented button.active {
+  background: var(--accent);
+  color: #1b1c1e;
+}
+.recipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.recipe {
+  text-align: left;
+  padding: 6px 8px;
+}
+.recipe.active {
+  border-color: var(--accent);
+}
+.recipe-current {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.recipe-card .recipe-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.recipe-io {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.recipe-io b {
+  color: var(--accent);
+}
+.recipe-io .arrow {
+  color: var(--muted);
+}
+.tag {
+  font-size: 10px;
+  font-weight: 400;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: #4a3a6a;
+}
+.flowline {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+.hint {
+  margin-top: 8px;
+  padding: 8px;
+  background: #2c2a22;
+  border: 1px solid #5a4d25;
+  border-radius: 3px;
+  line-height: 1.45;
+}
+.hint button {
+  display: block;
+  margin-top: 6px;
+}
