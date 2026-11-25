@@ -9,7 +9,7 @@ import { vehicleForStation } from '../editor/transport'
 import ConnectorPanel from './ConnectorPanel'
 import Production from './Production'
 import { GridLine } from './PlannerCanvas'
-import { computeGrids } from '../editor/power'
+import { canLinkWorld, computeGrids } from '../editor/power'
 import { isVerticalConnector } from '../editor/geometry'
 import { useEditor, type PlacedEntity, type Purity } from '../editor/store'
 
@@ -38,7 +38,8 @@ export default function SidePanel() {
   )
   const routes = useEditor((s) => s.routes) ?? []
   const flows = useMemo(() => computeFlows(entities, conveyors, routes, floorHeight), [entities, conveyors, routes, floorHeight])
-  const power = useMemo(() => computeGrids(entities, wires, flows), [entities, wires, flows])
+  const powerSettings = useEditor((s) => s.power)
+  const power = useMemo(() => computeGrids(entities, wires, flows, powerSettings), [entities, wires, flows, powerSettings])
   const placing = tool === 'place' && placingId ? buildingsById.get(placingId) : null
   const conv = tool === 'conveyor' && conveyorId ? buildingsById.get(conveyorId) : null
   const single = selEntities.length === 1 && selConveyors.length === 0 ? selEntities[0] : null
@@ -107,6 +108,16 @@ export default function SidePanel() {
         <section>
           <h2>Selección ({selEntities.length + selConveyors.length + selWires.length})</h2>
           {single && singleB && <GridLine e={single} b={singleB} power={power} />}
+          {single && singleB && canLinkWorld(singleB) && !power.infinite && (
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={!!single.worldLink}
+                onChange={(ev) => useEditor.getState().updateEntity(single.uid, { worldLink: ev.target.checked })}
+              />
+              Conectado a la red de mi mundo
+            </label>
+          )}
           <Counts summary={summary} />
           <h3>Materiales</h3>
           <Cost items={summary.materials} />

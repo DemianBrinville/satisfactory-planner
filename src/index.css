@@ -718,3 +718,16 @@ kbd {
   display: flex;
   justify-content: space-between;
 }
+.power-settings {
+  position: relative;
+}
+.popover.left {
+  left: 0;
+  right: auto;
+}
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}

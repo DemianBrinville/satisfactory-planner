@@ -54,6 +54,7 @@ import {
 import {
   computeGrids,
   connectionsOf,
+  consumptionMW,
   hasPowerConnection,
   wireCost,
   wireLength,
@@ -134,7 +135,7 @@ export default function PlannerCanvas() {
     [entities, conveyors, routes, s.floorHeight],
   )
   const wires = s.wires ?? []
-  const power: PowerResult = useMemo(() => computeGrids(entities, wires, flows), [entities, wires, flows])
+  const power: PowerResult = useMemo(() => computeGrids(entities, wires, flows, s.power), [entities, wires, flows, s.power])
   const headIssues = useMemo(() => computeHeadLift(entities, conveyors, s.floorHeight, flows), [entities, conveyors, s.floorHeight, flows])
   useEffect(() => {
     if (tool !== 'wire') setWireFrom(null)
@@ -1301,7 +1302,7 @@ type PowerStatus = 'none' | 'over' | 'ok' | undefined
 
 function powerStatus(e: PlacedEntity, power: PowerResult): PowerStatus {
   const b = buildingsById.get(e.buildingId)
-  if (!b || !(b.powerMW > 0)) return undefined
+  if (!b || !(b.powerMW > 0) || power.infinite) return undefined
   const gid = power.gridOf.get(e.uid)
   if (!gid) return 'none'
   const g = power.grids.find((x) => x.id === gid)!
@@ -1329,6 +1330,8 @@ function WireTooltip({ w, entities, floorHeight, at }: { w: { from: string; to: 
 /** Línea de estado eléctrico: red, consumo y generación. */
 export function GridLine({ e, b, power }: { e: PlacedEntity; b: Building; power: PowerResult }) {
   if (!hasPowerConnection(b)) return null
+  if (power.infinite)
+    return b.powerMW > 0 ? <div className="muted">⚡ Energía infinita · consume {fmt(consumptionMW(e, b))} MW</div> : null
   const gid = power.gridOf.get(e.uid)
   if (!gid) return <div className={b.powerMW > 0 ? 'bad' : 'muted'}>⚡ Sin conectar a la red</div>
   const g = power.grids.find((x) => x.id === gid)!

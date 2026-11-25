@@ -19,6 +19,8 @@ export interface EdgeFlow {
   demand: Rates
   flow: Rates
   capacity: number
+  /** la cinta no tiene consumidor (termina suelta o en un sumidero): su ideal es la producción ideal de atrás */
+  open?: boolean
 }
 
 export interface NodeFlow {
@@ -115,11 +117,27 @@ const sumRates = (m: Rates) => [...m.values()].reduce((a, b) => a + b, 0)
 /** Demanda de un ítem; '*' = acepta cualquier ítem (sumideros). */
 const demOf = (m: Rates | undefined, item: string) => m?.get(item) ?? m?.get('*') ?? 0
 
-export function computeFlows(
+export function computeFlows(entities: PlacedEntity[], baseConveyors: Conveyor[], routes: Route[] = [], floorHeight = 8): FlowResult {
+  const real = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, false)
+  // en las cintas abiertas (salida sin consumidor, sumideros) el ideal es lo que producirían las máquinas
+  // de atrás al 100 % de su reloj: se calcula suponiendo que a todas les llega todo lo que piden
+  if (![...real.edges.values()].some((e) => e.open)) return real
+  const ideal = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, true)
+  for (const [uid, e] of real.edges) {
+    if (!e.open) continue
+    const supply = ideal.edges.get(uid)?.offer
+    if (supply) e.demand = new Map(supply)
+  }
+  return real
+}
+
+function computeFlowsRaw(
   entities: PlacedEntity[],
   baseConveyors: Conveyor[],
-  routes: Route[] = [],
-  floorHeight = 8,
+  routes: Route[],
+  floorHeight: number,
+  /** supone que a cada máquina le llega todo lo que pide (para calcular el ideal hacia adelante) */
+  idealSupply: boolean,
 ): FlowResult {
   // las rutas de vehículos (tren, camión, dron) son aristas virtuales entre estaciones
   const routeById = new Map(routes.map((r) => [r.uid, r]))
@@ -213,6 +231,10 @@ export function computeFlows(
     return { alloc, left: Math.max(0, left) }
   }
 
+  /** Lo que realmente pueden llevarse las cintas de salida: lo que piden, sin pasar su capacidad. */
+  const accepts = (edges: Conveyor[], item: string) =>
+    edges.reduce((a, c) => a + Math.min(demOf(demand.get(c.uid), item), capOf(c.uid, offer.get(c.uid))), 0)
+
   /** Reparte una demanda total entre las cintas de entrada según lo que ofrece cada una. */
   const splitDemand = (need: number, edges: Conveyor[], item: string, off: Map<string, Rates>): Map<string, number> => {
     const offers = edges.map((e) => off.get(e.uid)?.get(item) ?? 0)
@@ -252,7 +274,7 @@ export function computeFlows(
         const rate = extractionRate(e, b)
         const r = waterFill(rate, outs, item, demand)
         for (const c of outs) nOffer.get(c.uid)!.set(item, r.get(c.uid)!)
-        const taken = Math.min(rate, demOf(outDemand, item))
+        const taken = Math.min(rate, accepts(outs, item))
         nodes.set(e.uid, {
           inputLimited: clock,
           outputLimited: rate > 0 ? (taken / rate) * clock : 0,
@@ -280,13 +302,17 @@ export function computeFlows(
             bottleneck = ing.item
           }
         }
+        if (idealSupply) {
+          inputLimited = clock
+          bottleneck = null
+        }
         // salidas: lo que acepta lo que está conectado; sin conexión de ese tipo = sin límite
         let outputLimited = clock
         for (const p of recipe.products) {
           const kind = isFluid(p.item) ? 'pipe' : 'belt'
           const connected = outs.filter((c) => portKindOf(c) === kind)
           if (!connected.length) continue
-          outputLimited = Math.min(outputLimited, demOf(outDemand, p.item) / (p.amount * perMin * amp))
+          outputLimited = Math.min(outputLimited, accepts(connected, p.item) / (p.amount * perMin * amp))
         }
         for (const p of recipe.products) {
           const kind = isFluid(p.item) ? 'pipe' : 'belt'
@@ -449,9 +475,10 @@ export function computeFlows(
     const flow: Rates = new Map()
     for (const [i, v] of o) flow.set(i, Math.min(v, demOf(d, i)))
     // un sumidero acepta lo que llegue: su demanda se muestra igual a lo ofrecido
-    const dClean: Rates = d.has('*') ? new Map([...o]) : d
+    const open = d.has('*')
+    const dClean: Rates = open ? new Map([...o]) : d
     const k = capOf(c.uid, o)
-    edges.set(c.uid, { offer: o, demand: dClean, flow: capRates(flow, k), capacity: k })
+    edges.set(c.uid, { offer: o, demand: dClean, flow: capRates(flow, k), capacity: k, open })
   }
   return { edges, nodes }
 }

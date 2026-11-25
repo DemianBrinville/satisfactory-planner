@@ -41,7 +41,8 @@ const returnUrl = () => window.location.origin + window.location.pathname
 
 /** Mensajes de Supabase Auth en español. */
 function authError(msg: string): string {
-  if (/Invalid login credentials/i.test(msg)) return 'Email o contraseña incorrectos.'
+  if (/Invalid login credentials/i.test(msg))
+    return 'Email o contraseña incorrectos. Si creaste la cuenta con el enlace por email, todavía no tiene contraseña: usa "Olvidé mi contraseña" para crearla.'
   if (/Email not confirmed/i.test(msg)) return 'Todavía no confirmaste el email: revisa tu correo.'
   if (/already registered|already been registered/i.test(msg)) return 'Ya existe una cuenta con ese email: inicia sesión.'
   if (/at least 6|Password should/i.test(msg)) return 'La contraseña debe tener al menos 6 caracteres.'
@@ -171,7 +172,7 @@ export const useCloud = create<CloudState>((set, get) => ({
 let suppressSave = false
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 useEditor.subscribe((s, prev) => {
-  if (suppressSave || (s.entities === prev.entities && s.conveyors === prev.conveyors && s.wires === prev.wires && s.rails === prev.rails && s.routes === prev.routes && s.floorHeight === prev.floorHeight)) return
+  if (suppressSave || (s.entities === prev.entities && s.conveyors === prev.conveyors && s.wires === prev.wires && s.rails === prev.rails && s.routes === prev.routes && s.power === prev.power && s.floorHeight === prev.floorHeight)) return
   const { currentId } = useCloud.getState()
   if (!currentId) return
   useCloud.setState({ saveState: 'saving' })

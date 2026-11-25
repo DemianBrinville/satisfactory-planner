@@ -24,7 +24,10 @@ export default function Production({ n, compact }: { n: NodeFlow; compact?: bool
         </div>
       )}
       {!stopped && !n.bottleneck && n.outputLimited < n.inputLimited - 1e-6 && (
-        <div className="warn">Lo que está conectado a la salida acepta menos de lo que puede producir.</div>
+        <div className="warn">
+          La salida no se lleva todo lo que puede producir: la cinta llegó a su capacidad o lo que sigue consume menos. El resto se acumula en la
+          máquina.
+        </div>
       )}
       {!stopped && !n.bottleneck && n.outputLimited >= n.inputLimited - 1e-6 && ideal > 0 && (
         <div className="ok">Trabaja al {pct(n.effective)}.</div>

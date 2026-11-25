@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import AccountBar from './components/AccountBar'
+import PowerSettingsButton from './components/PowerSettings'
 import Palette from './components/Palette'
 import ProgressModal from './components/ProgressModal'
 import PlannerCanvas from './components/PlannerCanvas'
@@ -33,6 +34,7 @@ function App() {
           <span className="muted">m</span>
         </div>
         <button onClick={() => setProgressOpen(true)}>Mi progreso</button>
+        <PowerSettingsButton />
         <div className="history">
           <button onClick={undo} disabled={!past.length}>Deshacer</button>
           <button onClick={redo} disabled={!future.length}>Rehacer</button>

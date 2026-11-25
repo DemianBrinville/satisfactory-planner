@@ -35,6 +35,8 @@ export interface PlacedEntity {
   liftDir?: 'up' | 'down'
   /** amplificadores (somersloops) colocados */
   somersloops?: number
+  /** postes/torres: conectado a la red eléctrica del mundo */
+  worldLink?: boolean
 }
 
 /** Extremo de una cinta/tubería: un puerto de un edificio o un poste/soporte (port = -1). */
@@ -70,7 +72,19 @@ export interface Rail {
   points: Vec[]
 }
 
+/** Ajustes de energía del plano. */
+export interface PowerSettings {
+  /** se supone una red capaz de sostener todo: no hace falta tender cables */
+  infinite: boolean
+  /** generación total de la red del mundo del jugador (MW) */
+  worldGen: number
+  /** consumo actual de esa red sin contar este plano (MW) */
+  worldUse: number
+}
+export const DEFAULT_POWER: PowerSettings = { infinite: true, worldGen: 0, worldUse: 0 }
+
 export interface PlanDoc {
+  power?: PowerSettings
   entities: PlacedEntity[]
   conveyors: Conveyor[]
   wires?: Wire[]
@@ -171,10 +185,12 @@ interface EditorState extends PlanDoc {
   updateRoute: (uid: string, patch: Partial<Route>) => void
   addWire: (from: string, to: string) => void
   setFloorHeight: (h: number) => void
+  setPower: (p: Partial<PowerSettings>) => void
 }
 
 /** Copia del documento para el historial y el guardado. */
 export const snapshot = (s: PlanDoc): PlanDoc => ({
+  power: s.power,
   entities: s.entities,
   conveyors: s.conveyors,
   wires: s.wires,
@@ -278,6 +294,7 @@ export const useEditor = create<EditorState>((set, get) => {
     entities: [],
     conveyors: [],
     wires: [],
+    power: DEFAULT_POWER,
     rails: [],
     routes: [],
     routeKind: 'truck',
@@ -499,7 +516,7 @@ export const useEditor = create<EditorState>((set, get) => {
       }),
 
     load: (doc) =>
-      set({ entities: doc.entities ?? [], conveyors: doc.conveyors ?? [], wires: doc.wires ?? [], rails: doc.rails ?? [], routes: doc.routes ?? [], floorHeight: doc.floorHeight ?? DEFAULT_FLOOR_HEIGHT, past: [], future: [], selection: [] }),
+      set({ entities: doc.entities ?? [], conveyors: doc.conveyors ?? [], wires: doc.wires ?? [], rails: doc.rails ?? [], routes: doc.routes ?? [], power: { ...DEFAULT_POWER, ...doc.power }, floorHeight: doc.floorHeight ?? DEFAULT_FLOOR_HEIGHT, past: [], future: [], selection: [] }),
     startWire: () => set({ tool: 'wire', placingId: null, conveyorId: null, selection: [] }),
     startRail: () => set({ tool: 'rail', placingId: null, conveyorId: null, selection: [] }),
     startRoute: (routeKind, from) => set({ tool: 'route', routeKind, routeFrom: from ?? null, placingId: null, conveyorId: null, selection: [] }),
@@ -517,6 +534,7 @@ export const useEditor = create<EditorState>((set, get) => {
       if (from === to || wires.some((w) => (w.from === from && w.to === to) || (w.from === to && w.to === from))) return
       commit({ wires: [...wires, { uid: newUid(), from, to }] })
     },
+    setPower: (p) => set((s) => ({ power: { ...DEFAULT_POWER, ...s.power, ...p } })),
     setFloorHeight: (h) => set({ floorHeight: Math.max(4, Math.min(48, Math.round(h))) }),
   }
 })
@@ -552,6 +570,7 @@ useEditor.subscribe((s, prev) => {
     s.wires !== prev.wires ||
     s.rails !== prev.rails ||
     s.routes !== prev.routes ||
+    s.power !== prev.power ||
     s.floorHeight !== prev.floorHeight
   ) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...snapshot(s), floorHeight: s.floorHeight }))

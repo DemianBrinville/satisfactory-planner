@@ -1,7 +1,7 @@
 import { buildingsById, type Building, type ItemAmount } from '../data/gameData'
 import { PURITY_MULT, somersloopBoost, type FlowResult } from './flow'
 import { worldRect } from './geometry'
-import { DEFAULT_FLOOR_HEIGHT, type PlacedEntity, type Wire } from './store'
+import { DEFAULT_FLOOR_HEIGHT, type PlacedEntity, type PowerSettings, type Wire } from './store'
 
 /**
  * Red eléctrica: líneas entre estructuras, límite de conexiones por poste, largo máximo de cada
@@ -16,6 +16,9 @@ export const WIRE_MAX_TOWERS = 300
 const METERS_PER_COST = 25
 
 const isTower = (id: string) => /PowerTower/.test(id)
+
+/** Estructuras que se pueden enganchar a la red del mundo (postes, tomas y torres). */
+export const canLinkWorld = (b: Building) => /PowerPole|PowerTower/.test(b.id)
 
 export function hasPowerConnection(b: Building): boolean {
   return (
@@ -82,6 +85,8 @@ export interface Grid {
   members: string[]
   consumption: number
   generation: number
+  /** está conectada a la red del mundo */
+  world?: boolean
 }
 
 export interface PowerResult {
@@ -89,9 +94,17 @@ export interface PowerResult {
   grids: Grid[]
   /** conexiones usadas por estructura */
   used: Map<string, number>
+  /** modo energía infinita: todo se considera alimentado */
+  infinite: boolean
+  /** totales del plano completo */
+  planUse: number
+  planGen: number
+  /** lo que le sobra a la red del mundo (generación − consumo, sin este plano) */
+  worldSpare: number
 }
 
-export function computeGrids(entities: PlacedEntity[], wires: Wire[], flows?: FlowResult): PowerResult {
+export function computeGrids(entities: PlacedEntity[], wires: Wire[], flows?: FlowResult, settings?: PowerSettings): PowerResult {
+  const worldSpare = settings ? Math.max(0, settings.worldGen - settings.worldUse) : 0
   const parent = new Map<string, string>()
   const find = (x: string): string => {
     let r = x
@@ -115,15 +128,27 @@ export function computeGrids(entities: PlacedEntity[], wires: Wire[], flows?: Fl
   const gridOf = new Map<string, number>()
   let next = 1
   for (const e of powered) {
-    if (!used.has(e.uid)) continue // sin líneas: no pertenece a ninguna red
+    if (!used.has(e.uid) && !e.worldLink) continue // sin líneas: no pertenece a ninguna red
     const root = find(e.uid)
-    if (!byRoot.has(root)) byRoot.set(root, { id: next++, members: [], consumption: 0, generation: 0 })
+    if (!byRoot.has(root)) byRoot.set(root, { id: next++, members: [], consumption: 0, generation: 0, world: false })
     const g = byRoot.get(root)!
     const b = buildingsById.get(e.buildingId)!
     g.members.push(e.uid)
     g.consumption += consumptionMW(e, b)
     g.generation += generationMW(e, b, flows)
     gridOf.set(e.uid, g.id)
+    if (e.worldLink && !g.world) {
+      // un poste enganchado a la red del mundo aporta lo que le sobra a esa red
+      g.world = true
+      g.generation += worldSpare
+    }
   }
-  return { gridOf, grids: [...byRoot.values()], used }
+  let planUse = 0
+  let planGen = 0
+  for (const e of powered) {
+    const b = buildingsById.get(e.buildingId)!
+    planUse += consumptionMW(e, b)
+    planGen += generationMW(e, b, flows)
+  }
+  return { gridOf, grids: [...byRoot.values()], used, infinite: settings?.infinite ?? false, planUse, planGen, worldSpare }
 }
