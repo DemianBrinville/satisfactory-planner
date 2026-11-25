@@ -49,37 +49,101 @@ export default function AccountBar() {
         c.ready && <button onClick={() => setOpen(open === 'login' ? null : 'login')}>Iniciar sesión</button>
       )}
       {open === 'plans' && <PlansPopover onClose={() => setOpen(null)} />}
-      {open === 'login' && <LoginPopover onClose={() => setOpen(null)} />}
+      {open === 'login' && !c.user && <LoginPopover onClose={() => setOpen(null)} />}
+      {c.recovering && <RecoveryPopover />}
     </div>
   )
 }
 
 function LoginPopover({ onClose }: { onClose: () => void }) {
-  const { signIn, error } = useCloud()
+  const { signIn, signUp, resetPassword, error } = useCloud()
+  const [mode, setMode] = useState<'login' | 'signup' | 'reset'>('login')
   const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
+  const [password, setPassword] = useState('')
+  const [message, setMessage] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setMessage(null)
+    if (mode === 'login') {
+      if (await signIn(email.trim(), password)) onClose()
+    } else if (mode === 'signup') {
+      const r = await signUp(email.trim(), password)
+      if (r === 'session') onClose()
+      if (r === 'confirm') setMessage(`Te enviamos un correo a ${email.trim()} para confirmar la cuenta. Después vuelve aquí e inicia sesión.`)
+    } else if (await resetPassword(email.trim())) {
+      setMessage('Te enviamos un enlace para elegir una contraseña nueva. Ábrelo en este navegador.')
+    }
+    setBusy(false)
+  }
+
   return (
     <div className="popover">
-      {sent ? (
-        <p>
-          Te enviamos un enlace a <b>{email}</b>. Ábrelo en este navegador para entrar. Tus planos y tu progreso se guardarán en tu cuenta.
-        </p>
-      ) : (
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault()
-            if (await signIn(email.trim())) setSent(true)
-          }}
-        >
-          <p>Entra con tu email: te llega un enlace, sin contraseña.</p>
-          <input type="email" required placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
-          <button type="submit">Enviar enlace</button>
-          {error && <p className="bad">{error}</p>}
-        </form>
-      )}
-      <button className="link" onClick={onClose}>
-        Cerrar
-      </button>
+      <nav className="mini-tabs">
+        <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>
+          Iniciar sesión
+        </button>
+        <button className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>
+          Crear cuenta
+        </button>
+      </nav>
+      <form onSubmit={submit}>
+        <input type="email" required placeholder="Email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+        {mode !== 'reset' && (
+          <input
+            type="password"
+            required
+            minLength={6}
+            placeholder="Contraseña"
+            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        )}
+        <button type="submit" disabled={busy}>
+          {mode === 'login' ? 'Entrar' : mode === 'signup' ? 'Crear cuenta' : 'Enviar enlace'}
+        </button>
+      </form>
+      <p className="muted small">Lo que tengas dibujado se guarda en tu cuenta al entrar.</p>
+      {message && <p className="ok">{message}</p>}
+      {error && <p className="bad">{error}</p>}
+      <div className="popover-links">
+        {mode !== 'reset' ? (
+          <button className="link" onClick={() => setMode('reset')}>
+            Olvidé mi contraseña
+          </button>
+        ) : (
+          <button className="link" onClick={() => setMode('login')}>
+            Volver
+          </button>
+        )}
+        <button className="link" onClick={onClose}>
+          Cerrar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** Al volver del enlace de recuperación: elegir la contraseña nueva. */
+function RecoveryPopover() {
+  const { updatePassword, error } = useCloud()
+  const [password, setPassword] = useState('')
+  return (
+    <div className="popover">
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault()
+          await updatePassword(password)
+        }}
+      >
+        <p>Elige tu contraseña nueva.</p>
+        <input type="password" required minLength={6} autoComplete="new-password" placeholder="Contraseña nueva" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+        <button type="submit">Guardar</button>
+      </form>
+      {error && <p className="bad">{error}</p>}
     </div>
   )
 }

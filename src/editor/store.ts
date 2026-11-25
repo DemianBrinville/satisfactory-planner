@@ -297,6 +297,10 @@ export const useEditor = create<EditorState>((set, get) => {
     selectFamily: (family) => {
       const f = FAMILIES[family]
       if (!f?.ids.length) return
+      // repetir el atajo de la familia que ya está activa sale del modo colocación
+      const cur = get()
+      const active = cur.tool === 'conveyor' ? cur.conveyorId : cur.tool === 'place' ? cur.placingId : null
+      if (active && familyOf(active) === family) return get().cancelTool()
       const last = get().lastByFamily[family]
       const id = last && isBuildingIdAvailable(last) ? last : f.ids.find(isBuildingIdAvailable)
       if (!id) return

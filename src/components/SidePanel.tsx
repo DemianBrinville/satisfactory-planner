@@ -7,6 +7,7 @@ import { useAvailability } from '../editor/progress'
 import { PriorityMergerPanel, RoutePanel, SplitterPanel, StoragePanel } from './LogisticsPanels'
 import { vehicleForStation } from '../editor/transport'
 import ConnectorPanel from './ConnectorPanel'
+import Production from './Production'
 import { GridLine } from './PlannerCanvas'
 import { computeGrids } from '../editor/power'
 import { isVerticalConnector } from '../editor/geometry'
@@ -284,23 +285,8 @@ function MachinePanel({ e, b, node }: { e: PlacedEntity; b: Building; node?: Nod
 
       {node && (
         <>
-          <h3>Rendimiento: {pct(node.effective)}</h3>
-          {node.inputs.map((x) => (
-            <div key={x.item} className={'flowline' + (x.got + 0.01 < x.need ? ' bad' : '')}>
-              <span>← {itemName(x.item)}</span>
-              <span>
-                {fmt(x.got)} / {fmt(x.need)}
-              </span>
-            </div>
-          ))}
-          {node.outputs.map((x) => (
-            <div key={x.item} className={'flowline' + (x.taken + 0.01 < x.produce ? ' warn' : '')}>
-              <span>→ {itemName(x.item)}</span>
-              <span>
-                {fmt(x.taken)} / {fmt(x.produce)}
-              </span>
-            </div>
-          ))}
+          <h3>Producción: {pct(node.effective)}</h3>
+          <Production n={node} />
           {canUnderclock && suggestion !== null && (
             <div className="hint">
               {node.outputLimited < node.inputLimited

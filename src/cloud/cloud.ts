@@ -21,7 +21,12 @@ interface CloudState {
   saveState: SaveState
   error: string | null
 
-  signIn: (email: string) => Promise<boolean>
+  /** recuperación de contraseña: el usuario volvió desde el enlace del correo */
+  recovering: boolean
+  signIn: (email: string, password: string) => Promise<boolean>
+  signUp: (email: string, password: string) => Promise<'session' | 'confirm' | null>
+  resetPassword: (email: string) => Promise<boolean>
+  updatePassword: (password: string) => Promise<boolean>
   signOut: () => Promise<void>
   refreshPlans: () => Promise<void>
   openPlan: (id: string) => Promise<void>
@@ -31,6 +36,18 @@ interface CloudState {
 }
 
 const CURRENT_KEY = 'satisfactory-planner:current-plan'
+/** Vuelve a la misma página (y no a la raíz) después de confirmar el correo o recuperar la contraseña. */
+const returnUrl = () => window.location.origin + window.location.pathname
+
+/** Mensajes de Supabase Auth en español. */
+function authError(msg: string): string {
+  if (/Invalid login credentials/i.test(msg)) return 'Email o contraseña incorrectos.'
+  if (/Email not confirmed/i.test(msg)) return 'Todavía no confirmaste el email: revisa tu correo.'
+  if (/already registered|already been registered/i.test(msg)) return 'Ya existe una cuenta con ese email: inicia sesión.'
+  if (/at least 6|Password should/i.test(msg)) return 'La contraseña debe tener al menos 6 caracteres.'
+  if (/rate limit|too many/i.test(msg)) return 'Demasiados intentos seguidos: espera unos minutos.'
+  return msg
+}
 const docOf = (): PlanDoc => {
   const s = useEditor.getState()
   return { ...snapshot(s), floorHeight: s.floorHeight }
@@ -44,20 +61,56 @@ export const useCloud = create<CloudState>((set, get) => ({
   currentName: 'Borrador local',
   saveState: 'local',
   error: null,
+  recovering: false,
 
-  signIn: async (email) => {
+  signIn: async (email, password) => {
     set({ error: null })
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      set({ error: error.message })
+      set({ error: authError(error.message) })
       return false
     }
+    return true
+  },
+
+  signUp: async (email, password) => {
+    set({ error: null })
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: returnUrl() } })
+    if (error) {
+      set({ error: authError(error.message) })
+      return null
+    }
+    return data.session ? 'session' : 'confirm'
+  },
+
+  resetPassword: async (email) => {
+    set({ error: null })
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: returnUrl() })
+    if (error) {
+      set({ error: authError(error.message) })
+      return false
+    }
+    return true
+  },
+
+  updatePassword: async (password) => {
+    set({ error: null })
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) {
+      set({ error: authError(error.message) })
+      return false
+    }
+    set({ recovering: false })
     return true
   },
 
   signOut: async () => {
     await supabase.auth.signOut()
     localStorage.removeItem(CURRENT_KEY)
+    // el plano queda guardado en la cuenta; el lienzo vuelve a un borrador vacío
+    suppressSave = true
+    useEditor.getState().load({ entities: [], conveyors: [] })
+    suppressSave = false
     set({ user: null, plans: [], currentId: null, currentName: 'Borrador local', saveState: 'local' })
   },
 
@@ -160,10 +213,16 @@ async function onLogin(user: User) {
   await useCloud.getState().refreshPlans()
   const last = localStorage.getItem(CURRENT_KEY)
   const plans = useCloud.getState().plans
-  if (last && plans.some((p) => p.id === last)) await useCloud.getState().openPlan(last)
-  else if (!plans.length) {
-    // primer ingreso: el borrador local se convierte en el primer plano
-    await useCloud.getState().newPlan('Mi primera fábrica', true)
+  const local = docOf()
+  const hasLocalWork = local.entities.length + local.conveyors.length > 0
+  if (last && plans.some((p) => p.id === last)) {
+    // recarga con sesión abierta: se sigue con el plano en el que estaba
+    await useCloud.getState().openPlan(last)
+  } else if (hasLocalWork || !plans.length) {
+    // lo que dibujó antes de entrar no se pierde: pasa a ser un plano de su cuenta
+    await useCloud.getState().newPlan(plans.length ? 'Plano sin guardar' : 'Mi primera fábrica', true)
+  } else {
+    await useCloud.getState().openPlan(plans[0].id)
   }
 }
 
@@ -172,6 +231,7 @@ supabase.auth.getSession().then(async ({ data }) => {
   useCloud.setState({ ready: true })
 })
 supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'PASSWORD_RECOVERY') useCloud.setState({ recovering: true })
   if (event === 'SIGNED_IN' && session?.user && useCloud.getState().user?.id !== session.user.id) onLogin(session.user)
   if (event === 'SIGNED_OUT') {
     progressReady = false

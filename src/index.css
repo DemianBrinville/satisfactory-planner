@@ -689,3 +689,32 @@ kbd {
 .small-input.wide {
   width: 80px;
 }
+.production > div + div {
+  margin-top: 2px;
+}
+.production.compact .flowline {
+  gap: 12px;
+}
+.popover form input {
+  width: 100%;
+  flex: unset;
+}
+.popover form button[type='submit'] {
+  width: 100%;
+}
+.mini-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.mini-tabs button {
+  flex: 1;
+}
+.mini-tabs button.active {
+  background: var(--accent);
+  color: #1b1c1e;
+}
+.popover-links {
+  display: flex;
+  justify-content: space-between;
+}

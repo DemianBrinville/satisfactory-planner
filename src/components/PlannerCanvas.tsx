@@ -37,6 +37,7 @@ import {
 import ContextMenu, { type MenuState } from './ContextMenu'
 import { HOTKEYS } from '../editor/families'
 import Hotbar from './Hotbar'
+import Production from './Production'
 import { computeHeadLift, type HeadIssue } from '../editor/fluids'
 import { curvedPath } from '../editor/dubins'
 import {
@@ -1240,6 +1241,9 @@ function ConveyorTooltip({ c, flow, head, at }: { c: Conveyor; flow?: EdgeFlow; 
               {diff > 0.05 && <span className="warn"> · sobran {fmt(diff)}</span>}
               {diff < -0.05 && <span className="bad"> · faltan {fmt(-diff)}</span>}
             </div>
+            {d > (flow?.capacity ?? Infinity) + 0.05 && (
+              <div className="bad">El ideal supera la capacidad de esta {unit === '/min' ? 'cinta' : 'tubería'} ({fmt(flow!.capacity)}): usa una de mayor marca.</div>
+            )}
           </div>
         )
       })}
@@ -1347,17 +1351,7 @@ function EntityTooltip({ e, flows, power, at }: { e: PlacedEntity; flows: FlowRe
       <GridLine e={e} b={b} power={power} />
       {n ? (
         <>
-          <div className="muted">Rendimiento {Math.round(n.effective * 100)} %</div>
-          {n.inputs.map((x) => (
-            <div key={x.item} className={x.got + 0.05 < x.need ? 'bad' : ''}>
-              ← {itemName(x.item)}: {fmt(x.got)} / {fmt(x.need)}
-            </div>
-          ))}
-          {n.outputs.map((x) => (
-            <div key={x.item} className={x.taken + 0.05 < x.produce ? 'warn' : ''}>
-              → {itemName(x.item)}: {fmt(x.taken)} / {fmt(x.produce)}
-            </div>
-          ))}
+          <Production n={n} compact />
         </>
       ) : (
         b.kind === 'machine' && <div className="muted">{e.recipeId ? 'Sin cintas conectadas' : 'Selecciona la máquina para elegir receta'}</div>

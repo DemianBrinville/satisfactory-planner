@@ -32,6 +32,10 @@ export interface NodeFlow {
   inputs: { item: string; need: number; got: number }[]
   /** por ítem: lo que podría producir y lo que se lleva la salida */
   outputs: { item: string; produce: number; taken: number }[]
+  /** ingrediente que más frena la producción (el que llega más lento respecto a lo que pide) */
+  bottleneck?: string | null
+  /** duración de un ciclo: la ideal al reloj elegido y la real con lo que llega (s) */
+  cycle?: { ideal: number; actual: number }
 }
 
 export interface FlowResult {
@@ -264,10 +268,17 @@ export function computeFlows(
         // los somersloops multiplican solo los productos (las entradas no cambian)
         const amp = 1 + somersloopBoost(e, b)
         // entradas limitan cuánto puede producir
+        // si un ingrediente llega más lento de lo que pide la receta, la máquina igual produce pero cada
+        // ciclo espera a ese ingrediente: produce en proporción al que más falta (cuello de botella)
         let inputLimited = clock
+        let bottleneck: string | null = null
         for (const ing of recipe.ingredients) {
           const need = ing.amount * perMin
-          inputLimited = Math.min(inputLimited, (inOffer.get(ing.item) ?? 0) / need)
+          const ratio = (inOffer.get(ing.item) ?? 0) / need
+          if (ratio < inputLimited) {
+            inputLimited = ratio
+            bottleneck = ing.item
+          }
         }
         // salidas: lo que acepta lo que está conectado; sin conexión de ese tipo = sin límite
         let outputLimited = clock
@@ -294,6 +305,8 @@ export function computeFlows(
           inputLimited,
           outputLimited,
           effective,
+          bottleneck: inputLimited < outputLimited ? bottleneck : null,
+          cycle: { ideal: recipe.duration / clock, actual: effective > 0 ? recipe.duration / effective : Infinity },
           inputs: recipe.ingredients.map((ing) => ({
             item: ing.item,
             need: ing.amount * perMin * clock,
@@ -390,6 +403,13 @@ export function computeFlows(
         continue
       }
 
+      // una cinta que termina en un poste o una unión sin nada después es una salida todavía no dibujada:
+      // se considera abierta (acepta todo), igual que una máquina sin nada conectado
+      if (ins.length && !outs.length) {
+        for (const c of ins) nDemand.get(c.uid)!.set('*', UNLIMITED)
+        continue
+      }
+
       // nodos de paso: divisores, uniones, postes, soportes, bombas, válvulas, elevadoras, contenedores con salida
       if (ins.length || outs.length) {
         // las cintas elevadoras tienen su propia capacidad
@@ -413,9 +433,10 @@ export function computeFlows(
     for (const c of conveyors) {
       const k = capOf(c.uid, nOffer.get(c.uid))
       nOffer.set(c.uid, capRates(nOffer.get(c.uid)!, k))
+      // la demanda es el ideal de las recetas: no se recorta por la capacidad de la cinta
+      // (el aviso de "la cinta no alcanza" se muestra aparte); solo los sumideros se limitan a la cinta
       const d = nDemand.get(c.uid)!
       if (d.has('*')) d.set('*', k)
-      else nDemand.set(c.uid, capRates(d, k))
     }
     offer = nOffer
     demand = nDemand
