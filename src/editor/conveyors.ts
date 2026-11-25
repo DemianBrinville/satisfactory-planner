@@ -1,6 +1,9 @@
 import { buildingsById, type ItemAmount } from '../data/gameData'
 import { portsOf, rotate, toWorld, type PortDef, type Rotation, type Vec } from './geometry'
+import { curvedPath } from './dubins'
 import type { Conveyor, End, PlacedEntity } from './store'
+
+export type RouteMode = 'curve' | 'straight'
 
 /** Largo máximo de un tramo de cinta o tubería (7 cimientos). */
 export const MAX_SEGMENT = 56
@@ -12,6 +15,8 @@ export interface EndInfo {
   /** dirección hacia afuera del nodo (por donde sale/entra la cinta); null en postes */
   dir: Vec | null
   port: PortDef | null
+  /** postes: la dirección es un eje y la cinta puede atravesarlo en cualquiera de los dos sentidos */
+  axis?: boolean
 }
 
 export function endInfo(end: End, entities: PlacedEntity[]): EndInfo | null {
@@ -19,7 +24,11 @@ export function endInfo(end: End, entities: PlacedEntity[]): EndInfo | null {
   if (!e) return null
   const b = buildingsById.get(e.buildingId)
   if (!b) return null
-  if (end.port < 0) return { pos: { x: e.x, y: e.y }, dir: null, port: null }
+  if (end.port < 0) {
+    if (e.angle === undefined) return { pos: { x: e.x, y: e.y }, dir: null, port: null }
+    const a = (e.angle * Math.PI) / 180
+    return { pos: { x: e.x, y: e.y }, dir: { x: Math.cos(a), y: Math.sin(a) }, port: null, axis: true }
+  }
   const p = portsOf(b)[end.port]
   if (!p) return null
   return { pos: toWorld(b, e, e.rot, p.pos), dir: rotate(p.normal, e.rot as Rotation), port: p }
@@ -32,7 +41,48 @@ const r3 = (v: number) => Math.round(v * 1000) / 1000
  * Trazado "recto" como el modo Recto del juego: tramos rectos y giros de 90°,
  * saliendo y entrando de los puertos en su dirección.
  */
-export function route(a: { pos: Vec; dir: Vec | null }, b: { pos: Vec; dir: Vec | null }): Vec[] {
+export function route(a: EndLike, b: EndLike, mode: RouteMode = 'curve'): Vec[] {
+  if (mode === 'curve') return curveRoute(a, b)
+  return straightRoute(snapAxis(a, b, true), snapAxis(b, a, false))
+}
+
+type EndLike = { pos: Vec; dir: Vec | null; axis?: boolean }
+
+/** En un eje (poste) se elige el sentido que mira hacia el otro extremo. */
+function snapAxis(e: EndLike, other: EndLike, isStart: boolean): EndLike {
+  if (!e.axis || !e.dir) return e
+  const toOther = { x: other.pos.x - e.pos.x, y: other.pos.y - e.pos.y }
+  const dot = e.dir.x * toOther.x + e.dir.y * toOther.y
+  // al inicio la cinta sale hacia el otro extremo; al final llega desde él (dir apunta hacia afuera)
+  const flip = isStart ? dot < 0 : dot < 0
+  return { ...e, dir: flip ? { x: -e.dir.x, y: -e.dir.y } : e.dir }
+}
+
+/** Modo por defecto del juego: recta lo más directa posible y curvas de 2 m en los extremos. */
+function curveRoute(a: EndLike, b: EndLike): Vec[] {
+  const heads = (e: EndLike, outward: boolean): (number | null)[] => {
+    if (!e.dir) return [null]
+    const th = Math.atan2(e.dir.y, e.dir.x)
+    // en la llegada se viaja hacia adentro del nodo: rumbo opuesto a su dirección hacia afuera
+    const main = outward ? th : th + Math.PI
+    return e.axis ? [main, main + Math.PI] : [main]
+  }
+  let best: Vec[] | null = null
+  let bestLen = Infinity
+  for (const t0 of heads(a, true))
+    for (const t1 of heads(b, false)) {
+      const pts = curvedPath(a.pos, t0, b.pos, t1)
+      const len = pathLength(pts)
+      if (len < bestLen) {
+        best = pts
+        bestLen = len
+      }
+    }
+  return (best ?? [a.pos, b.pos]).map((p) => ({ x: r3(p.x), y: r3(p.y) }))
+}
+
+/** Modo recto: tramos rectos y giros de 90°. */
+function straightRoute(a: EndLike, b: EndLike): Vec[] {
   const s = a.dir ? add(a.pos, a.dir, STUB) : a.pos
   const t = b.dir ? add(b.pos, b.dir, STUB) : b.pos
   const pts: Vec[] = [a.pos, s]
@@ -88,7 +138,7 @@ export function reroute(c: Conveyor, entities: PlacedEntity[]): Conveyor | null 
   const a = endInfo(c.from, entities)
   const b = endInfo(c.to, entities)
   if (!a || !b) return null
-  return { ...c, points: route(a, b) }
+  return { ...c, points: route(a, b, c.mode ?? 'curve') }
 }
 
 /** Puertos ya ocupados por alguna cinta/tubería: "uid:puerto". */

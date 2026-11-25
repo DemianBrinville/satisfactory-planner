@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Circle, Group, Layer, Line, Rect, Shape, Stage, Text } from 'react-konva'
 import type Konva from 'konva'
 import { buildingsById, itemName, type Building } from '../data/gameData'
-import { MAX_SEGMENT, conveyorCost, pathLength, route, usedPorts, type EndInfo } from '../editor/conveyors'
+import { MAX_SEGMENT, conveyorCost, endInfo, pathLength, route, usedPorts, type EndInfo } from '../editor/conveyors'
 import { computeFlows, type EdgeFlow, type FlowResult } from '../editor/flow'
 import {
   FOUNDATION,
@@ -19,8 +19,9 @@ import {
   type Vec,
 } from '../editor/geometry'
 import {
-  BELT_POLE,
-  PIPE_SUPPORT,
+  BELT_POLES,
+  PIPE_POLES,
+  isPole,
   entityRect,
   moveStepFor,
   placeClipboard,
@@ -31,6 +32,8 @@ import {
   type PlacedEntity,
 } from '../editor/store'
 import ContextMenu, { type MenuState } from './ContextMenu'
+import { HOTKEYS } from '../editor/families'
+import Hotbar from './Hotbar'
 
 const COLORS: Record<string, string> = {
   machine: '#c9822b',
@@ -85,6 +88,8 @@ export default function PlannerCanvas() {
   const [drag, setDrag] = useState<Vec>({ x: 0, y: 0 })
   const [box, setBox] = useState<WRect | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
+  const draftRef = useRef<Draft | null>(null)
+  draftRef.current = draft
   const [menu, setMenu] = useState<MenuState | null>(null)
   const inter = useRef<Interaction>(null)
   const spaceDown = useRef(false)
@@ -103,7 +108,11 @@ export default function PlannerCanvas() {
   }, [])
 
   // al cambiar de herramienta se descarta el trazado en curso
-  useEffect(() => setDraft(null), [tool, conveyorId, floor])
+  // el trazado en curso se descarta al salir de la herramienta o cambiar de piso; cambiar de marca con E lo conserva
+  useEffect(() => {
+    if (tool !== 'conveyor') setDraft(null)
+  }, [tool])
+  useEffect(() => setDraft(null), [floor])
 
   // teclado
   useEffect(() => {
@@ -115,16 +124,15 @@ export default function PlannerCanvas() {
       if (e.code === 'Space') spaceDown.current = true
       if (!ctrl && (e.key === 'r' || e.key === 'R')) {
         if (st.tool === 'place' || st.tool === 'paste') st.rotatePlacing(e.shiftKey ? -1 : 1)
+        else if (st.tool === 'conveyor') st.toggleConveyorMode()
         else st.rotateSelection()
       }
       if (e.key === 'Escape') {
         setMenu(null)
         if (st.tool !== 'select') {
-          setDraft((d) => {
-            if (d) return null
-            st.cancelTool()
-            return null
-          })
+          // primer Esc corta el trazado en curso; el segundo sale de la herramienta
+          if (draftRef.current) setDraft(null)
+          else st.cancelTool()
         } else st.select([])
       }
       if (e.key === 'Delete' || e.key === 'Backspace') st.deleteSelection()
@@ -140,6 +148,11 @@ export default function PlannerCanvas() {
       if (ctrl && e.key.toLowerCase() === 'c') st.copySelection()
       if (ctrl && e.key.toLowerCase() === 'x') st.cutSelection()
       if (ctrl && e.key.toLowerCase() === 'v') st.startPaste()
+      if (!ctrl && !e.altKey && (e.key === 'e' || e.key === 'E')) st.cycleVariant(e.shiftKey ? -1 : 1)
+      if (!ctrl && !e.altKey) {
+        const hk = HOTKEYS.find((h) => h.key === e.key)
+        if (hk) st.selectFamily(hk.family)
+      }
     }
     const up = (e: KeyboardEvent) => {
       if (e.code === 'Space') spaceDown.current = false
@@ -177,28 +190,44 @@ export default function PlannerCanvas() {
   // ---------- herramienta de cintas/tuberías ----------
   const convBuilding = conveyorId ? buildingsById.get(conveyorId) : null
   const convKind = convBuilding?.kind === 'pipe' ? 'pipe' : 'belt'
-  const poleId = convKind === 'pipe' ? PIPE_SUPPORT : BELT_POLE
+  const poleSet = convKind === 'pipe' ? PIPE_POLES : BELT_POLES
+  const conveyorMode = s.conveyorMode
 
-  const findTarget = (p: Vec): Target => {
-    // 1) puerto libre del tipo correcto
-    let best: { t: Target; d: number } | null = null
+  /** Puerto libre más cercano (opcionalmente de un tipo) dentro de un radio. */
+  const portAt = (p: Vec, kind?: 'belt' | 'pipe', radius = 1.1): { target: Target; kind: 'belt' | 'pipe' } | null => {
+    let best: { target: Target; kind: 'belt' | 'pipe'; d: number } | null = null
     for (const e of visible) {
       const b = buildingsById.get(e.buildingId)
       if (!b) continue
       portsOf(b).forEach((port, i) => {
-        if (port.kind !== convKind || used.has(`${e.uid}:${i}`)) return
+        if ((kind && port.kind !== kind) || used.has(`${e.uid}:${i}`)) return
+        // se acepta el clic en el borde o sobre el marcador (que asoma hacia afuera)
         const pos = toWorld(b, e, e.rot, port.pos)
-        const d = Math.hypot(pos.x - p.x, pos.y - p.y)
-        if (d < 1.6 && (!best || d < best.d)) {
-          const dir = b.kind === 'pipeJunction' || convKind === 'pipe' ? 'any' : port.dir
-          best = { d, t: { end: { uid: e.uid, port: i }, info: { pos, dir: rotate(port.normal, e.rot as Rotation), port }, dir } }
+        const mark = toWorld(b, e, e.rot, { x: port.pos.x + port.normal.x * 0.45, y: port.pos.y + port.normal.y * 0.45 })
+        const d = Math.min(Math.hypot(pos.x - p.x, pos.y - p.y), Math.hypot(mark.x - p.x, mark.y - p.y))
+        if (d < radius && (!best || d < best.d)) {
+          const dir = b.kind === 'pipeJunction' || port.kind === 'pipe' ? 'any' : port.dir
+          best = {
+            d,
+            kind: port.kind,
+            target: { end: { uid: e.uid, port: i }, info: { pos, dir: rotate(port.normal, e.rot as Rotation), port }, dir },
+          }
         }
       })
     }
-    if (best) return (best as { t: Target }).t
+    return best
+  }
+
+  const findTarget = (p: Vec): Target => {
+    // 1) puerto libre del tipo correcto
+    const port = portAt(p, convKind, 1.6)
+    if (port) return port.target
     // 2) poste/soporte existente
-    const pole = visible.find((e) => e.buildingId === poleId && Math.hypot(e.x - p.x, e.y - p.y) < 1.2)
-    if (pole) return { end: { uid: pole.uid, port: -1 }, info: { pos: { x: pole.x, y: pole.y }, dir: null, port: null }, dir: 'any' }
+    const pole = visible.find((e) => poleSet.has(e.buildingId) && Math.hypot(e.x - p.x, e.y - p.y) < 1.2)
+    if (pole) {
+      const end = { uid: pole.uid, port: -1 }
+      return { end, info: endInfo(end, entities)!, dir: 'any' }
+    }
     // 3) punto libre (se creará un poste), alineado al inicio si está cerca
     let q = { x: Math.round(p.x), y: Math.round(p.y) }
     if (draft) {
@@ -214,14 +243,14 @@ export default function PlannerCanvas() {
   /** Trazado candidato entre el inicio del borrador y el objetivo actual. */
   const preview = useMemo(() => {
     if (!draft || !target) return null
-    const pts = route(draft.from.info, target.info)
+    const pts = route(draft.from.info, target.info, conveyorMode)
     const len = pathLength(pts)
     const sameEnd = draft.from.end && target.end && draft.from.end.uid === target.end.uid && draft.from.end.port === target.end.port
     const dirOk = draft.reversed ? target.dir !== 'in' : target.dir !== 'out'
     const ok = len > 0.4 && len <= MAX_SEGMENT && !sameEnd && dirOk
     return { pts, len, ok, reason: len > MAX_SEGMENT ? `Supera ${MAX_SEGMENT} m: agrega un poste` : !dirOk ? 'Ese puerto tiene el mismo sentido' : '' }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, target?.info.pos.x, target?.info.pos.y, target?.end?.uid, target?.end?.port])
+  }, [draft, target?.info.pos.x, target?.info.pos.y, target?.end?.uid, target?.end?.port, conveyorMode])
 
   const conveyorClick = () => {
     if (!target || !conveyorId) return
@@ -239,23 +268,16 @@ export default function PlannerCanvas() {
       points: pts,
       from: draft.reversed ? toEnd : fromEnd,
       to: draft.reversed ? fromEnd : toEnd,
+      mode: conveyorMode,
     })
     // como en el juego: si terminó en un poste o punto libre, se sigue trazando desde ahí
     if (target.dir === 'any' && (!target.end || target.end.port < 0)) {
       const after = useEditor.getState()
       const last = after.conveyors[after.conveyors.length - 1]
       const endRef = draft.reversed ? last.from : last.to
-      const ep = draft.reversed ? pts[0] : pts[pts.length - 1]
-      const prev = draft.reversed ? pts[1] : pts[pts.length - 2]
-      const len = Math.hypot(ep.x - prev.x, ep.y - prev.y) || 1
-      setDraft({
-        from: {
-          end: endRef,
-          info: { pos: ep, dir: { x: (ep.x - prev.x) / len, y: (ep.y - prev.y) / len }, port: null },
-          dir: 'any',
-        },
-        reversed: draft.reversed,
-      })
+      const info = endInfo(endRef, after.entities)
+      if (info) setDraft({ from: { end: endRef, info, dir: 'any' }, reversed: draft.reversed })
+      else setDraft(null)
     } else setDraft(null)
   }
 
@@ -311,6 +333,13 @@ export default function PlannerCanvas() {
     }
     if (st.tool === 'conveyor') {
       conveyorClick()
+      return
+    }
+    // clic sobre un puerto libre: empieza una cinta/tubería desde esa conexión
+    const port = portAt(p)
+    if (port) {
+      st.selectFamily(port.kind === 'pipe' ? 'pipe' : 'belt')
+      setDraft({ from: port.target, reversed: port.target.dir === 'in' })
       return
     }
     const hit = hitEntity(p)
@@ -463,7 +492,7 @@ export default function PlannerCanvas() {
             ))}
           {ghost && (
             <EntityShape
-              e={{ uid: 'ghost', buildingId: ghost.b.id, x: ghost.anchor.x, y: ghost.anchor.y, rot: placingRot, floor }}
+              e={{ uid: 'ghost', buildingId: ghost.b.id, x: ghost.anchor.x, y: ghost.anchor.y, rot: placingRot, floor, angle: s.placingAngle }}
               scale={view.scale}
               ghost={ghost.ok ? 'ok' : 'bad'}
               showLabels={showLabels}
@@ -528,11 +557,13 @@ export default function PlannerCanvas() {
       {hover?.conv && <ConveyorTooltip c={hover.conv} flow={flows.edges.get(hover.conv.uid)} at={screen} />}
       {hover?.ent && <EntityTooltip e={hover.ent} flows={flows} at={screen} />}
       {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
+      <Hotbar />
 
       <div className="coords">
         x {mouse.x.toFixed(1)} m · y {mouse.y.toFixed(1)} m · cimiento ({Math.floor(mouse.x / FOUNDATION)},{' '}
         {Math.floor(mouse.y / FOUNDATION)})
-        {tool === 'conveyor' && ' · clic: empezar/terminar tramo · clic derecho: cortar trazado'}
+        {tool === 'conveyor' &&
+          ` · modo ${conveyorMode === 'curve' ? 'curvo' : 'recto'} (R cambia) · clic: empezar/terminar tramo · clic derecho: cortar trazado`}
         {tool === 'paste' && ' · clic: pegar · R: girar · Esc: salir'}
       </div>
     </div>
@@ -703,18 +734,23 @@ function EntityShape({
   const r = worldRect(b, e, e.rot)
   const w = r.x1 - r.x0
   const h = r.y1 - r.y0
-  const isPole = e.buildingId === BELT_POLE || e.buildingId === PIPE_SUPPORT
+  const pole = isPole(e.buildingId)
   const base = COLORS[b.kind] ?? COLORS.structure
   const fill = ghost ? (ghost === 'ok' ? 'rgba(79,170,224,0.45)' : 'rgba(224,80,70,0.5)') : base
   const isFoundation = b.kind === 'foundation'
-  if (isPole) {
+  if (pole) {
+    // el poste se dibuja como una barra cruzada al eje de la cinta, girada según su ángulo
     return (
       <Rect
-        x={e.x - 0.5}
-        y={e.y - 0.5}
-        width={1}
-        height={1}
-        fill={ghost ? fill : e.buildingId === PIPE_SUPPORT ? '#4d7fa6' : '#8a8d93'}
+        x={e.x}
+        y={e.y}
+        width={0.7}
+        height={2}
+        offsetX={0.35}
+        offsetY={1}
+        rotation={e.angle ?? 0}
+        cornerRadius={0.15}
+        fill={ghost ? fill : PIPE_POLES.has(e.buildingId) ? '#4d7fa6' : '#8a8d93'}
         stroke={selected ? '#4fe0c0' : '#111'}
         strokeWidth={(selected ? 2.5 : 1) / scale}
         opacity={faded ? 0.18 : 1}

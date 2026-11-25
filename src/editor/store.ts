@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { buildingsById, type CategoryId } from '../data/gameData'
 import { reroute } from './conveyors'
+import { FAMILIES, familyOf, nextVariant } from './families'
+import { isBuildingIdAvailable } from './progress'
 import { FOUNDATION, rectsOverlap, rotate, snapAnchor, snapModeOf, worldRect, type Rect, type Rotation, type Vec } from './geometry'
 
 export type Purity = 'impure' | 'normal' | 'pure'
@@ -13,6 +15,8 @@ export interface PlacedEntity {
   y: number
   rot: Rotation
   floor: number
+  /** postes y soportes: ángulo libre en grados (giran de a 45°) */
+  angle?: number
   /** receta elegida (máquinas) */
   recipeId?: string
   /** velocidad de reloj: 1 = 100 % */
@@ -35,6 +39,8 @@ export interface Conveyor {
   floor: number
   /** recorrido en el mundo, de la salida a la entrada */
   points: Vec[]
+  /** modo de trazado: curvo (por defecto del juego) o recto con giros de 90° */
+  mode?: 'curve' | 'straight'
   from: End
   to: End
 }
@@ -65,6 +71,11 @@ export interface Clipboard {
 
 export const BELT_POLE = 'Build_ConveyorPole_C'
 export const PIPE_SUPPORT = 'Build_PipelineSupport_C'
+/** Postes de cinta y soportes de tubería: puntos de paso que giran de a 45°. */
+export const BELT_POLES = new Set([BELT_POLE, 'Build_ConveyorPoleStackable_C', 'Build_ConveyorPoleWall_C', 'Build_ConveyorCeilingAttachment_C'])
+export const PIPE_POLES = new Set([PIPE_SUPPORT, 'Build_PipeSupportStackable_C', 'Build_PipelineSupportWall_C'])
+export const isPole = (buildingId: string) => BELT_POLES.has(buildingId) || PIPE_POLES.has(buildingId)
+const deg = (v: Vec) => Math.round(((Math.atan2(v.y, v.x) * 180) / Math.PI) * 100) / 100
 
 interface EditorState extends PlanDoc {
   past: PlanDoc[]
@@ -74,7 +85,16 @@ interface EditorState extends PlanDoc {
   tool: Tool
   placingId: string | null
   placingRot: Rotation
+  /** ángulo del poste que se está colocando */
+  placingAngle: number
   conveyorId: string | null
+  /** modo de trazado de cintas: curvo (por defecto del juego) o recto */
+  conveyorMode: 'curve' | 'straight'
+  toggleConveyorMode: () => void
+  /** última variante usada de cada familia (atajos numéricos) */
+  lastByFamily: Record<string, string>
+  selectFamily: (family: string) => void
+  cycleVariant: (dir?: 1 | -1) => void
   clipboard: Clipboard | null
   /** pegar una sola vez (después de cortar = mover) */
   pasteOnce: boolean
@@ -106,6 +126,11 @@ interface EditorState extends PlanDoc {
   undo: () => void
   redo: () => void
   load: (doc: PlanDoc) => void
+}
+
+const remember = (m: Record<string, string>, id: string) => {
+  const f = familyOf(id)
+  return f ? { ...m, [f]: id } : m
 }
 
 export const newUid = () => Math.random().toString(36).slice(2, 10)
@@ -194,7 +219,38 @@ export const useEditor = create<EditorState>((set, get) => {
     tool: 'select',
     placingId: null,
     placingRot: 0,
+    placingAngle: 0,
     conveyorId: null,
+    conveyorMode: 'curve',
+    toggleConveyorMode: () => set((s) => ({ conveyorMode: s.conveyorMode === 'curve' ? 'straight' : 'curve' })),
+    lastByFamily: {},
+    selectFamily: (family) => {
+      const f = FAMILIES[family]
+      if (!f?.ids.length) return
+      const last = get().lastByFamily[family]
+      const id = last && isBuildingIdAvailable(last) ? last : f.ids.find(isBuildingIdAvailable)
+      if (!id) return
+      const kind = buildingsById.get(id)?.kind
+      if (kind === 'belt' || kind === 'pipe') get().startConveyor(id)
+      else get().startPlacing(id)
+    },
+    cycleVariant: (dir = 1) => {
+      const s = get()
+      if (s.tool === 'conveyor' && s.conveyorId) return s.startConveyor(nextVariant(s.conveyorId, isBuildingIdAvailable, dir))
+      if (s.tool === 'place' && s.placingId) return s.startPlacing(nextVariant(s.placingId, isBuildingIdAvailable, dir))
+      if (s.tool !== 'select' || !s.selection.length) return
+      // con una selección: cambia la marca de lo seleccionado, como apuntar con otra marca en el juego
+      const sel = new Set(s.selection)
+      const conveyors = s.conveyors.map((c) =>
+        sel.has(c.uid) ? { ...c, buildingId: nextVariant(c.buildingId, isBuildingIdAvailable, dir) } : c,
+      )
+      const entities = s.entities.map((e) => {
+        if (!sel.has(e.uid)) return e
+        const id = nextVariant(e.buildingId, isBuildingIdAvailable, dir)
+        return id !== e.buildingId && s.canPlace(id, e, e.rot, s.selection) ? { ...e, buildingId: id } : e
+      })
+      commit({ entities, conveyors })
+    },
     clipboard: null,
     pasteOnce: false,
     pasteRot: 0,
@@ -206,11 +262,17 @@ export const useEditor = create<EditorState>((set, get) => {
     setCategory: (category) => set({ category }),
     setFloor: (floor) => set({ floor, selection: [] }),
     setSnapStep: (snapStep) => set({ snapStep }),
-    startPlacing: (placingId) => set({ placingId, conveyorId: null, tool: 'place', selection: [] }),
-    startConveyor: (conveyorId) => set({ conveyorId, placingId: null, tool: 'conveyor', selection: [] }),
+    startPlacing: (placingId) =>
+      set((s) => ({ placingId, conveyorId: null, tool: 'place', selection: [], lastByFamily: remember(s.lastByFamily, placingId) })),
+    startConveyor: (conveyorId) =>
+      set((s) => ({ conveyorId, placingId: null, tool: 'conveyor', selection: [], lastByFamily: remember(s.lastByFamily, conveyorId) })),
     cancelTool: () => set({ placingId: null, conveyorId: null, tool: 'select' }),
     rotatePlacing: (dir = 1) =>
-      set((s) => (s.tool === 'paste' ? { pasteRot: nextRot(s.pasteRot, dir) } : { placingRot: nextRot(s.placingRot, dir) })),
+      set((s) => {
+        if (s.tool === 'paste') return { pasteRot: nextRot(s.pasteRot, dir) }
+        if (s.placingId && isPole(s.placingId)) return { placingAngle: (s.placingAngle + 45 * dir + 360) % 360 }
+        return { placingRot: nextRot(s.placingRot, dir) }
+      }),
 
     canPlace: (buildingId, anchor, rot, ignore = []) => {
       const b = buildingsById.get(buildingId)
@@ -226,24 +288,34 @@ export const useEditor = create<EditorState>((set, get) => {
     },
 
     place: (anchor) => {
-      const { placingId, placingRot, floor, entities, canPlace } = get()
+      const { placingId, placingRot, placingAngle, floor, entities, canPlace } = get()
       if (!placingId || !canPlace(placingId, anchor, placingRot)) return false
-      commit({ entities: [...entities, { uid: newUid(), buildingId: placingId, x: anchor.x, y: anchor.y, rot: placingRot, floor }] })
+      const pole = isPole(placingId)
+      commit({
+        entities: [
+          ...entities,
+          { uid: newUid(), buildingId: placingId, x: anchor.x, y: anchor.y, rot: pole ? 0 : placingRot, floor, ...(pole ? { angle: placingAngle } : {}) },
+        ],
+      })
       return true
     },
 
-    addConveyor: ({ buildingId, points, from, to }) => {
+    addConveyor: ({ buildingId, points, from, to, mode }) => {
       const { entities, conveyors, floor } = get()
       const isPipe = buildingsById.get(buildingId)?.kind === 'pipe'
       const newEnts: PlacedEntity[] = []
-      // un extremo libre crea un poste (cintas) o soporte (tuberías), como en el juego
-      const resolve = (e: End | Vec): End => {
+      // un extremo libre crea un poste (cintas) o soporte (tuberías) alineado con la cinta, como en el juego
+      const n = points.length
+      const resolve = (e: End | Vec, atStart: boolean): End => {
         if (isEnd(e)) return e
-        const pole: PlacedEntity = { uid: newUid(), buildingId: isPipe ? PIPE_SUPPORT : BELT_POLE, x: e.x, y: e.y, rot: 0, floor }
+        const dir = atStart
+          ? { x: points[1].x - points[0].x, y: points[1].y - points[0].y }
+          : { x: points[n - 1].x - points[n - 2].x, y: points[n - 1].y - points[n - 2].y }
+        const pole: PlacedEntity = { uid: newUid(), buildingId: isPipe ? PIPE_SUPPORT : BELT_POLE, x: e.x, y: e.y, rot: 0, floor, angle: deg(dir) }
         newEnts.push(pole)
         return { uid: pole.uid, port: -1 }
       }
-      const c: Conveyor = { uid: newUid(), buildingId, floor, points, from: resolve(from), to: resolve(to) }
+      const c: Conveyor = { uid: newUid(), buildingId, floor, points, mode, from: resolve(from, true), to: resolve(to, false) }
       commit({ entities: [...entities, ...newEnts], conveyors: [...conveyors, c] })
     },
 
@@ -273,6 +345,7 @@ export const useEditor = create<EditorState>((set, get) => {
       const sel = new Set(selection)
       const next = entities.map((e) => {
         if (!sel.has(e.uid)) return e
+        if (isPole(e.buildingId)) return { ...e, angle: ((e.angle ?? 0) + 45) % 360 }
         const rot = nextRot(e.rot, 1)
         return canPlace(e.buildingId, e, rot, selection) ? { ...e, rot } : e
       })

@@ -3,6 +3,7 @@ import { buildingsById, game, itemName, recipesById, type Building, type Recipe 
 import { summarize } from '../editor/costs'
 import { conveyorCost, pathLength } from '../editor/conveyors'
 import { PURITY_NAME, computeFlows, extractionRate, extractorResources, recipesFor, type NodeFlow } from '../editor/flow'
+import { useAvailability } from '../editor/progress'
 import { useEditor, type PlacedEntity, type Purity } from '../editor/store'
 
 const fmt = (n: number) => n.toLocaleString('es', { maximumFractionDigits: 2 })
@@ -293,16 +294,29 @@ function GeneratorConfig({ e, b }: { e: PlacedEntity; b: Building & { fuels?: { 
 
 function RecipePicker({ buildingId, current, onPick }: { buildingId: string; current?: string; onPick: (id: string) => void }) {
   const [q, setQ] = useState('')
+  const [showAll, setShowAll] = useState(false)
+  const avail = useAvailability()
+  const all = recipesFor(buildingId)
+  const hidden = avail.enabled && !showAll ? all.filter((r) => !avail.recipe(r)).length : 0
   const list = useMemo(() => {
-    const all = recipesFor(buildingId)
     const f = q.trim().toLowerCase()
     return all
+      .filter((r) => showAll || avail.recipe(r))
       .filter((r) => !f || r.name.toLowerCase().includes(f) || r.products.some((p) => itemName(p.item).toLowerCase().includes(f)))
       .sort((a, b) => Number(a.alternate) - Number(b.alternate) || a.name.localeCompare(b.name))
-  }, [buildingId, q])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildingId, q, showAll, avail.enabled, avail.recipe])
   return (
     <div className="recipe-picker">
       <input className="search" placeholder="Buscar receta…" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+      {avail.enabled && (
+        <p className="hidden-note">
+          {hidden > 0 && `${hidden} receta(s) ocultas por tu progreso. `}
+          <label>
+            <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> mostrar todas
+          </label>
+        </p>
+      )}
       <div className="recipe-list">
         {list.map((r) => (
           <button key={r.id} className={'recipe' + (r.id === current ? ' active' : '')} onClick={() => onPick(r.id)}>

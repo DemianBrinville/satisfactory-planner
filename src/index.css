@@ -380,3 +380,273 @@ kbd {
   display: block;
   margin-top: 6px;
 }
+
+/* ---------- modal de progreso ---------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal {
+  width: min(980px, 94vw);
+  height: min(760px, 90vh);
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--accent);
+  border-radius: 4px;
+}
+.modal header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.modal header h2 {
+  margin: 0;
+  font-size: 17px;
+}
+.modal header .switch {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 12px;
+  background: #222326;
+}
+.tabs button {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 9px 14px;
+}
+.tabs button.active {
+  background: var(--accent);
+  color: #1b1c1e;
+  font-weight: 600;
+}
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  font-size: 13px;
+}
+.modal-body section.locked {
+  opacity: 0.45;
+}
+.modal-body h3 {
+  color: var(--accent);
+  margin: 14px 0 6px;
+}
+.phase-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.phase-row .search {
+  width: 260px;
+  margin: 0;
+}
+.phase-row button.active {
+  background: var(--accent);
+  color: #1b1c1e;
+}
+.tier {
+  margin-bottom: 10px;
+}
+.tier-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #303135;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+}
+.tier-head button {
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 4px 12px;
+}
+.check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 4px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.check:hover {
+  background: var(--panel-2);
+}
+.check.disabled {
+  cursor: default;
+}
+.check span {
+  display: flex;
+  flex-direction: column;
+}
+.check small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+.hidden-note {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 6px 0;
+}
+
+/* ---------- cuenta y planos ---------- */
+.account {
+  margin-left: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.plan-title {
+  background: transparent;
+  border-color: transparent;
+  font-weight: 600;
+}
+.plan-name {
+  background: #3a3b40;
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 4px 8px;
+}
+.save-state {
+  font-size: 12px;
+  color: var(--muted);
+}
+.save-state.saved {
+  color: #4caf6a;
+}
+.save-state.error {
+  color: #e05046;
+}
+.popover {
+  position: absolute;
+  right: 0;
+  top: 38px;
+  z-index: 40;
+  width: 340px;
+  background: #222326;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--accent);
+  border-radius: 4px;
+  padding: 12px;
+  font-size: 13px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+}
+.popover form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.popover form p {
+  width: 100%;
+  margin: 0 0 4px;
+}
+.popover input {
+  flex: 1;
+  background: #3a3b40;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 5px 8px;
+}
+.popover ul {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.popover li {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.popover li .open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+.popover li.active .open {
+  border-color: var(--accent);
+}
+.popover li small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.popover .danger {
+  color: #ff8a7a;
+}
+.popover .link {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  margin-top: 8px;
+  padding: 0;
+}
+
+/* ---------- barra rápida ---------- */
+.hotbar {
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  background: rgba(20, 21, 23, 0.85);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px;
+}
+.hotbar .slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 74px;
+  padding: 3px 2px;
+  font-size: 10.5px;
+  line-height: 1.15;
+}
+.hotbar .slot.active {
+  border-color: var(--accent);
+  background: #3d2f22;
+}
+.hotbar .slot span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 70px;
+}
+.hotbar .hint {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 6px 4px;
+}

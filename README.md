@@ -20,4 +20,15 @@ npm install
 npm run dev
 ```
 
-Los datos del juego (medidas, puertos y costos) están en `src/data/` y se tomaron de la wiki oficial de Satisfactory.
+### Datos del juego
+
+`src/data/game-data.json` se genera a partir del `es-ES.json` oficial del juego (nombres, costos, recetas, huellas y progreso) y de la wiki (cantidad de puertos):
+
+```bash
+node scripts/extract-game-data.mjs "<ruta>/Satisfactory/CommunityResources/Docs/es-ES.json" [--refresh-wiki]
+```
+
+### Supabase
+
+- El esquema está en `supabase/migrations/`: tablas `plans` y `user_progress`, con RLS para que cada usuario vea solo lo suyo.
+- El login es por enlace mágico (email). La URL del proyecto y la clave publicable son públicas por diseño y están como valores por defecto en `src/cloud/supabase.ts`. Se pueden sobreescribir con las variables `VITE_SUPABASE_*` (ver `.env.example`).

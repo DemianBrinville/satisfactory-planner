@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react'
 import { CATEGORIES, game, isPathKind, itemName, type Building } from '../data/gameData'
+import { useAvailability } from '../editor/progress'
 import { useEditor } from '../editor/store'
 
 export default function Palette() {
   const { category, setCategory, startPlacing, startConveyor, placingId, conveyorId } = useEditor()
   const [query, setQuery] = useState('')
+  const avail = useAvailability()
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const list = game.buildings.filter((b) => (q ? b.name.toLowerCase().includes(q) : b.category === category))
+    const list = game.buildings.filter((b) => (q ? b.name.toLowerCase().includes(q) : b.category === category) && avail.building(b))
     const map = new Map<string, Building[]>()
     for (const b of list) {
       const key = q ? b.subcategory : b.subcategory
@@ -16,7 +18,8 @@ export default function Palette() {
       map.get(key)!.push(b)
     }
     return [...map]
-  }, [category, query])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, query, avail.enabled, avail.building])
 
   return (
     <aside className="palette">
