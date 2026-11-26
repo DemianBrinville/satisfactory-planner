@@ -111,7 +111,7 @@ const PORT_OUT = '#4fe0c0'
 type Interaction =
   | { type: 'pan'; startX: number; startY: number; ox: number; oy: number }
   | { type: 'move'; start: Vec; step: number }
-  | { type: 'box'; start: Vec }
+  | { type: 'box'; start: Vec; mode: 'replace' | 'add' | 'remove' }
   | { type: 'area'; start: Vec }
   | { type: 'waypoint'; uid: string; i: number }
   | null
@@ -162,6 +162,8 @@ export default function PlannerCanvas() {
   const [screen, setScreen] = useState<Vec>({ x: 0, y: 0 })
   const [drag, setDrag] = useState<Vec>({ x: 0, y: 0 })
   const [box, setBox] = useState<WRect | null>(null)
+  /** última posición del mouse en pantalla (para mover la vista sola mientras se selecciona) */
+  const screenRef = useRef<Vec>({ x: 0, y: 0 })
   /** relleno de cimientos en curso: anclaje inicial y actual */
   const [area, setArea] = useState<{ a: Vec; b: Vec } | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -256,6 +258,15 @@ export default function PlannerCanvas() {
         } else st.select([])
       }
       if (e.key === 'Delete' || e.key === 'Backspace') st.deleteSelection()
+      if (ctrl && e.key.toLowerCase() === 'a' && st.tool === 'select') {
+        // todo lo del piso que se está viendo
+        e.preventDefault()
+        st.select([
+          ...st.entities.filter((x) => onFloor(x, st.floor)).map((x) => x.uid),
+          ...st.conveyors.filter((c) => c.floor === st.floor).map((c) => c.uid),
+          ...(st.rails ?? []).filter((r) => r.floor === st.floor).map((r) => r.uid),
+        ])
+      }
       if (ctrl && e.key.toLowerCase() === 'z') {
         e.preventDefault()
         if (e.shiftKey) st.redo()
@@ -794,8 +805,10 @@ export default function PlannerCanvas() {
       if (!st.selection.includes(hit.uid)) st.select([hit.uid], e.evt.shiftKey)
       inter.current = { type: 'move', start: p, step: moveStepFor(sel) }
     } else {
-      if (!e.evt.shiftKey) st.select([])
-      inter.current = { type: 'box', start: p }
+      // Shift: suma a lo seleccionado · Ctrl: lo quita · sin tecla: selección nueva
+      const mode = e.evt.ctrlKey || e.evt.metaKey ? 'remove' : e.evt.shiftKey ? 'add' : 'replace'
+      if (mode === 'replace') st.select([])
+      inter.current = { type: 'box', start: p, mode }
       setBox(normRect(p, p))
     }
   }
@@ -805,6 +818,7 @@ export default function PlannerCanvas() {
     const p = toWorldPt(pos.x, pos.y)
     setMouse(p)
     setScreen(pos)
+    screenRef.current = pos
     const it = inter.current
     if (!it) return
     // si se soltó el botón fuera del lienzo, no quedó registrado: se termina acá
@@ -863,13 +877,44 @@ export default function PlannerCanvas() {
           return r ? rectsOverlap(r, box, 0) : false
         })
         const hitConv = visibleConv.filter((c) => c.points.some((p) => rectContainsPoint(box, p)))
-        st.select([...hits.map((h) => h.uid), ...hitConv.map((c) => c.uid)], e.evt.shiftKey)
+        const hitRails = visibleRails.filter((r) => r.points.some((p) => rectContainsPoint(box, p)))
+        const uids = [...hits.map((h) => h.uid), ...hitConv.map((c) => c.uid), ...hitRails.map((r) => r.uid)]
+        if (it.mode === 'remove') {
+          const gone = new Set(uids)
+          st.select(st.selection.filter((u) => !gone.has(u)))
+        } else st.select(uids, it.mode === 'add' || e.evt.shiftKey)
       }
       setBox(null)
     }
   }
 
   onUpRef.current = onUp
+
+  // selección con recuadro: si el mouse llega al borde del lienzo, la vista se mueve sola (y el recuadro la sigue),
+  // así se puede seleccionar algo más grande que la pantalla; con la rueda también se puede alejar mientras tanto
+  const boxing = !!box
+  useEffect(() => {
+    if (!boxing) return
+    const EDGE = 36
+    const id = setInterval(() => {
+      const it = inter.current
+      if (it?.type !== 'box') return
+      const p = screenRef.current
+      const st = useEditor.getState()
+      const v = st.view
+      const dx = p.x < EDGE ? EDGE - p.x : p.x > size.w - EDGE ? size.w - EDGE - p.x : 0
+      const dy = p.y < EDGE ? EDGE - p.y : p.y > size.h - EDGE ? size.h - EDGE - p.y : 0
+      const k = 0.35
+      const nv = dx || dy ? { offsetX: v.offsetX + dx * k, offsetY: v.offsetY + dy * k } : null
+      if (nv) st.setView(nv)
+      const ox = nv?.offsetX ?? v.offsetX
+      const oy = nv?.offsetY ?? v.offsetY
+      const w = { x: (p.x - ox) / v.scale, y: (p.y - oy) / v.scale }
+      setBox(normRect(it.start, w))
+    }, 30)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boxing, size.w, size.h])
 
   // ---------- fantasmas ----------
   const ghost = useMemo(() => {
@@ -1311,6 +1356,7 @@ export default function PlannerCanvas() {
         {tool === 'place' && placingId && isSignal(placingId) && i18n.t('canvas.signalHint')}
         {tool === 'place' && placingId && isBeltMonitor(placingId) && i18n.t('monitor.hint')}
         {tool === 'route' && i18n.t('canvas.hintRoute')}
+        {box && i18n.t('canvas.hintBox')}
       </div>
     </div>
   )

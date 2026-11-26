@@ -300,7 +300,7 @@
     "grids": "Redes eléctricas",
     "grid": "Red {{id}} ({{n}})",
     "controls": "Controles",
-    "controlsView": "Rueda: zoom · Botón central o <kbd>Espacio</kbd>+arrastrar: mover vista · <kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd>: deshacer/rehacer · <kbd>Shift</kbd>+clic: sumar a la selección · clic derecho: opciones",
+    "controlsView": "Rueda: zoom · Botón central o <kbd>Espacio</kbd>+arrastrar: mover vista · <kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd>: deshacer/rehacer · <kbd>Shift</kbd>+clic o recuadro: sumar a la selección (puedes mover la vista entre una y otra) · <kbd>Ctrl</kbd>+recuadro: quitar · <kbd>Ctrl</kbd>+<kbd>A</kbd>: todo el piso · arrastrar el recuadro al borde mueve la vista · clic derecho: opciones",
     "controlsBuild": "Cimientos: arrastrar rellena un área · clic en el extremo suelto de una cinta o tubería: seguirla",
     "controlsColors": "Cintas: <ok>verde</ok> justo, <warn>amarillo</warn> sobra material, <bad>rojo</bad> falta material.",
     "powerUse": "Consumo {{mw}} MW",
@@ -550,7 +550,8 @@
     "areaPieces_one": "{{count}} pieza · {{m2}} m²",
     "areaPieces_other": "{{count}} piezas · {{m2}} m²",
     "peakTrip": "En el pico de las máquinas de potencia variable piden {{peak}} MW y la red genera {{gen}}: sin baterías, se corta.",
-    "peakCovered": "Pico de {{peak}} MW sobre {{gen}} generados: lo cubren las baterías."
+    "peakCovered": "Pico de {{peak}} MW sobre {{gen}} generados: lo cubren las baterías.",
+    "hintBox": " · Shift: sumar a la selección · Ctrl: quitar · al borde: mueve la vista · rueda: zoom"
   },
   "cloud": {
     "localDraft": "Borrador local",

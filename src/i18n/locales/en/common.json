@@ -300,7 +300,7 @@
     "grids": "Power grids",
     "grid": "Grid {{id}} ({{n}})",
     "controls": "Controls",
-    "controlsView": "Wheel: zoom · Middle button or <kbd>Space</kbd>+drag: pan · <kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd>: undo/redo · <kbd>Shift</kbd>+click: add to selection · right-click: options",
+    "controlsView": "Wheel: zoom · Middle button or <kbd>Space</kbd>+drag: pan · <kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd>: undo/redo · <kbd>Shift</kbd>+click or box: add to selection (you can pan in between) · <kbd>Ctrl</kbd>+box: remove · <kbd>Ctrl</kbd>+<kbd>A</kbd>: whole floor · dragging the box to the edge pans the view · right-click: options",
     "controlsBuild": "Foundations: drag to fill an area · click the loose end of a belt or pipe: keep drawing it",
     "controlsColors": "Belts: <ok>green</ok> balanced, <warn>yellow</warn> surplus, <bad>red</bad> shortage.",
     "powerUse": "Uses {{mw}} MW",
@@ -550,7 +550,8 @@
     "areaPieces_one": "{{count}} piece · {{m2}} m²",
     "areaPieces_other": "{{count}} pieces · {{m2}} m²",
     "peakTrip": "At the peak of variable-power machines they draw {{peak}} MW and the grid generates {{gen}}: without power storage, it trips.",
-    "peakCovered": "Peak of {{peak}} MW over {{gen}} generated: covered by power storage."
+    "peakCovered": "Peak of {{peak}} MW over {{gen}} generated: covered by power storage.",
+    "hintBox": " · Shift: add to selection · Ctrl: remove · at the edge: moves the view · wheel: zoom"
   },
   "cloud": {
     "localDraft": "Local draft",
