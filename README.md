@@ -37,7 +37,7 @@ node scripts/extract-game-data.mjs "<ruta>/Satisfactory/CommunityResources/Docs/
 
 - Iconos propios para cada máquina, estructura y material (paleta, recetas, tooltips y en el plano).
 - Logo de la aplicación.
-- Calculadora: trazar automáticamente las cintas entre las máquinas que coloca.
+- Calculadora: colocar también los taladros y extractores sobre yacimientos y evitar cruces de líneas.
 - Mapa de yacimientos reales (ubicación y pureza de los nodos).
 - Detección de choques de cintas con máquinas y pendiente máxima de 35°.
 - Subproductos que bloquean (residuos nucleares, fluidos de refinería).

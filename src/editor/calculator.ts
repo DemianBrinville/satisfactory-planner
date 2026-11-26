@@ -44,7 +44,16 @@ export function recipesProducing(item: string, available: (r: Recipe) => boolean
   return game.recipes
     .filter((r) => r.products.some((p) => p.item === item) && r.producedIn.some((b) => buildingsById.get(b)?.kind === 'machine'))
     .filter(available)
-    .sort((a, b) => Number(a.alternate) - Number(b.alternate) || (a.products[0].item === item ? -1 : 1))
+    .sort((a, b) => score(a, item) - score(b, item))
+}
+
+/** Preferencia de receta por defecto: la que se llama como el producto, luego estándar, luego el resto. */
+function score(r: Recipe, item: string): number {
+  let s = 0
+  if (r.alternate) s += 10
+  if (r.name !== game.items[item]?.name) s += 3
+  if (r.products[0]?.item !== item) s += 2
+  return s
 }
 
 /** Ítems que se pueden pedir como objetivo (productos de alguna receta de máquina). */

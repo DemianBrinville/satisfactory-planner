@@ -122,9 +122,13 @@ const sumRates = (m: Rates) => [...m.values()].reduce((a, b) => a + b, 0)
 const demOf = (m: Rates | undefined, item: string) => m?.get(item) ?? m?.get('*') ?? 0
 
 export function computeFlows(entities: PlacedEntity[], baseConveyors: Conveyor[], routes: Route[] = [], floorHeight = 8): FlowResult {
-  const real = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, 'real')
+  // oferta ideal (todas las máquinas abastecidas): sirve de referencia para repartir la demanda
+  // entre entradas cuando todavía no llega nada (p. ej. una cadena de uniones sin taladros conectados)
+  const ideal = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, 'supply')
+  const hint = new Map([...ideal.edges].map(([uid, e]) => [uid, e.offer]))
+  const real = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, 'real', hint)
   // ideal del siguiente crafteo: lo que pide cada máquina de destino a su reloj, sin mirar más adelante
-  const local = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, 'local')
+  const local = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, 'local', hint)
   for (const [uid, e] of real.edges) {
     const d = local.edges.get(uid)
     if (d && !d.open) e.local = new Map(d.demand)
@@ -132,7 +136,6 @@ export function computeFlows(entities: PlacedEntity[], baseConveyors: Conveyor[]
   // en las cintas abiertas (salida sin consumidor, sumideros) el ideal es lo que producirían las máquinas
   // de atrás al 100 % de su reloj: se calcula suponiendo que a todas les llega todo lo que piden
   if (![...real.edges.values()].some((e) => e.open)) return real
-  const ideal = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, 'supply')
   for (const [uid, e] of real.edges) {
     if (!e.open) continue
     const supply = ideal.edges.get(uid)?.offer
@@ -151,6 +154,8 @@ function computeFlowsRaw(
    * · local: cada máquina pide lo de su receta a su reloj sin importar lo que consume lo de adelante
    */
   mode: 'real' | 'supply' | 'local',
+  /** ofertas ideales por arista, para repartir demanda cuando la oferta real es cero */
+  hint?: Map<string, Rates>,
 ): FlowResult {
   // las rutas de vehículos (tren, camión, dron) son aristas virtuales entre estaciones
   const routeById = new Map(routes.map((r) => [r.uid, r]))
@@ -250,8 +255,14 @@ function computeFlowsRaw(
 
   /** Reparte una demanda total entre las cintas de entrada según lo que ofrece cada una. */
   const splitDemand = (need: number, edges: Conveyor[], item: string, off: Map<string, Rates>): Map<string, number> => {
-    const offers = edges.map((e) => off.get(e.uid)?.get(item) ?? 0)
-    const total = offers.reduce((a, b) => a + b, 0)
+    // '*' (salida abierta) reparte según el total de ítems que trae cada entrada
+    const pick = (m: Rates | undefined) => (item === '*' ? (m ? sumRates(m) : 0) : m?.get(item) ?? 0)
+    let offers = edges.map((e) => pick(off.get(e.uid)))
+    let total = offers.reduce((a, b) => a + b, 0)
+    if (total <= 0 && hint) {
+      offers = edges.map((e) => pick(hint.get(e.uid)))
+      total = offers.reduce((a, b) => a + b, 0)
+    }
     const res = new Map<string, number>()
     edges.forEach((e, i) => res.set(e.uid, total > 0 ? (need * offers[i]) / total : need / edges.length))
     return res
@@ -260,7 +271,9 @@ function computeFlowsRaw(
   const portKindOf = (c: Conveyor) =>
     c.buildingId === ROUTE_FLUID || buildingsById.get(c.buildingId)?.kind === 'pipe' ? 'pipe' : 'belt'
 
-  for (let iter = 0; iter < 40; iter++) {
+  // las cadenas largas (manifolds) necesitan más pasadas para que la demanda llegue hasta el principio
+  const iterations = Math.min(200, 40 + Math.ceil(conveyors.length / 2))
+  for (let iter = 0; iter < iterations; iter++) {
     const nOffer = new Map<string, Rates>(conveyors.map((c) => [c.uid, new Map()]))
     const nDemand = new Map<string, Rates>(conveyors.map((c) => [c.uid, new Map()]))
 

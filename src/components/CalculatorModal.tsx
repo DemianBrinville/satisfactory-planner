@@ -2,6 +2,7 @@ import { LayoutGrid, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { buildingsById, game, itemName, type Recipe } from '../data/gameData'
 import { layoutChain, machineSplit, minersFor, producibleItems, recipesProducing, solveChain } from '../editor/calculator'
+import { buildChain, totalLength } from '../editor/chainBuilder'
 import { entityRect, useEditor } from '../editor/store'
 import { useAvailability } from '../editor/progress'
 import Modal from './Modal'
@@ -48,15 +49,29 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
     return { machines, power, cost: [...cost].sort((a, b) => b[1] - a[1]) }
   }, [result])
 
+  const [wire, setWire] = useState(true)
+  /** Origen del bloque: a la derecha de lo que ya hay en el piso. */
+  const origin = () => {
+    const st = useEditor.getState()
+    const rects = st.entities.filter((e) => e.floor === st.floor).map((e) => entityRect(e)).filter(Boolean)
+    if (!rects.length) return { x: 0, y: 0, existing: [] as { x0: number; x1: number; y0: number }[] }
+    const x = Math.ceil(Math.max(...rects.map((r) => r!.x1)) / 8) * 8 + 24
+    const y = Math.floor(Math.min(...rects.map((r) => r!.y0)) / 8) * 8
+    return { x, y, existing: rects.map((r) => ({ x0: r!.x0, x1: r!.x1, y0: r!.y0 })) }
+  }
+  // vista previa del armado (para avisar antes de colocar)
+  const build = useMemo(() => {
+    if (!result || !wire) return null
+    const o = origin()
+    return buildChain(result.steps, result.raw, useEditor.getState().floor, { x: o.x, y: o.y }, split)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result, wire, split])
+
   const place = () => {
     if (!result) return
     const st = useEditor.getState()
-    const existing = st.entities
-      .filter((e) => e.floor === st.floor)
-      .map((e) => entityRect(e))
-      .filter(Boolean)
-      .map((r) => ({ x0: r!.x0, x1: r!.x1, y0: r!.y0 }))
-    st.addLayout(layoutChain(result.steps, st.floor, existing, split))
+    if (wire && build) st.addDoc(build)
+    else st.addLayout(layoutChain(result.steps, st.floor, origin().existing, split))
     onClose()
   }
 
@@ -231,10 +246,26 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
               ))}
             </section>
           </div>
+          {build && (
+            <div className="calc-wire">
+              <p className="muted small">
+                Con conexiones: {build.conveyors.length} tramos ({Math.round(totalLength(build.conveyors))} m) con uniones, divisores y uniones de
+                tuberías en manifold. Las materias primas entran por postes (cintas) o soportes (tuberías) sueltos abajo a la derecha, ahí conectas tus taladros y extractores, y el producto
+                final sale por la derecha. Si dos líneas se cruzan, en el juego una pasa por encima con un poste más alto.
+              </p>
+              {build.notes.map((n) => (
+                <p key={n} className="warn small">
+                  {n}
+                </p>
+              ))}
+            </div>
+          )}
           <div className="modal-actions">
-            <span className="muted small">
-              Se colocan a la derecha de lo que ya tienes, con la receta y el reloj configurados. Las cintas las trazas tú.
-            </span>
+            <label className="switch">
+              <input type="checkbox" checked={wire} onChange={(e) => setWire(e.target.checked)} />
+              Conectar con cintas y tuberías
+            </label>
+            <span className="muted small">Se coloca a la derecha de lo que ya tienes, con recetas y relojes configurados.</span>
             <button className="btn primary" onClick={place} disabled={!result.steps.length}>
               <LayoutGrid size={16} /> Colocar en el plano
             </button>
