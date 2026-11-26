@@ -2,7 +2,7 @@ import { LayoutGrid, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { buildingsById, game, itemName, type Recipe } from '../data/gameData'
 import { layoutChain, machineSplit, minersFor, producibleItems, recipesProducing, solveChain } from '../editor/calculator'
-import { buildChain, totalLength } from '../editor/chainBuilder'
+import { buildChain, extractorFor, totalLength } from '../editor/chainBuilder'
 import { entityRect, useEditor } from '../editor/store'
 import { useAvailability } from '../editor/progress'
 import Modal from './Modal'
@@ -204,7 +204,9 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
             <section>
               <h3>Materias primas y entradas</h3>
               {[...result.raw].map(([i, v]) => {
-                const m = minersFor(i, v)
+                const exId = extractorFor(i)
+                const ex = exId ? buildingsById.get(exId) : null
+                const m = ex ? { count: v / (ex.extractPerMinute ?? 60), label: `${ex.name}${ex.kind === 'miner' || /OilPump/.test(ex.id) ? ' (normal)' : ''}` } : minersFor(i, v)
                 const traido = inputs.has(i) || result.missing.has(i)
                 return (
                   <div key={i} className="flowline">
@@ -253,8 +255,7 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
             <div className="calc-wire">
               <p className="muted small">
                 Con conexiones: {build.conveyors.length} tramos ({Math.round(totalLength(build.conveyors))} m) con uniones, divisores y uniones de
-                tuberías en manifold. Las materias primas entran por postes (cintas) o soportes (tuberías) sueltos abajo a la derecha, ahí conectas tus taladros y extractores, y el producto
-                final sale por la derecha. Si dos líneas se cruzan, en el juego una pasa por encima con un poste más alto.
+                tuberías en manifold. Abajo van los taladros y extractores, con la mejor marca que tengas desbloqueada y el reloj justo, y el producto final sale por la derecha. Si dos líneas se cruzan, en el juego una pasa por encima con un poste más alto.
               </p>
               {build.notes.map((n) => (
                 <p key={n} className="warn small">

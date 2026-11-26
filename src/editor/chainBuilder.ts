@@ -1,6 +1,7 @@
 import { buildingsById, game } from '../data/gameData'
 import { machineSplit, RAW_ITEMS, type Step } from './calculator'
 import { pathLength } from './conveyors'
+import { MINER_RESOURCES } from './flow'
 import { portsOf, toWorld, worldRect, type Rotation, type Vec } from './geometry'
 import { isBuildingIdAvailable } from './progress'
 import { BELT_POLE, PIPE_SUPPORT, newUid, type Conveyor, type End, type PlacedEntity } from './store'
@@ -23,6 +24,20 @@ const PIPES = ['Build_Pipeline_C', 'Build_PipelineMK2_C']
 const MERGER = 'Build_ConveyorAttachmentMerger_C'
 const SPLITTER = 'Build_ConveyorAttachmentSplitter_C'
 const JUNCTION = 'Build_PipelineJunction_Cross_C'
+
+/** Extractores por materia prima, del mejor al peor (se usa el mejor desbloqueado). */
+const MINERS = ['Build_MinerMk3_C', 'Build_MinerMk2_C', 'Build_MinerMk1_C']
+const EXTRACTORS: Record<string, string[]> = {
+  Desc_Water_C: ['Build_WaterPump_C'],
+  Desc_LiquidOil_C: ['Build_OilPump_C'],
+}
+/** Extractor que conviene para una materia prima (null si no se puede extraer directo, p. ej. nitrógeno). */
+export function extractorFor(item: string): string | null {
+  const list = EXTRACTORS[item] ?? (MINER_RESOURCES.includes(item) ? MINERS : null)
+  if (!list) return null
+  const ok = list.filter((id) => buildingsById.has(id))
+  return ok.find((id) => isBuildingIdAvailable(id)) ?? ok[ok.length - 1] ?? null
+}
 
 const isFluid = (item: string) => ['liquid', 'gas'].includes(game.items[item]?.form ?? '')
 const kindOf = (item: string): Kind => (isFluid(item) ? 'pipe' : 'belt')
@@ -144,7 +159,54 @@ export function buildChain(
     const P = rows[r + 1] ? slotsOf(rows[r + 1]).length : 0
     y = bottom + 8 + LANE * K + LANE * P
   })
-  const lowest = y
+  // ---------- extracción: una fila de taladros/extractores al pie del bloque ----------
+  // (en el juego van sobre los yacimientos; acá quedan juntos para ver cantidad, reloj y conexiones)
+  const rawGroups = [...raw]
+    .filter(([item]) => extractorFor(item))
+    .map(([item, rate]) => ({ item, rate, id: extractorFor(item)! }))
+  const rawLanes = rawGroups.length
+  const rawTop = y + 6 + LANE * Math.max(0, rawLanes - 1)
+  const rawUnits = new Map<string, { e: PlacedEntity; pi: number }[]>()
+  let rawBottom = y
+  {
+    let x = origin.x
+    rawGroups.forEach((g) => {
+      const b = buildingsById.get(g.id)!
+      const base = b.extractPerMinute ?? 60
+      const r0 = worldRect(b, { x: 0, y: 0 }, 0)
+      const { n, even, full, rest } = machineSplit(g.rate / base)
+      const list: { e: PlacedEntity; pi: number }[] = []
+      for (let i = 0; i < n; i++) {
+        const clock = split === 'even' ? even : i < full ? 1 : rest
+        if (clock <= 1e-6) continue
+        const e = add({
+          uid: newUid(),
+          buildingId: g.id,
+          x: Math.round(x - r0.x0),
+          y: Math.round(rawTop - r0.y0),
+          rot: 0,
+          floor,
+          resource: g.item,
+          ...(b.kind === 'miner' || /OilPump/.test(g.id) ? { purity: 'normal' as const } : {}),
+          clock: Math.round(clock * 10000) / 10000,
+        })
+        const rr = worldRect(b, e, 0)
+        minX = Math.min(minX, rr.x0)
+        maxX = Math.max(maxX, rr.x1)
+        rawBottom = Math.max(rawBottom, rr.y1)
+        x = rr.x1 + 2
+        list.push({ e, pi: 0 })
+      }
+      x += 4
+      rawUnits.set(g.item, list)
+    })
+    if (rawGroups.length)
+      notes.push(
+        'Taladros y extractores calculados para yacimientos normales al reloj justo; en el juego van sobre cada yacimiento: si el tuyo es puro o impuro, cambia la pureza en el taladro y la app recalcula.',
+      )
+  }
+  const rawLaneY = (item: string) => rawTop - 4 - LANE * (rawLanes - 1 - rawGroups.findIndex((g) => g.item === item))
+  const lowest = Math.max(y, rawBottom)
 
   // carril de cada producto encima de su fila: el de más a la derecha queda más cerca de la fila
   const producerLaneY = (s: Step, item: string = s.item) => {
@@ -237,15 +299,18 @@ export function buildChain(
    * La primera máquina no necesita unión: su cinta entra por atrás a la unión de la segunda; con una sola
    * máquina sale directo de su puerto.
    */
-  const collect = (s: Step, mark: string, item: string = s.item): { end: End; pos: Vec; via: Vec[] } | null => {
-    const kind = kindOf(item)
+  const collect = (s: Step, mark: string, item: string = s.item) =>
+    collectAt(
+      (machinesByStep.get(s) ?? [])
+        .map((m) => ({ e: m.e, pi: outPortOf(m, item) }))
+        .filter((x): x is { e: PlacedEntity; pi: number } => x.pi !== undefined),
+      producerLaneY(s, item),
+      kindOf(item),
+      mark,
+    )
+  const collectAt = (units: { e: PlacedEntity; pi: number }[], laneY: number, kind: Kind, mark: string): { end: End; pos: Vec; via: Vec[] } | null => {
     const spec = COLLECTOR[kind]
-    const laneY = producerLaneY(s, item)
-    const ms = (machinesByStep.get(s) ?? [])
-      .map((m) => ({ m, pi: outPortOf(m, item) }))
-      .filter((x): x is { m: Machine; pi: number } => x.pi !== undefined)
-      .map((x) => ({ ...x, pp: portPos(x.m.e, x.pi) }))
-      .sort((a, b) => a.pp.x - b.pp.x)
+    const ms = units.map((x) => ({ m: { e: x.e }, pi: x.pi, pp: portPos(x.e, x.pi) })).sort((a, b) => a.pp.x - b.pp.x)
     if (!ms.length) return null
     if (ms.length === 1) return { end: { uid: ms[0].m.e.uid, port: ms[0].pi }, pos: ms[0].pp, via: [{ x: ms[0].pp.x, y: laneY }] }
     let prev: PlacedEntity | null = null
@@ -350,6 +415,8 @@ export function buildChain(
         continue
       }
       cur = c
+    } else if (rawUnits.get(f.item)?.length) {
+      cur = collectAt(rawUnits.get(f.item)!, rawLaneY(f.item), kind, mark)
     }
 
     if (!consumerRows.length) {
@@ -371,6 +438,7 @@ export function buildChain(
         // materia prima: entra desde un poste/soporte suelto debajo del bloque (ahí conectas los taladros)
         const busX = busLane(side, lowest + 6, d.entryPos.y)
         addPath([{ x: busX, y: lowest + 6 }, { x: busX, y: d.entryPos.y }, d.entryPos, ...d.tail], { x: busX, y: lowest + 6 }, d.entry, kind, mark)
+        if (game.items[f.item]) notes.push(`${game.items[f.item]?.name}: entra por un ${kind === 'pipe' ? 'soporte' : 'poste'} suelto abajo; ahí conectas lo que lo trae.`)
       } else {
         const start = [cur.pos, ...cur.via]
         const hy = start[start.length - 1].y
