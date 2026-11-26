@@ -1850,6 +1850,11 @@ export function GridLine({ e, b, power }: { e: PlacedEntity; b: Building; power:
     <div className={over ? 'bad' : 'muted'}>
       <Zap size={13} /> {i18n.t('canvas.grid', { id: g.id, use: fmt(g.consumption), gen: fmt(g.generation) })}
       {over && i18n.t('canvas.overloaded')}
+      {!over && g.peak > g.generation + 1e-6 && (
+        <div className={g.batteries ? 'muted' : 'warn'}>
+          {i18n.t(g.batteries ? 'canvas.peakCovered' : 'canvas.peakTrip', { peak: fmt(g.peak), gen: fmt(g.generation) })}
+        </div>
+      )}
     </div>
   )
 }

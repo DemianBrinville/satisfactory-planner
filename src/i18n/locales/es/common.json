@@ -547,7 +547,9 @@
     "areaRect": "{{w}} × {{h}} cimientos ({{mw}} × {{mh}} m)",
     "areaShape": "Forma irregular, dentro de {{w}} × {{h}} cimientos",
     "areaPieces_one": "{{count}} pieza · {{m2}} m²",
-    "areaPieces_other": "{{count}} piezas · {{m2}} m²"
+    "areaPieces_other": "{{count}} piezas · {{m2}} m²",
+    "peakTrip": "En el pico de las máquinas de potencia variable piden {{peak}} MW y la red genera {{gen}}: sin baterías, se corta.",
+    "peakCovered": "Pico de {{peak}} MW sobre {{gen}} generados: lo cubren las baterías."
   },
   "cloud": {
     "localDraft": "Borrador local",
@@ -690,7 +692,6 @@
     "focus": "Volver al plano"
   },
   "augmenter": {
-    "title": "Amplificador de energía alienígena",
     "help": "Genera {{mw}} MW y aumenta un {{base}} % toda la generación de su red (también la de los otros generadores y la del mundo si está enganchada). Con {{rate}} matrices de energía alienígena por minuto el aumento sube a {{fueled}} %. Los aumentos de varios amplificadores se suman.",
     "fuel": "Matrices de energía alienígena",
     "byBelt": "Por cinta: llegan {{got}} de {{need}}/min",
@@ -699,5 +700,19 @@
     "grid": "Red {{id}}: {{base}} MW de base → {{total}} MW con +{{pct}} %",
     "infinite": "Energía infinita: el plano suma +{{pct}} % a toda la red",
     "noGrid": "Sin cables: no aumenta ninguna red. Conéctalo con un cable a la red que quieres aumentar."
+  },
+  "battery": {
+    "help": "Guarda {{mwh}} MWh. Se carga con lo que sobra en su red, hasta {{mw}} MW, y cuando la generación no alcanza entrega lo que falta, sin límite, hasta vaciarse; ahí la red se corta.",
+    "infinite": "Con energía infinita la red siempre alcanza: la batería queda llena.",
+    "noGrid": "Sin cables: conéctala con un cable a la red que quieres respaldar.",
+    "gridStorage_one": "Red {{id}}: {{count}} batería",
+    "gridStorage_other": "Red {{id}}: {{count}} baterías",
+    "charging": "Sobran {{mw}} MW: se llenan en {{time}}.",
+    "draining": "Faltan {{mw}} MW: llenas, aguantan {{time}} y después la red se corta.",
+    "idle": "La generación y el consumo están justos: no se cargan ni se descargan.",
+    "peaks": "En el pico de las máquinas de potencia variable faltan hasta {{mw}} MW: las baterías cubren esos momentos.",
+    "minutes": "{{m}} min",
+    "hours": "{{h}} h",
+    "hoursMinutes": "{{h}} h {{m}} min"
   }
 }

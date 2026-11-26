@@ -1,4 +1,4 @@
-import { basePowerMW, buildingsById, usesPower, type Building, type ItemAmount } from '../data/gameData'
+import { basePowerMW, buildingsById, isVariablePower, recipePowerRange, recipesById, usesPower, type Building, type ItemAmount } from '../data/gameData'
 import { PURITY_MULT, somersloopBoost, type FlowResult } from './flow'
 import { worldRect } from './geometry'
 import { DEFAULT_FLOOR_HEIGHT, type PlacedEntity, type PowerSettings, type Wire } from './store'
@@ -29,6 +29,18 @@ export const AUGMENTER_BOOST = 0.1
 export const AUGMENTER_FUEL_BOOST = 0.2
 export const AUGMENTER_FUEL_RATE = 5
 export const isAugmenter = (id: string) => id === AUGMENTER
+
+/** Batería (datos del juego): guarda 100 MWh y se carga con lo que sobra en la red, hasta 100 MW cada una; descarga sin límite. */
+export const BATTERY_MWH = 100
+export const BATTERY_CHARGE_MW = 100
+export const isBattery = (id: string) => /PowerStorage/.test(id)
+
+/** Consumo en el pico del ciclo: las máquinas de potencia variable llegan a su máximo; el resto, igual que siempre. */
+export function peakMW(e: PlacedEntity, b: Building): number {
+  const range = recipePowerRange(e.recipeId ? recipesById.get(e.recipeId) : undefined)
+  if (!isVariablePower(b) || !range) return consumptionMW(e, b)
+  return consumptionMW(e, b) * (range[1] / ((range[0] + range[1]) / 2 || 1))
+}
 
 /** Parte del tiempo que el amplificador tiene matriz: por cinta, lo que le llega; sin cinta, lo que marcó el jugador. */
 export function augmenterFuel(e: PlacedEntity, flows?: FlowResult): number {
@@ -112,6 +124,10 @@ export interface Grid {
   base: number
   /** aumento de los amplificadores de la red (0,1 por cada uno; 0,3 con matrices) */
   boost: number
+  /** consumo si todas las máquinas de potencia variable coinciden en su pico */
+  peak: number
+  /** baterías conectadas */
+  batteries: number
   /** está conectada a la red del mundo */
   world?: boolean
 }
@@ -159,11 +175,13 @@ export function computeGrids(entities: PlacedEntity[], wires: Wire[], flows?: Fl
   for (const e of powered) {
     if (!used.has(e.uid) && !e.worldLink) continue // sin líneas: no pertenece a ninguna red
     const root = find(e.uid)
-    if (!byRoot.has(root)) byRoot.set(root, { id: next++, members: [], consumption: 0, generation: 0, base: 0, boost: 0, world: false })
+    if (!byRoot.has(root)) byRoot.set(root, { id: next++, members: [], consumption: 0, generation: 0, base: 0, boost: 0, peak: 0, batteries: 0, world: false })
     const g = byRoot.get(root)!
     const b = buildingsById.get(e.buildingId)!
     g.members.push(e.uid)
     g.consumption += consumptionMW(e, b)
+    g.peak += peakMW(e, b)
+    if (isBattery(b.id)) g.batteries++
     g.base += generationMW(e, b, flows)
     if (isAugmenter(b.id)) g.boost += augmenterBoost(e, flows)
     gridOf.set(e.uid, g.id)
@@ -189,4 +207,27 @@ export function computeGrids(entities: PlacedEntity[], wires: Wire[], flows?: Fl
   const worldBoost = settings?.infinite ? planBoost : [...byRoot.values()].filter((g) => g.world).reduce((a, g) => a + g.boost, 0)
   const planGen = planBase * (1 + planBoost) + worldGen * worldBoost
   return { gridOf, grids: [...byRoot.values()], used, infinite: settings?.infinite ?? false, planUse, planGen, worldSpare, planBoost }
+}
+
+export interface BatteryState {
+  /** MWh que guardan las baterías de la red */
+  capacity: number
+  /** sobra en la red: se carga a este ritmo (MW) */
+  charge: number
+  /** falta en la red: se descarga a este ritmo (MW) */
+  drain: number
+  /** horas hasta llenarse (cargando) o hasta vaciarse desde llenas (descargando) */
+  hours: number | null
+  /** las máquinas de potencia variable piden más que la generación en su pico (MW de diferencia) */
+  peakGap: number
+}
+
+/** Estado de las baterías de una red: cuánto guardan, si se cargan o se descargan y en cuánto tiempo. */
+export function batteryState(g: Grid): BatteryState {
+  const capacity = g.batteries * BATTERY_MWH
+  const spare = g.generation - g.consumption
+  const charge = spare > 1e-6 ? Math.min(spare, g.batteries * BATTERY_CHARGE_MW) : 0
+  const drain = spare < -1e-6 ? -spare : 0
+  const hours = !capacity ? null : charge > 0 ? capacity / charge : drain > 0 ? capacity / drain : null
+  return { capacity, charge, drain, hours, peakGap: Math.max(0, g.peak - g.generation) }
 }

@@ -547,7 +547,9 @@
     "areaRect": "{{w}} × {{h}} foundations ({{mw}} × {{mh}} m)",
     "areaShape": "Irregular shape, within {{w}} × {{h}} foundations",
     "areaPieces_one": "{{count}} piece · {{m2}} m²",
-    "areaPieces_other": "{{count}} pieces · {{m2}} m²"
+    "areaPieces_other": "{{count}} pieces · {{m2}} m²",
+    "peakTrip": "At the peak of variable-power machines they draw {{peak}} MW and the grid generates {{gen}}: without power storage, it trips.",
+    "peakCovered": "Peak of {{peak}} MW over {{gen}} generated: covered by power storage."
   },
   "cloud": {
     "localDraft": "Local draft",
@@ -690,7 +692,6 @@
     "focus": "Back to the plan"
   },
   "augmenter": {
-    "title": "Alien Power Augmenter",
     "help": "Generates {{mw}} MW and increases all generation on its grid by {{base}} % (other generators too, and the world grid if it is linked). With {{rate}} Alien Power Matrices per minute the boost goes up to {{fueled}} %. Boosts from several augmenters add up.",
     "fuel": "Alien Power Matrices",
     "byBelt": "By belt: {{got}} of {{need}}/min arrive",
@@ -699,5 +700,19 @@
     "grid": "Grid {{id}}: {{base}} MW base → {{total}} MW with +{{pct}} %",
     "infinite": "Infinite power: the plan adds +{{pct}} % to the whole grid",
     "noGrid": "No wires: it boosts no grid. Connect it with a wire to the grid you want to boost."
+  },
+  "battery": {
+    "help": "Stores {{mwh}} MWh. It charges with the spare power on its grid, up to {{mw}} MW, and when generation falls short it supplies the difference, with no limit, until it runs empty; then the grid trips.",
+    "infinite": "With infinite power the grid always has enough: the storage stays full.",
+    "noGrid": "No wires: connect it with a wire to the grid you want to back up.",
+    "gridStorage_one": "Grid {{id}}: {{count}} power storage",
+    "gridStorage_other": "Grid {{id}}: {{count}} power storages",
+    "charging": "{{mw}} MW spare: full in {{time}}.",
+    "draining": "{{mw}} MW short: when full, they last {{time}} and then the grid trips.",
+    "idle": "Generation and consumption are even: they neither charge nor discharge.",
+    "peaks": "At the peak of variable-power machines up to {{mw}} MW is missing: the storage covers those moments.",
+    "minutes": "{{m}} min",
+    "hours": "{{h}} h",
+    "hoursMinutes": "{{h}} h {{m}} min"
   }
 }

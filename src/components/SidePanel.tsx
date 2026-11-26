@@ -20,10 +20,14 @@ import {
   AUGMENTER_MW,
   augmenterBoost,
   augmenterFuel,
+  BATTERY_CHARGE_MW,
+  BATTERY_MWH,
+  batteryState,
   canLinkWorld,
   computeGrids,
   consumptionMW,
   isAugmenter,
+  isBattery,
 } from '../editor/power'
 import { isVerticalConnector } from '../editor/geometry'
 import { useEditor, type PlacedEntity, type Purity } from '../editor/store'
@@ -135,6 +139,7 @@ export default function SidePanel() {
       )}
       {single && singleB && /MergerPriority/.test(singleB.id) && <PriorityMergerPanel e={single} b={singleB} />}
       {single && singleB && isAugmenter(singleB.id) && <AugmenterPanel e={single} flows={flows} power={power} />}
+      {single && singleB && isBattery(singleB.id) && <BatteryPanel e={single} power={power} />}
       {single && singleB && configurable && (
         <MachinePanel e={single} b={singleB} node={flows.nodes.get(single.uid)} />
       )}
@@ -375,6 +380,44 @@ function MachinePanel({ e, b, node }: { e: PlacedEntity; b: Building; node?: Nod
   )
 }
 
+/** Horas en texto: "45 min", "2 h 10 min". */
+export function fmtHours(h: number): string {
+  const m = Math.round(h * 60)
+  if (m < 60) return i18n.t('battery.minutes', { m })
+  const hh = Math.floor(m / 60)
+  return m % 60 ? i18n.t('battery.hoursMinutes', { h: hh, m: m % 60 }) : i18n.t('battery.hours', { h: hh })
+}
+
+/** Batería: capacidad de su red y si se carga, se descarga o cubre los picos. */
+function BatteryPanel({ e, power }: { e: PlacedEntity; power: ReturnType<typeof computeGrids> }) {
+  const { t } = useTranslation()
+  const gid = power.gridOf.get(e.uid)
+  const g = gid ? power.grids.find((x) => x.id === gid) : null
+  const st = g ? batteryState(g) : null
+  return (
+    <section className="machine">
+      <h2>{buildingsById.get(e.buildingId)?.name}</h2>
+      <p className="muted small">{t('battery.help', { mwh: BATTERY_MWH, mw: BATTERY_CHARGE_MW })}</p>
+      {power.infinite ? (
+        <p className="muted small">{t('battery.infinite')}</p>
+      ) : !g || !st ? (
+        <p className="warn small">{t('battery.noGrid')}</p>
+      ) : (
+        <>
+          <div className="flowline">
+            <span>{t('battery.gridStorage', { id: g.id, count: g.batteries })}</span>
+            <b>{fmt(st.capacity)} MWh</b>
+          </div>
+          {st.charge > 0 && <p className="ok small">{t('battery.charging', { mw: fmt(st.charge), time: fmtHours(st.hours!) })}</p>}
+          {st.drain > 0 && <p className="bad small">{t('battery.draining', { mw: fmt(st.drain), time: fmtHours(st.hours!) })}</p>}
+          {!st.charge && !st.drain && <p className="muted small">{t('battery.idle')}</p>}
+          {st.peakGap > 0 && st.drain === 0 && <p className="muted small">{t('battery.peaks', { mw: fmt(st.peakGap) })}</p>}
+        </>
+      )}
+    </section>
+  )
+}
+
 /** Amplificador de energía alienígena: lo que genera, cuánto aumenta su red y si recibe matrices. */
 function AugmenterPanel({ e, flows, power }: { e: PlacedEntity; flows: ReturnType<typeof computeFlows>; power: ReturnType<typeof computeGrids> }) {
   const { t } = useTranslation()
@@ -385,7 +428,7 @@ function AugmenterPanel({ e, flows, power }: { e: PlacedEntity; flows: ReturnTyp
   const g = gid ? power.grids.find((x) => x.id === gid) : null
   return (
     <section className="machine">
-      <h2>{t('augmenter.title')}</h2>
+      <h2>{buildingsById.get(e.buildingId)?.name}</h2>
       <p className="muted small">{t('augmenter.help', { mw: AUGMENTER_MW, base: fmt(AUGMENTER_BOOST * 100), fueled: fmt((AUGMENTER_BOOST + AUGMENTER_FUEL_BOOST) * 100), rate: AUGMENTER_FUEL_RATE })}</p>
       <h3>{t('augmenter.fuel')}</h3>
       {node?.inputs.length ? (
