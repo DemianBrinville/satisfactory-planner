@@ -1,5 +1,5 @@
 import i18n from '../i18n'
-import { buildingsById, game } from '../data/gameData'
+import { buildingsById, game, usesPower } from '../data/gameData'
 import { machineSplit, RAW_ITEMS, type Step } from './calculator'
 import { pathLength } from './conveyors'
 import { MINER_RESOURCES } from './flow'
@@ -398,7 +398,7 @@ function buildOnce(
         x0: Math.min(...rawEnts.map((r) => r.x0)),
         x1: Math.max(...rawEnts.map((r) => r.x1)),
       })
-    powerRows.push(rawGroups.flatMap((g) => (rawUnits.get(g.item) ?? []).map((u) => u.e)).filter((e) => (buildingsById.get(e.buildingId)?.powerMW ?? 0) > 0))
+    powerRows.push(rawGroups.flatMap((g) => (rawUnits.get(g.item) ?? []).map((u) => u.e)).filter((e) => { const b = buildingsById.get(e.buildingId); return !!b && usesPower(b) }))
     if (rawGroups.length)
       notes.push(i18n.t('build.miners'))
   }

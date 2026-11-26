@@ -306,7 +306,13 @@ const recipes = allRecipes
       products: toUnits(amounts(r.mProduct)),
       producedIn,
       unlockedBy: recipeUnlockedBy.get(r.ClassName) ?? [],
-      variablePower: num(r.mVariablePowerConsumptionConstant) || null,
+      // máquinas de potencia variable (acelerador de partículas, convertidor, codificador cuántico): el consumo va
+      // de variablePower a variablePower + variablePowerRange MW a lo largo de cada ciclo
+      // (el codificador cuántico arranca de 0 MW: cuenta como variable si tiene mínimo o rango)
+      // (las recetas comunes traen 0 y 1 por defecto)
+      ...(num(r.mVariablePowerConsumptionConstant) > 0 || num(r.mVariablePowerConsumptionFactor) > 1
+        ? { variablePower: num(r.mVariablePowerConsumptionConstant), variablePowerRange: num(r.mVariablePowerConsumptionFactor) }
+        : { variablePower: null, variablePowerRange: null }),
     }
   })
   .filter(Boolean)

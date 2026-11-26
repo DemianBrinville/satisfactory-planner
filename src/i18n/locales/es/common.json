@@ -130,7 +130,8 @@
     "consumption": "Consumo: {{mw}} MW",
     "cost": "Coste: {{list}}",
     "perTwoMeters": " (por cada 2 m aprox.)",
-    "perMeter": " (por metro)"
+    "perMeter": " (por metro)",
+    "consumptionRange": "Consumo: de {{min}} a {{max}} MW según la receta y el momento del ciclo"
   },
   "subcategories": {
     "SC_Progression": "Progresión",
@@ -330,7 +331,8 @@
     "hiddenRecipes": "{{n}} receta(s) ocultas por tu progreso. ",
     "showAll": "mostrar todas",
     "alternate": "Alternativa",
-    "perMinute": "por minuto · ciclo de {{s}} s"
+    "perMinute": "por minuto · ciclo de {{s}} s",
+    "variablePower": "Consumo variable: entre {{min}} y {{max}} MW a lo largo de cada ciclo. En la red se cuenta el promedio, {{avg}} MW."
   },
   "purity": {
     "impure": "Impuro",

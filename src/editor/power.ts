@@ -1,4 +1,4 @@
-import { buildingsById, type Building, type ItemAmount } from '../data/gameData'
+import { basePowerMW, buildingsById, usesPower, type Building, type ItemAmount } from '../data/gameData'
 import { PURITY_MULT, somersloopBoost, type FlowResult } from './flow'
 import { worldRect } from './geometry'
 import { DEFAULT_FLOOR_HEIGHT, type PlacedEntity, type PowerSettings, type Wire } from './store'
@@ -22,7 +22,7 @@ export const canLinkWorld = (b: Building) => /PowerPole|PowerTower/.test(b.id)
 
 export function hasPowerConnection(b: Building): boolean {
   return (
-    b.powerMW > 0 ||
+    usesPower(b) ||
     b.powerGenMW > 0 ||
     b.kind === 'generator' ||
     /PowerPole|PowerTower|PowerSwitch|PowerStorage|AlienPower/.test(b.id)
@@ -63,11 +63,11 @@ export function wireCost(len: number): ItemAmount[] {
   return b.cost.map((c) => ({ item: c.item, amount: c.amount * units }))
 }
 
-/** Consumo de una estructura al reloj elegido (exponente del juego ~1,32) y con somersloops. */
+/** Consumo de una estructura al reloj elegido (exponente del juego ~1,32) y con somersloops (promedio en las de potencia variable). */
 export function consumptionMW(e: PlacedEntity, b: Building): number {
   const clock = e.clock ?? 1
   const boost = somersloopBoost(e, b)
-  return b.powerMW * Math.pow(clock, 1.321928) * Math.pow(1 + boost, 2)
+  return basePowerMW(b, e.recipeId) * Math.pow(clock, 1.321928) * Math.pow(1 + boost, 2)
 }
 
 

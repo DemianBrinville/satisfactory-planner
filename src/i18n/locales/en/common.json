@@ -130,7 +130,8 @@
     "consumption": "Power usage: {{mw}} MW",
     "cost": "Cost: {{list}}",
     "perTwoMeters": " (about every 2 m)",
-    "perMeter": " (per meter)"
+    "perMeter": " (per meter)",
+    "consumptionRange": "Consumption: {{min}} to {{max}} MW depending on the recipe and the point in the cycle"
   },
   "subcategories": {
     "SC_Progression": "Progression",
@@ -330,7 +331,8 @@
     "hiddenRecipes": "{{n}} recipe(s) hidden by your progress. ",
     "showAll": "show all",
     "alternate": "Alternate",
-    "perMinute": "per minute · {{s}} s cycle"
+    "perMinute": "per minute · {{s}} s cycle",
+    "variablePower": "Variable consumption: between {{min}} and {{max}} MW over each cycle. The grid counts the average, {{avg}} MW."
   },
   "purity": {
     "impure": "Impure",

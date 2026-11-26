@@ -77,6 +77,9 @@ export interface Recipe {
   products: ItemAmount[]
   producedIn: string[]
   unlockedBy: string[]
+  /** máquinas de potencia variable: el consumo va de variablePower a variablePower + variablePowerRange MW en cada ciclo */
+  variablePower?: number | null
+  variablePowerRange?: number | null
 }
 
 export interface Item {
@@ -111,6 +114,43 @@ export const game = raw as unknown as GameData
 
 export const buildingsById = new Map(game.buildings.map((b) => [b.id, b]))
 export const recipesById = new Map(game.recipes.map((r) => [r.id, r]))
+
+/** Edificios cuyo consumo depende de la receta (acelerador de partículas, convertidor, codificador cuántico). */
+// (solo los que no tienen consumo fijo: algunas recetas del ensamblador o la licuadora traen datos de potencia
+// variable que el juego ignora en esas máquinas)
+const VARIABLE_POWER = new Set(
+  game.recipes
+    .filter((r) => r.variablePowerRange != null)
+    .flatMap((r) => r.producedIn)
+    .filter((id) => !(buildingsById.get(id)?.powerMW ?? 0)),
+)
+export const isVariablePower = (b: Building) => VARIABLE_POWER.has(b.id)
+/** Usa energía (consumo fijo o variable según la receta). */
+export const usesPower = (b: Building) => b.powerMW > 0 || isVariablePower(b)
+
+/** Consumo mínimo y máximo de una receta de potencia variable a lo largo de su ciclo (MW, al 100 %). */
+export function recipePowerRange(r: Recipe | undefined): [number, number] | null {
+  if (!r || r.variablePowerRange == null) return null
+  const min = r.variablePower ?? 0
+  return [min, min + r.variablePowerRange]
+}
+
+/**
+ * Consumo base al 100 % de un edificio con su receta. En las de potencia variable el juego sube y baja el
+ * consumo a lo largo del ciclo; en promedio es el punto medio entre el mínimo y el máximo (wiki).
+ */
+export function basePowerMW(b: Building, recipeId?: string): number {
+  if (!isVariablePower(b)) return b.powerMW
+  const range = recipePowerRange(recipeId ? recipesById.get(recipeId) : undefined)
+  return range ? (range[0] + range[1]) / 2 : 0
+}
+
+/** Rango de consumo de un edificio de potencia variable entre todas sus recetas (para la paleta). */
+export function buildingPowerRange(b: Building): [number, number] | null {
+  if (!isVariablePower(b)) return null
+  const rs = game.recipes.filter((r) => r.producedIn.includes(b.id)).map(recipePowerRange).filter((x): x is [number, number] => !!x)
+  return rs.length ? [Math.min(...rs.map((x) => x[0])), Math.max(...rs.map((x) => x[1]))] : null
+}
 export const schematicsById = new Map(game.schematics.map((s) => [s.id, s]))
 export const itemName = (id: string) => game.items[id]?.name ?? id
 

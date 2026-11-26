@@ -1,5 +1,5 @@
 import i18n from '../i18n'
-import { buildingsById, game, type Recipe } from '../data/gameData'
+import { basePowerMW, buildingsById, game, type Recipe } from '../data/gameData'
 import { MINER_RESOURCES } from './flow'
 
 /**
@@ -134,7 +134,7 @@ export function solveChain(
       building,
       exact,
       depth: depth.get(item)!,
-      power: (b?.powerMW ?? 0) * machines * Math.pow(clock, 1.321928),
+      power: (b ? basePowerMW(b, r.id) : 0) * machines * Math.pow(clock, 1.321928),
     })
     for (const ing of r.ingredients) demand.set(ing.item, (demand.get(ing.item) ?? 0) + perMin(r, ing.item, 'ingredients') * exact)
     for (const p of r.products) if (p.item !== item) byproducts.set(p.item, (byproducts.get(p.item) ?? 0) + perMin(r, p.item, 'products') * exact)

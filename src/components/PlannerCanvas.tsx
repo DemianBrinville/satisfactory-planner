@@ -4,7 +4,7 @@ import { locale } from '../i18n/format'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Circle, Group, Image as KImage, Layer, Line, Rect, Shape, Stage, Text } from 'react-konva'
 import type Konva from 'konva'
-import { buildingsById, itemName, recipesById, type Building } from '../data/gameData'
+import { buildingsById, itemName, recipesById, usesPower, type Building } from '../data/gameData'
 import { hasOfficialIcon, officialIconSrc } from './GameIcons'
 import { conveyorCost, maxSegmentOf, endInfo, pathLength, route, usedPorts, type EndInfo } from '../editor/conveyors'
 import { computeFlows, type EdgeFlow, type FlowResult } from '../editor/flow'
@@ -1803,7 +1803,7 @@ function AdviceGlyph({ kind, cx, cy, scale }: { kind: 'under' | 'over' | 'imposs
 
 function powerStatus(e: PlacedEntity, power: PowerResult): PowerStatus {
   const b = buildingsById.get(e.buildingId)
-  if (!b || !(b.powerMW > 0) || power.infinite) return undefined
+  if (!b || !usesPower(b) || power.infinite) return undefined
   const gid = power.gridOf.get(e.uid)
   if (!gid) return 'none'
   const g = power.grids.find((x) => x.id === gid)!
@@ -1832,7 +1832,7 @@ function WireTooltip({ w, entities, floorHeight, at }: { w: { from: string; to: 
 export function GridLine({ e, b, power }: { e: PlacedEntity; b: Building; power: PowerResult }) {
   if (!hasPowerConnection(b)) return null
   if (power.infinite)
-    return b.powerMW > 0 ? (
+    return usesPower(b) ? (
       <div className="muted">
         <Zap size={13} /> {i18n.t('canvas.infinite', { mw: fmt(consumptionMW(e, b)) })}
       </div>
@@ -1840,7 +1840,7 @@ export function GridLine({ e, b, power }: { e: PlacedEntity; b: Building; power:
   const gid = power.gridOf.get(e.uid)
   if (!gid)
     return (
-      <div className={b.powerMW > 0 ? 'bad' : 'muted'}>
+      <div className={usesPower(b) ? 'bad' : 'muted'}>
         <ZapOff size={13} /> {i18n.t('canvas.unpowered')}
       </div>
     )

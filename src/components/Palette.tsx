@@ -1,7 +1,7 @@
 import i18n from '../i18n'
 import { useTranslation } from 'react-i18next'
 import { useMemo, useState } from 'react'
-import { CATEGORIES, game, isPathKind, itemName, type Building } from '../data/gameData'
+import { CATEGORIES, buildingPowerRange, game, isPathKind, itemName, type Building } from '../data/gameData'
 import { useAvailability } from '../editor/progress'
 import { useEditor } from '../editor/store'
 import { RAIL, type VehicleKind } from '../editor/transport'
@@ -119,7 +119,9 @@ const round = (v: number) => Math.round(v * 10) / 10
 function tooltip(b: Building) {
   const lines = [b.name]
   if (b.description) lines.push('', b.description)
-  if (b.powerMW) lines.push('', i18n.t('palette.consumption', { mw: b.powerMW }))
+  const range = buildingPowerRange(b)
+  if (range) lines.push('', i18n.t('palette.consumptionRange', { min: range[0], max: range[1] }))
+  else if (b.powerMW) lines.push('', i18n.t('palette.consumption', { mw: b.powerMW }))
   if (b.cost.length)
     lines.push(
       '',

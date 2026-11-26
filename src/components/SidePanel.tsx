@@ -3,7 +3,7 @@ import i18n from '../i18n'
 import { Trans, useTranslation } from 'react-i18next'
 import { locale } from '../i18n/format'
 import { useMemo, useState } from 'react'
-import { buildingsById, game, itemName, recipesById, type Building, type Recipe } from '../data/gameData'
+import { buildingsById, game, itemName, recipePowerRange, recipesById, type Building, type Recipe } from '../data/gameData'
 import { summarize } from '../editor/costs'
 import { conveyorCost, pathLength } from '../editor/conveyors'
 import { computeFlows, extractionRate, extractorResources, recipesFor, type NodeFlow } from '../editor/flow'
@@ -13,7 +13,7 @@ import { vehicleForStation } from '../editor/transport'
 import ConnectorPanel from './ConnectorPanel'
 import Production, { ClockAdviceText, clockAdvice } from './Production'
 import { GridLine } from './PlannerCanvas'
-import { canLinkWorld, computeGrids } from '../editor/power'
+import { canLinkWorld, computeGrids, consumptionMW } from '../editor/power'
 import { isVerticalConnector } from '../editor/geometry'
 import { useEditor, type PlacedEntity, type Purity } from '../editor/store'
 import { NONE } from '../editor/store'
@@ -303,6 +303,8 @@ function MachinePanel({ e, b, node }: { e: PlacedEntity; b: Building; node?: Nod
         </>
       )}
 
+      {recipe && recipePowerRange(recipe) && <VariablePowerNote e={e} b={b} range={recipePowerRange(recipe)!} />}
+
       <h3>{t('machine.clock')}</h3>
       <div className="clock">
         <input
@@ -359,6 +361,13 @@ function MachinePanel({ e, b, node }: { e: PlacedEntity; b: Building; node?: Nod
       )}
     </section>
   )
+}
+
+/** Consumo de una máquina de potencia variable: mínimo y máximo del ciclo, y el promedio que se cuenta en la red. */
+function VariablePowerNote({ e, b, range }: { e: PlacedEntity; b: Building; range: [number, number] }) {
+  const { t } = useTranslation()
+  const k = consumptionMW(e, b) / ((range[0] + range[1]) / 2 || 1)
+  return <p className="muted small">{t('machine.variablePower', { min: fmt(range[0] * k), max: fmt(range[1] * k), avg: fmt(consumptionMW(e, b)) })}</p>
 }
 
 function ExtractorConfig({ e, b }: { e: PlacedEntity; b: Building }) {
