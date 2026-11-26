@@ -92,7 +92,8 @@
     "worldSpare": "Spare in your world",
     "enough": "Enough: with the plan built you have {{mw}} MW left.",
     "notEnough": "Not enough: {{mw}} MW short. You need more generators before building this.",
-    "fillWorld": "Enter your world production and consumption to see whether it is enough."
+    "fillWorld": "Enter your world production and consumption to see whether it is enough.",
+    "boostNote": "Includes +{{pct}} % from Alien Power Augmenters."
   },
   "families": {
     "belt": "Conveyor Belt",
@@ -687,5 +688,16 @@
     "dragHelp": "Drag the plan to move it and the round handle to rotate it around its center (with Shift, in 15° steps). A click elsewhere on the map moves it there.",
     "handleLegend": "rotation handle, on the plan north side",
     "focus": "Back to the plan"
+  },
+  "augmenter": {
+    "title": "Alien Power Augmenter",
+    "help": "Generates {{mw}} MW and increases all generation on its grid by {{base}} % (other generators too, and the world grid if it is linked). With {{rate}} Alien Power Matrices per minute the boost goes up to {{fueled}} %. Boosts from several augmenters add up.",
+    "fuel": "Alien Power Matrices",
+    "byBelt": "By belt: {{got}} of {{need}}/min arrive",
+    "fueled": "Receives {{rate}} matrices per minute (no belt in the plan)",
+    "boost": "Grid boost",
+    "grid": "Grid {{id}}: {{base}} MW base → {{total}} MW with +{{pct}} %",
+    "infinite": "Infinite power: the plan adds +{{pct}} % to the whole grid",
+    "noGrid": "No wires: it boosts no grid. Connect it with a wire to the grid you want to boost."
   }
 }

@@ -79,6 +79,7 @@ Ideas propuestas, pendientes de decidir: calculadora que elige las recetas ópti
 - **Calculadora:** las troncales laterales van pegadas a las filas que acompañan en vez de al ancho de la fila más ancha (36 % menos de cinta en 90 armados de prueba, sin problemas nuevos). Los taladros usan la marca más barata que alcanza: 36/min de carbón es un Mk.1, no un Mk.2 al 30 %, y el último taladro de un grupo, que queda a menos del 100 %, también puede ser de una marca menor.
 
 - **Máquinas de potencia variable:** el acelerador de partículas, el convertidor y el codificador cuántico cuentan su consumo según la receta (datos del juego: p. ej. plutonio 250–750 MW, codificador 0–2000 MW). En la red y en la calculadora se cuenta el promedio del ciclo, con el exponente de overclock del juego; el panel de la máquina muestra el mínimo y el máximo, y la paleta el rango entre todas sus recetas.
+- **Amplificador de energía alienígena:** genera 500 MW y aumenta un 10 % la generación base de su red (los otros generadores, él mismo y la red del mundo si está enganchada); con 5 matrices de energía alienígena por minuto, 30 %. Los aumentos se suman entre amplificadores (fórmula de la wiki, datos del juego). Las matrices llegan por cinta (se cuenta lo que llega) o se marca a mano que las recibe.
 
 ## Pendientes
 

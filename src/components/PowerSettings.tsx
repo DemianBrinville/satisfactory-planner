@@ -83,6 +83,7 @@ export default function PowerSettingsButton() {
               <b>{fmt(power.planGen)} MW</b>
             </div>
           )}
+          {power.planBoost > 0 && <p className="muted small">{t('power.boostNote', { pct: fmt(power.planBoost * 100) })}</p>}
           {hasWorld && (
             <div className="flowline">
               <span>{t('power.worldSpare')}</span>

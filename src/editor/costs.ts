@@ -1,7 +1,7 @@
 import { buildingsById, type ItemAmount } from '../data/gameData'
 import { conveyorCost, pathLength } from './conveyors'
 import { HYPER_PASSTHROUGH, isVerticalConnector } from './geometry'
-import { POWER_LINE, consumptionMW, wireCost, wireLength } from './power'
+import { POWER_LINE, consumptionMW, generationMW, wireCost, wireLength } from './power'
 import { DEFAULT_FLOOR_HEIGHT, type Conveyor, type PlacedEntity, type Rail, type Wire } from './store'
 import { RAIL, railCost } from './transport'
 
@@ -58,10 +58,10 @@ export function summarize(
     if (!b) continue
     bump(b.id)
     for (const c of entityCost(e, floorHeight)) mats.set(c.item, (mats.get(c.item) ?? 0) + c.amount)
-    const clock = e.clock ?? 1
     // consumo con reloj: el juego usa exponente ~1,321928 (overclock cuesta más que lineal)
     powerMW += consumptionMW(e, b)
-    powerGenMW += b.powerGenMW * clock
+    // generación a su reloj (géiseres por pureza, amplificador alienígena 500 MW)
+    powerGenMW += generationMW(e, b)
   }
   for (const c of conveyors) {
     bump(c.buildingId, pathLength(c.points))

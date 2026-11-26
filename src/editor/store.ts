@@ -44,6 +44,8 @@ export interface PlacedEntity {
   name?: string
   /** plataformas de carga de tren: cargan o descargan los vagones */
   platformMode?: 'load' | 'unload'
+  /** amplificador alienígena sin cinta: recibe sus 5 matrices por minuto por otro lado */
+  fueled?: boolean
 }
 
 /** Extremo de una cinta/tubería: un puerto de un edificio o un poste/soporte (port = -1). */

@@ -13,7 +13,18 @@ import { vehicleForStation } from '../editor/transport'
 import ConnectorPanel from './ConnectorPanel'
 import Production, { ClockAdviceText, clockAdvice } from './Production'
 import { GridLine } from './PlannerCanvas'
-import { canLinkWorld, computeGrids, consumptionMW } from '../editor/power'
+import {
+  AUGMENTER_BOOST,
+  AUGMENTER_FUEL_BOOST,
+  AUGMENTER_FUEL_RATE,
+  AUGMENTER_MW,
+  augmenterBoost,
+  augmenterFuel,
+  canLinkWorld,
+  computeGrids,
+  consumptionMW,
+  isAugmenter,
+} from '../editor/power'
 import { isVerticalConnector } from '../editor/geometry'
 import { useEditor, type PlacedEntity, type Purity } from '../editor/store'
 import { NONE } from '../editor/store'
@@ -123,6 +134,7 @@ export default function SidePanel() {
         />
       )}
       {single && singleB && /MergerPriority/.test(singleB.id) && <PriorityMergerPanel e={single} b={singleB} />}
+      {single && singleB && isAugmenter(singleB.id) && <AugmenterPanel e={single} flows={flows} power={power} />}
       {single && singleB && configurable && (
         <MachinePanel e={single} b={singleB} node={flows.nodes.get(single.uid)} />
       )}
@@ -358,6 +370,44 @@ function MachinePanel({ e, b, node }: { e: PlacedEntity; b: Building; node?: Nod
             </div>
           )}
         </>
+      )}
+    </section>
+  )
+}
+
+/** Amplificador de energía alienígena: lo que genera, cuánto aumenta su red y si recibe matrices. */
+function AugmenterPanel({ e, flows, power }: { e: PlacedEntity; flows: ReturnType<typeof computeFlows>; power: ReturnType<typeof computeGrids> }) {
+  const { t } = useTranslation()
+  const node = flows.nodes.get(e.uid)
+  const fuel = augmenterFuel(e, flows)
+  const boost = augmenterBoost(e, flows)
+  const gid = power.gridOf.get(e.uid)
+  const g = gid ? power.grids.find((x) => x.id === gid) : null
+  return (
+    <section className="machine">
+      <h2>{t('augmenter.title')}</h2>
+      <p className="muted small">{t('augmenter.help', { mw: AUGMENTER_MW, base: fmt(AUGMENTER_BOOST * 100), fueled: fmt((AUGMENTER_BOOST + AUGMENTER_FUEL_BOOST) * 100), rate: AUGMENTER_FUEL_RATE })}</p>
+      <h3>{t('augmenter.fuel')}</h3>
+      {node?.inputs.length ? (
+        <p className={'small ' + (fuel >= 0.999 ? 'ok' : 'warn')}>
+          {t('augmenter.byBelt', { got: fmt(node.inputs[0].got), need: AUGMENTER_FUEL_RATE })}
+        </p>
+      ) : (
+        <label className="switch">
+          <input type="checkbox" checked={!!e.fueled} onChange={(ev) => useEditor.getState().updateEntity(e.uid, { fueled: ev.target.checked || undefined })} />
+          {t('augmenter.fueled', { rate: AUGMENTER_FUEL_RATE })}
+        </label>
+      )}
+      <div className="flowline">
+        <span>{t('augmenter.boost')}</span>
+        <b>+{fmt(boost * 100)} %</b>
+      </div>
+      {g ? (
+        <p className="muted small">
+          {t('augmenter.grid', { id: g.id, base: fmt(g.base + (g.world ? power.worldSpare : 0)), total: fmt(g.generation), pct: fmt(g.boost * 100) })}
+        </p>
+      ) : (
+        <p className="muted small">{power.infinite ? t('augmenter.infinite', { pct: fmt(power.planBoost * 100) }) : t('augmenter.noGrid')}</p>
       )}
     </section>
   )

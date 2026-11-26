@@ -92,7 +92,8 @@
     "worldSpare": "Le sobra a tu mundo",
     "enough": "Alcanza: con el plano construido te quedan {{mw}} MW libres.",
     "notEnough": "No alcanza: faltan {{mw}} MW. Necesitas más generadores antes de construir esto.",
-    "fillWorld": "Carga la generación y el consumo de tu mundo para saber si te alcanza."
+    "fillWorld": "Carga la generación y el consumo de tu mundo para saber si te alcanza.",
+    "boostNote": "Incluye +{{pct}} % de los amplificadores de energía alienígena."
   },
   "families": {
     "belt": "Cinta transportadora",
@@ -687,5 +688,16 @@
     "dragHelp": "Arrastra el plano para moverlo y la manija redonda para girarlo desde su centro (con Shift, de a 15°). Un clic en otro lugar del mapa lo lleva ahí.",
     "handleLegend": "manija de giro, del lado del norte del plano",
     "focus": "Volver al plano"
+  },
+  "augmenter": {
+    "title": "Amplificador de energía alienígena",
+    "help": "Genera {{mw}} MW y aumenta un {{base}} % toda la generación de su red (también la de los otros generadores y la del mundo si está enganchada). Con {{rate}} matrices de energía alienígena por minuto el aumento sube a {{fueled}} %. Los aumentos de varios amplificadores se suman.",
+    "fuel": "Matrices de energía alienígena",
+    "byBelt": "Por cinta: llegan {{got}} de {{need}}/min",
+    "fueled": "Recibe {{rate}} matrices por minuto (sin cinta en el plano)",
+    "boost": "Aumento de la red",
+    "grid": "Red {{id}}: {{base}} MW de base → {{total}} MW con +{{pct}} %",
+    "infinite": "Energía infinita: el plano suma +{{pct}} % a toda la red",
+    "noGrid": "Sin cables: no aumenta ninguna red. Conéctalo con un cable a la red que quieres aumentar."
   }
 }

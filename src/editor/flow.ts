@@ -401,6 +401,17 @@ function computeFlowsRaw(
       return
     }
 
+    // amplificador de energía alienígena: consume 5 matrices por minuto (cada una dura 12 s)
+    if (b.id === 'Build_AlienPowerBuilding_C' && ins.length) {
+      const item = 'Desc_AlienPowerFuel_C'
+      const need = 5
+      const r = splitDemand(need, ins, item, offer)
+      for (const c of ins) nDemand.get(c.uid)!.set(item, r.get(c.uid)!)
+      const got = Math.min(inOffer.get(item) ?? 0, need)
+      nodes.set(e.uid, { inputLimited: got / need, outputLimited: 1, effective: got / need, inputs: [{ item, need, got }], outputs: [] })
+      return
+    }
+
     if (b.kind === 'generator' && e.resource) {
       const energy = game.items[e.resource]?.energyMJ ?? 0
       const need = energy > 0 ? ((b.powerGenMW * 60) / energy) * clock : 0

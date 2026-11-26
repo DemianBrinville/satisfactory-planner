@@ -17,6 +17,28 @@ const METERS_PER_COST = 25
 
 const isTower = (id: string) => /PowerTower/.test(id)
 
+/**
+ * Amplificador de energía alienígena (datos del juego): genera 500 MW y aumenta un 10 % la generación de toda
+ * su red; con 5 matrices de energía alienígena por minuto (cada una dura 12 s) el aumento sube 20 % más.
+ * Los aumentos de varios amplificadores se suman y se aplican sobre la generación base de la red (wiki).
+ */
+export const AUGMENTER = 'Build_AlienPowerBuilding_C'
+export const AUGMENTER_FUEL = 'Desc_AlienPowerFuel_C'
+export const AUGMENTER_MW = 500
+export const AUGMENTER_BOOST = 0.1
+export const AUGMENTER_FUEL_BOOST = 0.2
+export const AUGMENTER_FUEL_RATE = 5
+export const isAugmenter = (id: string) => id === AUGMENTER
+
+/** Parte del tiempo que el amplificador tiene matriz: por cinta, lo que le llega; sin cinta, lo que marcó el jugador. */
+export function augmenterFuel(e: PlacedEntity, flows?: FlowResult): number {
+  const n = flows?.nodes.get(e.uid)
+  if (n?.inputs.length) return Math.min(1, n.inputs[0].got / AUGMENTER_FUEL_RATE)
+  return e.fueled ? 1 : 0
+}
+/** Aumento que aporta un amplificador a su red (0,1 a 0,3). */
+export const augmenterBoost = (e: PlacedEntity, flows?: FlowResult) => AUGMENTER_BOOST + AUGMENTER_FUEL_BOOST * augmenterFuel(e, flows)
+
 /** Estructuras que se pueden enganchar a la red del mundo (postes, tomas y torres). */
 export const canLinkWorld = (b: Building) => /PowerPole|PowerTower/.test(b.id)
 
@@ -73,6 +95,7 @@ export function consumptionMW(e: PlacedEntity, b: Building): number {
 
 /** Generación real: si tiene combustible modelado se usa lo que le llega; si no, la capacidad al reloj elegido. */
 export function generationMW(e: PlacedEntity, b: Building, flows?: FlowResult): number {
+  if (isAugmenter(b.id)) return AUGMENTER_MW
   if (/GeoThermal/.test(b.id)) return 200 * PURITY_MULT[e.purity ?? 'normal'] // promedio de un géiser
   if (b.powerGenMW <= 0) return 0
   const node = flows?.nodes.get(e.uid)
@@ -85,6 +108,10 @@ export interface Grid {
   members: string[]
   consumption: number
   generation: number
+  /** generación sin el aumento de los amplificadores alienígenas */
+  base: number
+  /** aumento de los amplificadores de la red (0,1 por cada uno; 0,3 con matrices) */
+  boost: number
   /** está conectada a la red del mundo */
   world?: boolean
 }
@@ -101,6 +128,8 @@ export interface PowerResult {
   planGen: number
   /** lo que le sobra a la red del mundo (generación − consumo, sin este plano) */
   worldSpare: number
+  /** aumento total de los amplificadores alienígenas del plano */
+  planBoost: number
 }
 
 export function computeGrids(entities: PlacedEntity[], wires: Wire[], flows?: FlowResult, settings?: PowerSettings): PowerResult {
@@ -130,25 +159,34 @@ export function computeGrids(entities: PlacedEntity[], wires: Wire[], flows?: Fl
   for (const e of powered) {
     if (!used.has(e.uid) && !e.worldLink) continue // sin líneas: no pertenece a ninguna red
     const root = find(e.uid)
-    if (!byRoot.has(root)) byRoot.set(root, { id: next++, members: [], consumption: 0, generation: 0, world: false })
+    if (!byRoot.has(root)) byRoot.set(root, { id: next++, members: [], consumption: 0, generation: 0, base: 0, boost: 0, world: false })
     const g = byRoot.get(root)!
     const b = buildingsById.get(e.buildingId)!
     g.members.push(e.uid)
     g.consumption += consumptionMW(e, b)
-    g.generation += generationMW(e, b, flows)
+    g.base += generationMW(e, b, flows)
+    if (isAugmenter(b.id)) g.boost += augmenterBoost(e, flows)
     gridOf.set(e.uid, g.id)
-    if (e.worldLink && !g.world) {
-      // un poste enganchado a la red del mundo aporta lo que le sobra a esa red
-      g.world = true
-      g.generation += worldSpare
-    }
+    if (e.worldLink) g.world = true
+  }
+  const worldGen = settings?.worldGen ?? 0
+  for (const g of byRoot.values()) {
+    g.generation = g.base * (1 + g.boost)
+    // un poste enganchado a la red del mundo aporta lo que le sobra a esa red; los amplificadores también
+    // aumentan la generación del mundo, porque pasa a ser una sola red
+    if (g.world) g.generation += worldSpare + worldGen * g.boost
   }
   let planUse = 0
-  let planGen = 0
+  let planBase = 0
+  let planBoost = 0
   for (const e of powered) {
     const b = buildingsById.get(e.buildingId)!
     planUse += consumptionMW(e, b)
-    planGen += generationMW(e, b, flows)
+    planBase += generationMW(e, b, flows)
+    if (isAugmenter(b.id)) planBoost += augmenterBoost(e, flows)
   }
-  return { gridOf, grids: [...byRoot.values()], used, infinite: settings?.infinite ?? false, planUse, planGen, worldSpare }
+  // totales del plano: con energía infinita se supone todo en una red (la del mundo incluida)
+  const worldBoost = settings?.infinite ? planBoost : [...byRoot.values()].filter((g) => g.world).reduce((a, g) => a + g.boost, 0)
+  const planGen = planBase * (1 + planBoost) + worldGen * worldBoost
+  return { gridOf, grids: [...byRoot.values()], used, infinite: settings?.infinite ?? false, planUse, planGen, worldSpare, planBoost }
 }
