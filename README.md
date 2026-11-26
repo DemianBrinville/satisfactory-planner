@@ -32,3 +32,15 @@ node scripts/extract-game-data.mjs "<ruta>/Satisfactory/CommunityResources/Docs/
 
 - El esquema está en `supabase/migrations/`: tablas `plans` y `user_progress`, con RLS para que cada usuario vea solo lo suyo.
 - El login es por enlace mágico (email). La URL del proyecto y la clave publicable son públicas por diseño y están como valores por defecto en `src/cloud/supabase.ts`. Se pueden sobreescribir con las variables `VITE_SUPABASE_*` (ver `.env.example`).
+
+## Pendientes
+
+- Iconos propios para cada máquina, estructura y material (paleta, recetas, tooltips y en el plano).
+- Logo de la aplicación.
+- Calculadora de objetivo: "quiero X/min de tal producto" → arma la cadena de máquinas y la coloca en el plano.
+- Mapa de yacimientos reales (ubicación y pureza de los nodos).
+- Detección de choques de cintas con máquinas y pendiente máxima de 35°.
+- Subproductos que bloquean (residuos nucleares, fluidos de refinería).
+- Puntos del AWESOME Sink y cupones por minuto.
+- Consumo de vehículos (energía de trenes, combustible de camiones y drones).
+- Planos de diseño reutilizables (Blueprint Designer) y señales/horarios de tren.

@@ -125,6 +125,7 @@ export default function PlannerCanvas() {
   const [railDraft, setRailDraft] = useState<{ pos: Vec; th: number | null } | null>(null)
   const inter = useRef<Interaction>(null)
   const spaceDown = useRef(false)
+  const onUpRef = useRef<(e: { evt: { shiftKey: boolean } }) => void>(() => {})
 
   const s = useEditor()
   const { view, entities, conveyors, selection, floor, placingId, placingRot, tool, conveyorId, clipboard, pasteRot, snapStep } = s
@@ -157,6 +158,23 @@ export default function PlannerCanvas() {
     if (tool !== 'conveyor') setDraft(null)
   }, [tool])
   useEffect(() => setDraft(null), [floor])
+
+  // soltar el botón fuera del lienzo (sobre un panel o fuera de la ventana) también termina la acción
+  useEffect(() => {
+    const up = (e: MouseEvent) => {
+      if (inter.current) onUpRef.current({ evt: { shiftKey: e.shiftKey } })
+    }
+    const blur = () => {
+      spaceDown.current = false
+      if (inter.current) onUpRef.current({ evt: { shiftKey: false } })
+    }
+    window.addEventListener('mouseup', up)
+    window.addEventListener('blur', blur)
+    return () => {
+      window.removeEventListener('mouseup', up)
+      window.removeEventListener('blur', blur)
+    }
+  }, [])
 
   // teclado
   useEffect(() => {
@@ -555,6 +573,11 @@ export default function PlannerCanvas() {
     setScreen(pos)
     const it = inter.current
     if (!it) return
+    // si se soltó el botón fuera del lienzo, no quedó registrado: se termina acá
+    if (e.evt.buttons === 0) {
+      onUp(e)
+      return
+    }
     if (it.type === 'pan') {
       useEditor.getState().setView({ offsetX: it.ox + pos.x - it.startX, offsetY: it.oy + pos.y - it.startY })
     } else if (it.type === 'move') {
@@ -567,7 +590,7 @@ export default function PlannerCanvas() {
     }
   }
 
-  const onUp = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  const onUp = (e: { evt: { shiftKey: boolean } }) => {
     const it = inter.current
     inter.current = null
     const st = useEditor.getState()
@@ -594,6 +617,8 @@ export default function PlannerCanvas() {
       setBox(null)
     }
   }
+
+  onUpRef.current = onUp
 
   // ---------- fantasmas ----------
   const ghost = useMemo(() => {
@@ -644,7 +669,7 @@ export default function PlannerCanvas() {
       onContextMenu={(e) => e.preventDefault()}
       style={{ cursor: tool === 'select' ? 'default' : 'crosshair' }}
     >
-      <Stage width={size.w} height={size.h} onWheel={onWheel} onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp}>
+      <Stage width={size.w} height={size.h} onWheel={onWheel} onMouseDown={onDown} onMouseMove={onMove} onMouseUp={(e) => onUp(e)}>
         <Layer x={view.offsetX} y={view.offsetY} scaleX={view.scale} scaleY={view.scale} listening={false}>
           <Grid view={view} w={size.w} h={size.h} />
           {below.map((e) => (

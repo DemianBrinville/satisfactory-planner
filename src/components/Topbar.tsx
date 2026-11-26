@@ -8,10 +8,6 @@ import {
   ListChecks,
   Loader2,
   Minus,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PanelRightClose,
-  PanelRightOpen,
   Plus,
   Redo2,
   TriangleAlert,
@@ -25,25 +21,18 @@ import AccountMenu from './AccountMenu'
 import PowerSettingsButton from './PowerSettings'
 
 interface Props {
-  leftOpen: boolean
-  rightOpen: boolean
-  onToggleLeft: () => void
-  onToggleRight: () => void
   onProgress: () => void
   onCommunity: () => void
 }
 
 /** Barra superior: plano actual, pisos, historial, herramientas y cuenta. */
-export default function Topbar({ leftOpen, rightOpen, onToggleLeft, onToggleRight, onProgress, onCommunity }: Props) {
+export default function Topbar({ onProgress, onCommunity }: Props) {
   const { floor, setFloor, undo, redo, past, future, floorHeight, setFloorHeight } = useEditor()
   const cloud = useCloud()
 
   return (
     <header className="topbar">
       <div className="tb-group">
-        <button className="icon-btn" onClick={onToggleLeft} title={leftOpen ? 'Ocultar la paleta' : 'Mostrar la paleta'}>
-          {leftOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
-        </button>
         <div className="brand">
           <span className="brand-logo">
             <Factory size={16} />
@@ -93,9 +82,6 @@ export default function Topbar({ leftOpen, rightOpen, onToggleLeft, onToggleRigh
 
       <div className="tb-group end">
         <AccountMenu />
-        <button className="icon-btn" onClick={onToggleRight} title={rightOpen ? 'Ocultar el panel de detalles' : 'Mostrar el panel de detalles'}>
-          {rightOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
-        </button>
       </div>
     </header>
   )
