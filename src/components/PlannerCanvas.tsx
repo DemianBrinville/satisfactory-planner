@@ -78,6 +78,7 @@ import {
 } from '../editor/power'
 import { NONE, type Rail } from '../editor/store'
 import { foundationArea, inFoundations, type FoundationArea } from '../editor/foundationArea'
+import { designerZone, isDesigner } from '../editor/designer'
 import { MAP_BOUNDS, MAP_IMAGE, anchorOnSpot, nearestSpot, spotColor, spotKindFor, spotPatch, spotsInPlan, type MapPlacement, type PlanSpot } from '../editor/worldMap'
 import { ItemIcon } from './GameIcons'
 
@@ -1024,6 +1025,28 @@ export default function PlannerCanvas() {
             )
           })}
           {baseArea && <FoundationOutline a={baseArea} scale={view.scale} />}
+          {/* diseñador de planos: zona de construcción (lo único que entra en el plano) */}
+          {sorted
+            .filter((e) => isDesigner(e.buildingId))
+            .map((e) => {
+              const z = designerZone(e)
+              if (!z) return null
+              const w = z.rect.x1 - z.rect.x0
+              return (
+                <Group key={'dz' + e.uid} listening={false}>
+                  <Rect x={z.rect.x0} y={z.rect.y0} width={w} height={w} stroke="#4fe0c0" strokeWidth={2 / view.scale} dash={[8 / view.scale, 5 / view.scale]} />
+                  {view.scale * w > 120 && (
+                    <Text
+                      x={z.rect.x0 + 4 / view.scale}
+                      y={z.rect.y0 + 4 / view.scale}
+                      text={i18n.t('designer.zone', { m: z.height })}
+                      fontSize={12 / view.scale}
+                      fill="#4fe0c0"
+                    />
+                  )}
+                </Group>
+              )
+            })}
           {/* luz de los interruptores de energía, como en el juego: verde encendido, amarillo apagado, rojo cortado solo */}
           {sorted
             .filter((e) => isPowerSwitch(e.buildingId))

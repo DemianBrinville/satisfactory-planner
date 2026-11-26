@@ -58,6 +58,7 @@ export function snapModeOf(b: Building): SnapMode {
       return 'foundationAnchor'
     case 'foundation':
     case 'wall':
+    case 'designer':
       return 'foundationCorner'
     default:
       return 'meter'

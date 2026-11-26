@@ -589,7 +589,8 @@
     "trainsNoSignals": "{{n}} trenes comparten estas vías sin señales: van a chocar. Pon señales de bloque para dividir la red.",
     "signalOffRail": "{{a}} no está sobre una vía.",
     "offNode": "{{a}} no está sobre un yacimiento que le sirva",
-    "nodeMismatch": "{{a}}: el yacimiento de abajo es de {{item}} {{purity}}; ajusta el recurso o la pureza"
+    "nodeMismatch": "{{a}}: el yacimiento de abajo es de {{item}} {{purity}}; ajusta el recurso o la pureza",
+    "designerOutside": "{{a}} se sale de la zona de construcción del {{b}}"
   },
   "train": {
     "title": "Tren con horario",
@@ -731,5 +732,15 @@
     "help": "Limita el caudal de la tubería. Tiene sentido de entrada y salida: el fluido pasa de la entrada a la salida.",
     "limit": "Limitar el caudal",
     "passing": "Pasan {{n}} m³/min."
+  },
+  "designer": {
+    "zone": "Zona de construcción · {{m}} × {{m}} × {{m}} m",
+    "help": "Solo se puede construir adentro de la zona marcada: {{m}} × {{m}} m ({{n}} × {{n}} cimientos) y {{m}} m de alto. Lo que armes ahí se guarda como plano en el juego; acá puedes guardarlo como bloque.",
+    "inside_one": "{{count}} estructura adentro de la zona.",
+    "inside_other": "{{count}} estructuras adentro de la zona.",
+    "outside_one": "{{count}} estructura se sale de la zona: en el juego no se podría construir así.",
+    "outside_other": "{{count}} estructuras se salen de la zona: en el juego no se podrían construir así.",
+    "select": "Seleccionar lo de adentro",
+    "saveBlock": "Guardar como bloque"
   }
 }

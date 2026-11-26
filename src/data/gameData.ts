@@ -27,6 +27,7 @@ export type BuildingKind =
   | 'valve'
   | 'foundation'
   | 'wall'
+  | 'designer'
   | 'structure'
 
 export interface ItemAmount {
@@ -66,6 +67,8 @@ export interface Building {
   somersloopSlots?: number
   /** espacios de inventario (contenedores) */
   inventorySlots?: number
+  /** diseñador de planos: lado (y alto) de la zona de construcción en metros */
+  designerArea?: number
 }
 
 export interface Recipe {

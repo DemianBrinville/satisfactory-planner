@@ -589,7 +589,8 @@
     "trainsNoSignals": "{{n}} trains share this track without signals: they will crash. Place block signals to split the network.",
     "signalOffRail": "{{a}} is not on a track.",
     "offNode": "{{a}} is not on a suitable resource node",
-    "nodeMismatch": "{{a}}: the node below is {{purity}} {{item}}; adjust the resource or purity"
+    "nodeMismatch": "{{a}}: the node below is {{purity}} {{item}}; adjust the resource or purity",
+    "designerOutside": "{{a}} sticks out of the build area of the {{b}}"
   },
   "train": {
     "title": "Train with timetable",
@@ -731,5 +732,15 @@
     "help": "Limits the pipe flow rate. It has an input and an output: fluid goes from the input to the output.",
     "limit": "Limit the flow rate",
     "passing": "{{n}} m³/min flow through."
+  },
+  "designer": {
+    "zone": "Build area · {{m}} × {{m}} × {{m}} m",
+    "help": "You can only build inside the marked area: {{m}} × {{m}} m ({{n}} × {{n}} foundations) and {{m}} m tall. What you build there is saved as a blueprint in the game; here you can save it as a block.",
+    "inside_one": "{{count}} structure inside the area.",
+    "inside_other": "{{count}} structures inside the area.",
+    "outside_one": "{{count}} structure sticks out of the area: the game would not allow it.",
+    "outside_other": "{{count}} structures stick out of the area: the game would not allow them.",
+    "select": "Select what is inside",
+    "saveBlock": "Save as block"
   }
 }

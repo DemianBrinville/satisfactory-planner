@@ -32,7 +32,9 @@ import {
   isPrioritySwitch,
 } from '../editor/power'
 import { isVerticalConnector } from '../editor/geometry'
-import { useEditor, type PlacedEntity, type Purity } from '../editor/store'
+import { groupOf, useEditor, type PlacedEntity, type Purity } from '../editor/store'
+import { designerContents, designerZone } from '../editor/designer'
+import { useBlocks } from '../cloud/blocks'
 import { NONE } from '../editor/store'
 import { ItemLabel } from './GameIcons'
 import { PlatformPanel, StationPanel, TrainPanel } from './TrainPanels'
@@ -144,6 +146,7 @@ export default function SidePanel() {
       {single && singleB && isBattery(singleB.id) && <BatteryPanel e={single} power={power} />}
       {single && singleB && isPowerSwitch(singleB.id) && <SwitchPanel e={single} power={power} />}
       {single && singleB && singleB.kind === 'valve' && <ValvePanel e={single} flows={flows} />}
+      {single && singleB && singleB.kind === 'designer' && <DesignerPanel e={single} />}
       {single && singleB && configurable && (
         <MachinePanel e={single} b={singleB} node={flows.nodes.get(single.uid)} />
       )}
@@ -390,6 +393,41 @@ export function fmtHours(h: number): string {
   if (m < 60) return i18n.t('battery.minutes', { m })
   const hh = Math.floor(m / 60)
   return m % 60 ? i18n.t('battery.hoursMinutes', { h: hh, m: m % 60 }) : i18n.t('battery.hours', { h: hh })
+}
+
+/** Diseñador de planos: zona de construcción, lo que hay adentro y lo que se sale; guardar lo de adentro como bloque. */
+function DesignerPanel({ e }: { e: PlacedEntity }) {
+  const { t } = useTranslation()
+  const entities = useEditor((s) => s.entities)
+  const floorHeight = useEditor((s) => s.floorHeight) ?? 8
+  const zone = designerZone(e)
+  const { inside, outside } = useMemo(() => designerContents(e, entities, floorHeight), [e, entities, floorHeight])
+  const uids = inside.map((x) => x.uid)
+  return (
+    <section className="machine">
+      <h2>{buildingsById.get(e.buildingId)?.name}</h2>
+      {zone && <p className="muted small">{t('designer.help', { m: zone.height, n: zone.height / 8 })}</p>}
+      <p className="small">{t('designer.inside', { count: inside.length })}</p>
+      {outside.length > 0 && <p className="warn small">{t('designer.outside', { count: outside.length })}</p>}
+      {inside.length > 0 && (
+        <div className="modal-actions">
+          <button className="btn" onClick={() => useEditor.getState().select(uids)}>
+            {t('designer.select')}
+          </button>
+          <button
+            className="btn primary"
+            onClick={() => {
+              const s = useEditor.getState()
+              const g = groupOf(uids, s.entities, s.conveyors, s.wires ?? NONE, s.rails ?? NONE)
+              if (g) useBlocks.getState().setSaving(g)
+            }}
+          >
+            {t('designer.saveBlock')}
+          </button>
+        </div>
+      )}
+    </section>
+  )
 }
 
 /** Válvula: caudal máximo que deja pasar y lo que pasa en este momento. */

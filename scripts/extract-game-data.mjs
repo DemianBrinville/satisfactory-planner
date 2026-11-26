@@ -30,6 +30,8 @@ function readDocs(file) {
 }
 const classes = readDocs(docsPath)
 const byName = new Map(classes.map((c) => [c.ClassName, c]))
+// algunos descriptores no coinciden en mayúsculas con su edificio (Build_BlueprintDesigner_Mk3_C / Desc_…_MK3_C)
+const byNameLower = new Map(classes.map((c) => [c.ClassName?.toLowerCase(), c]))
 
 const num = (v) => (v === undefined || v === '' ? 0 : Number(v))
 const round = (v, d = 3) => Math.round(v * 10 ** d) / 10 ** d
@@ -182,6 +184,7 @@ function kindOf(id, c) {
   if (/PipelineJunction/.test(id)) return 'pipeJunction'
   if (/PipelinePump/.test(id)) return 'pump'
   if (/Valve/.test(id)) return 'valve'
+  if (/BlueprintDesigner/.test(id)) return 'designer'
   if (/^Build_Miner/.test(id)) return 'miner'
   if (/WaterPump|OilPump|FrackingExtractor/.test(id)) return 'extractor'
   if (/Generator/.test(id)) return 'generator'
@@ -240,8 +243,8 @@ const buildings = []
 for (const c of classes) {
   const id = c.ClassName
   if (!id?.startsWith('Build_') || !c.mDisplayName) continue
-  const descId = id.replace(/^Build_/, 'Desc_')
-  const desc = byName.get(descId)
+  const desc = byName.get(id.replace(/^Build_/, 'Desc_')) ?? byNameLower.get(id.replace(/^Build_/, 'Desc_').toLowerCase())
+  const descId = desc?.ClassName ?? id.replace(/^Build_/, 'Desc_')
   const sub = desc?.mSubCategories?.match(/BuildCategories\/[^/]+\/(SC_[A-Za-z]+)/)?.[1]
   if (!sub || !CATEGORY[sub]) continue
   const recipe = buildRecipeByDesc.get(descId)
@@ -249,7 +252,12 @@ for (const c of classes) {
   const fp = footprint(c)
   const w = wiki[descId]
   const kind = kindOf(id, c)
+  // diseñador de planos: plataforma cuadrada (medida de la wiki) con una zona de construcción de mDimensions cimientos
+  const dims = Number(c.mDimensions?.match(/X=(\d+)/)?.[1] ?? 0)
+  const wikiSide = Number(String(w?.size_width ?? '').match(/[\d.]+/)?.[0] ?? 0)
+  const designer = kind === 'designer' && dims ? { area: dims * 8, side: wikiSide || dims * 8 + 8 } : null
   const size =
+    (designer && { minX: -designer.side / 2, maxX: designer.side / 2, minY: -designer.side / 2, maxY: designer.side / 2, height: designer.area + 2 }) ??
     fp ?? (c.mWidth ? { minX: -num(c.mWidth) / 200, maxX: num(c.mWidth) / 200, minY: -num(c.mDepth) / 200, maxY: num(c.mDepth) / 200, height: num(c.mHeight) / 100 } : null)
   const b = {
     id,
@@ -278,6 +286,7 @@ for (const c of classes) {
   }
   // ranuras de amplificación (somersloops) y capacidad de almacenamiento
   if (num(c.mProductionShardSlotSize) > 0 && c.mCanChangeProductionBoost === 'True') b.somersloopSlots = num(c.mProductionShardSlotSize)
+  if (designer) b.designerArea = designer.area
   if (num(c.mInventorySizeX) > 0) b.inventorySlots = num(c.mInventorySizeX) * num(c.mInventorySizeY)
   if (kind === 'belt' || kind === 'lift') b.itemsPerMinute = num(c.mSpeed) / 2
   if (kind === 'pipe') b.flowPerMinute = num(c.mFlowLimit) * 60

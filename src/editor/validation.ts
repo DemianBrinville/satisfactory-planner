@@ -1,3 +1,4 @@
+import { designerContents, isDesigner } from './designer'
 import { extractionPoint, spotKindFor, spotPatch, spotUnder, type MapPlacement } from './worldMap'
 import { buildingsById } from '../data/gameData'
 import { maxSegmentOf, pathLength } from './conveyors'
@@ -12,7 +13,7 @@ import { buildRailNet, isTimetable, legsOf, netOfStation } from './trains'
  * Cada problema trae el piso, un punto para ubicarlo y las estructuras involucradas.
  */
 
-export type ProblemKind = 'overlap' | 'through' | 'tooLong' | 'slope' | 'wireLong' | 'poleFull' | 'trainNoTrack' | 'trainsNoSignals' | 'signalOffRail' | 'offNode' | 'nodeMismatch'
+export type ProblemKind = 'overlap' | 'through' | 'tooLong' | 'slope' | 'wireLong' | 'poleFull' | 'trainNoTrack' | 'trainsNoSignals' | 'signalOffRail' | 'offNode' | 'nodeMismatch' | 'designerOutside'
 
 export interface Problem {
   id: string
@@ -90,11 +91,14 @@ function segmentInRect(a: Vec, b: Vec, r: Rect): Vec | null {
 const isObstacle = (id: string) => {
   const b = buildingsById.get(id)
   if (!b || isPole(id) || /ConveyorMonitor/.test(id)) return false
-  if (b.kind === 'foundation' || b.kind === 'wall') return false
+  if (b.kind === 'foundation' || b.kind === 'wall' || b.kind === 'designer') return false
   return !(b.kind === 'structure' && (b.category === 'arquitectura' || b.category === 'cimientos' || b.category === 'paredes'))
 }
 /** Capa para choques entre estructuras (igual que al colocar: los cimientos van debajo). */
-const layerOf = (id: string) => (buildingsById.get(id)?.kind === 'foundation' && !isVerticalConnector(id) ? 'base' : 'top')
+const layerOf = (id: string) => {
+  const k = buildingsById.get(id)?.kind
+  return (k === 'foundation' && !isVerticalConnector(id)) || k === 'designer' ? 'base' : 'top'
+}
 
 const center = (r: Rect): Vec => ({ x: (r.x0 + r.x1) / 2, y: (r.y0 + r.y1) / 2 })
 const CELL = 16
@@ -275,6 +279,13 @@ export function findProblems(
       if (u.n >= 2 && !(net.signalsIn.get(k) ?? 0))
         problems.push({ id: `trainsNoSignals:${k}`, kind: 'trainsNoSignals', floor: u.floor, at: u.at, uids: [u.uid], n: u.n })
     for (const s of net.loose) problems.push({ id: `signalOffRail:${s.uid}`, kind: 'signalOffRail', floor: s.floor, at: { x: s.x, y: s.y }, uids: [s.uid], a: s.buildingId })
+  }
+
+  // ---------- diseñador de planos: todo lo que se construye encima tiene que quedar adentro de su zona ----------
+  for (const d of entities) {
+    if (!isDesigner(d.buildingId)) continue
+    for (const e of designerContents(d, entities, floorHeight).outside)
+      problems.push({ id: `designerOutside:${d.uid}:${e.uid}`, kind: 'designerOutside', floor: e.floor, at: center(rects.get(e.uid) ?? entityRect(e)!), uids: [e.uid, d.uid], a: e.buildingId, b: d.buildingId })
   }
 
   // ---------- mapa real: cada taladro y extractor sobre un yacimiento que le sirva ----------

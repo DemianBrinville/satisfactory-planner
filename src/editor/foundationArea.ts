@@ -1,3 +1,4 @@
+import { buildingsById } from '../data/gameData'
 import { FOUNDATION, type Rect, type Vec } from './geometry'
 import { entityRect, layerOf, type PlacedEntity } from './store'
 
@@ -22,7 +23,8 @@ export interface FoundationArea {
 }
 
 const EPS = 0.01
-const isBase = (e: PlacedEntity) => layerOf(e.buildingId) === 'base'
+// (el diseñador de planos también es piso, pero no es parte de una superficie de cimientos)
+const isBase = (e: PlacedEntity) => layerOf(e.buildingId) === 'base' && buildingsById.get(e.buildingId)?.kind !== 'designer'
 
 /** Dos rectángulos se tocan por un lado (no solo por una esquina) o se superponen. */
 const touch = (a: Rect, b: Rect) => {

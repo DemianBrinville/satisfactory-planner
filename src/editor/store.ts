@@ -243,8 +243,11 @@ export const newUid = () => Math.random().toString(36).slice(2, 10)
 const nextRot = (r: Rotation, dir: 1 | -1): Rotation => ((r + 90 * dir + 360) % 360) as Rotation
 
 /** Los cimientos van en su propia capa: las máquinas se apoyan encima. */
-export const layerOf = (buildingId: string) =>
-  buildingsById.get(buildingId)?.kind === 'foundation' && !isVerticalConnector(buildingId) ? 'base' : 'top'
+/** Capa: los cimientos y el diseñador de planos son piso (se construye encima); el resto va arriba. */
+export const layerOf = (buildingId: string) => {
+  const k = buildingsById.get(buildingId)?.kind
+  return (k === 'foundation' && !isVerticalConnector(buildingId)) || k === 'designer' ? 'base' : 'top'
+}
 
 /** ¿La estructura ocupa este piso? Los conectores verticales ocupan todos los pisos que atraviesan. */
 export const onFloor = (e: PlacedEntity, floor: number) =>

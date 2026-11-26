@@ -83,6 +83,7 @@ Ideas propuestas, pendientes de decidir: calculadora que elige las recetas ópti
 - **Acumulador de energía (batería):** guarda 100 MWh, se carga con lo que sobra en su red hasta 100 MW cada uno y entrega sin límite (datos del juego). Su panel dice cuánto guarda la red, en cuánto se llena o cuánto aguanta si falta generación. La línea de cada red avisa cuando, en el pico de las máquinas de potencia variable, el consumo supera la generación: sin baterías la red se corta; con baterías, lo cubren.
 - **Interruptores de energía:** se encienden y se apagan; apagados, las redes de sus dos lados quedan separadas y cada una se calcula con su propia generación. Los de prioridad tienen grupo de corte (sin grupo, 1 a 8): si una red no alcanza, se cortan solos los sin grupo y después del 8 al 1, hasta que alcance (como en el juego). En el plano llevan una luz: verde encendido, amarilla apagado, roja cortado solo.
 - **Válvula:** limita el caudal que pasa de su entrada a su salida (0 a 600 m³/min, o sin límite); el cálculo de flujos lo respeta y el panel muestra lo que pasa.
+- **Diseñador de planos (Mk.1, Mk.2 y Mk.3):** plataforma de 40, 48 y 56 m con su zona de construcción de 32, 40 y 48 m de lado y de alto, marcada en el plano; se construye encima como sobre un cimiento. El panel cuenta lo que hay adentro, avisa lo que se sale (también en Problemas) y guarda lo de adentro como bloque. El Mk.3 faltaba en los datos porque su descriptor no coincide en mayúsculas con el edificio.
 
 ## Pendientes
 
