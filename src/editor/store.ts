@@ -37,6 +37,8 @@ export interface PlacedEntity {
   somersloops?: number
   /** postes/torres: conectado a la red eléctrica del mundo */
   worldLink?: boolean
+  /** postes de cinta: altura de la cinta sobre el piso (m) */
+  height?: number
 }
 
 /** Extremo de una cinta/tubería: un puerto de un edificio o un poste/soporte (port = -1). */

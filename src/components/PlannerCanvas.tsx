@@ -44,6 +44,7 @@ import ContextMenu, { type MenuState } from './ContextMenu'
 import { TriangleAlert, Zap, ZapOff } from 'lucide-react'
 import { HOTKEYS } from '../editor/families'
 import Hotbar from './Hotbar'
+import { useProblems } from './Problems'
 import Production, { ClockAdviceText, clockAdvice, type ClockAdvice } from './Production'
 import { computeHeadLift, type HeadIssue } from '../editor/fluids'
 import { curvedPath } from '../editor/dubins'
@@ -288,6 +289,11 @@ export default function PlannerCanvas() {
     () => below.filter((e) => inView(entBox.get(e.uid))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [below, entBox, vx0, vy0, vx1, vy1],
+  )
+  const problems = useProblems()
+  const problemsHere = useMemo(
+    () => problems.filter((p) => p.floor === floor && p.at.x >= vx0 && p.at.x <= vx1 && p.at.y >= vy0 && p.at.y <= vy1),
+    [problems, floor, vx0, vy0, vx1, vy1],
   )
   /** consejo de reloj por máquina (objetos estables mientras no cambie el plano) */
   const adviceOf = useMemo(() => {
@@ -958,6 +964,24 @@ export default function PlannerCanvas() {
               />
             )
           })}
+          {/* problemas del plano en este piso (la lista está en el botón Problemas de la barra superior) */}
+          {problemsHere.map((p) => (
+            <Group key={p.id} x={p.at.x} y={p.at.y}>
+              <Circle radius={9 / view.scale} fill="rgba(224, 80, 70, 0.85)" stroke="#ffffff" strokeWidth={1.5 / view.scale} />
+              <Text
+                text="!"
+                fontStyle="bold"
+                fontSize={13 / view.scale}
+                fill="#ffffff"
+                width={18 / view.scale}
+                height={18 / view.scale}
+                offsetX={9 / view.scale}
+                offsetY={8.5 / view.scale}
+                align="center"
+                verticalAlign="middle"
+              />
+            </Group>
+          ))}
         </Layer>
         {/* capa aparte para lo que sigue al mouse: moverlo no redibuja la fábrica */}
         <Layer x={view.offsetX} y={view.offsetY} scaleX={view.scale} scaleY={view.scale} listening={false}>

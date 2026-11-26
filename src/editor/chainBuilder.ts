@@ -3,7 +3,7 @@ import { buildingsById, game } from '../data/gameData'
 import { machineSplit, RAW_ITEMS, type Step } from './calculator'
 import { pathLength } from './conveyors'
 import { MINER_RESOURCES } from './flow'
-import { portsOf, toWorld, worldRect, type Rotation, type Vec } from './geometry'
+import { portsOf, rectsOverlap, toWorld, worldRect, type Rect, type Rotation, type Vec } from './geometry'
 import { isBuildingIdAvailable } from './progress'
 import { connectionsOf, wirePoint, WIRE_MAX } from './power'
 import { BELT_POLE, PIPE_SUPPORT, newUid, type Conveyor, type End, type PlacedEntity, type Wire } from './store'
@@ -687,14 +687,66 @@ function buildOnce(
     const perPole = Math.max(1, connectionsOf(pb) - 3)
     const rect = (e: PlacedEntity) => worldRect(buildingsById.get(e.buildingId)!, e, e.rot)
     const link = (a: PlacedEntity, b: PlacedEntity) => wires.push({ uid: newUid(), from: a.uid, to: b.uid })
-    const pole = (x: number, y: number) => add({ uid: newUid(), buildingId: poleId, x: Math.round(x * 2) / 2, y: Math.round(y * 2) / 2, rot: 0, floor })
+    // lugar libre para un poste: sin pisar estructuras ni cintas (se prueba cerca de la posición pensada).
+    // Índice por celdas de 8 m para no recorrer todo el armado en cada prueba.
+    const C = 8
+    const ents = new Map<string, Rect[]>()
+    const segIdx = new Map<string, (readonly [Vec, Vec])[]>()
+    const put = <T,>(m: Map<string, T[]>, r: Rect, v: T) => {
+      for (let gx = Math.floor(r.x0 / C); gx <= Math.floor(r.x1 / C); gx++)
+        for (let gy = Math.floor(r.y0 / C); gy <= Math.floor(r.y1 / C); gy++) {
+          const k = `${gx},${gy}`
+          const l = m.get(k)
+          if (l) l.push(v)
+          else m.set(k, [v])
+        }
+    }
+    const around = <T,>(m: Map<string, T[]>, p: Vec) => {
+      const out: T[] = []
+      const gx = Math.floor(p.x / C)
+      const gy = Math.floor(p.y / C)
+      for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) out.push(...(m.get(`${gx + i},${gy + j}`) ?? []))
+      return out
+    }
+    for (const e of entities) put(ents, rect(e), rect(e))
+    for (const c of conveyors)
+      for (let i = 1; i < c.points.length; i++) {
+        const a = c.points[i - 1]
+        const b = c.points[i]
+        put(segIdx, { x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) }, [a, b] as const)
+      }
+    const pole = (x: number, y: number) => {
+      const p = add({ uid: newUid(), buildingId: poleId, x: Math.round(x * 2) / 2, y: Math.round(y * 2) / 2, rot: 0, floor })
+      put(ents, rect(p), rect(p))
+      return p
+    }
+    const segDist = (p: Vec, a: Vec, b: Vec) => {
+      const dx = b.x - a.x
+      const dy = b.y - a.y
+      const L = dx * dx + dy * dy
+      const t = L ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L)) : 0
+      return Math.hypot(p.x - a.x - dx * t, p.y - a.y - dy * t)
+    }
+    const isFree = (x: number, y: number) => {
+      const q = { x: Math.round(x * 2) / 2, y: Math.round(y * 2) / 2 }
+      const me = worldRect(pb, q, 0)
+      if (around(ents, q).some((r) => rectsOverlap(me, r, -0.3))) return false
+      return !around(segIdx, q).some(([a, b]) => segDist(q, a, b) < 1)
+    }
+    const OFFS = [0, -2, 2, -4, 4, -6, 6]
+    const freePole = (cands: Vec[]) => {
+      for (const c of cands) for (const dy of OFFS) if (isFree(c.x, c.y + dy)) return pole(c.x, c.y + dy)
+      for (const c of cands) for (const dx of OFFS) for (const dy of OFFS) if (isFree(c.x + dx, c.y + dy)) return pole(c.x + dx, c.y + dy)
+      return pole(cands[0].x, cands[0].y)
+    }
     /** une dos postes; si quedan a más de 100 m, con postes intermedios en línea recta */
     const chain = (a: PlacedEntity, b: PlacedEntity) => {
       const d = Math.hypot(b.x - a.x, b.y - a.y)
-      const parts = Math.ceil(d / (WIRE_MAX - 5))
+      // (con margen: los postes intermedios se corren hasta un lugar libre)
+      const parts = Math.ceil(d / (WIRE_MAX - 20))
       let prev = a
       for (let k = 1; k < parts; k++) {
-        const mid = pole(a.x + ((b.x - a.x) * k) / parts, a.y + ((b.y - a.y) * k) / parts)
+        const mid = freePole([{ x: a.x + ((b.x - a.x) * k) / parts, y: a.y + ((b.y - a.y) * k) / parts }])
         link(prev, mid)
         prev = mid
       }
@@ -715,10 +767,16 @@ function buildOnce(
         const mid = list[mi]
         const r = rect(mid)
         const next = list[mi + 1]
+        // (los destinos de subproductos reciben la cinta por la izquierda: su poste va a la derecha)
+        const cy = (r.y0 + r.y1) / 2
         const p =
           row === sinkUnits
-            ? pole(r.x0 - 2, (r.y0 + r.y1) / 2)
-            : pole(next ? (r.x1 + rect(next).x0) / 2 : r.x1 + 1.5, (r.y0 + r.y1) / 2)
+            ? freePole([{ x: r.x1 + 1.5, y: cy }])
+            : freePole([
+                { x: next ? (r.x1 + rect(next).x0) / 2 : r.x1 + 1.5, y: cy },
+                { x: r.x0 - 1.5, y: cy },
+                { x: r.x1 + 1.5, y: cy },
+              ])
         for (const m of group) link(p, m)
         if (prev) chain(prev, p)
         else rowHeads.push(p)

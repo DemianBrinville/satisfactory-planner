@@ -302,7 +302,9 @@
     "powerUse": "Uses {{mw}} MW",
     "powerGen": " · Produces {{mw}} MW",
     "noMaterials": "No materials.",
-    "drawingHelpHyper": "Click a hypertube entrance, junction or floor hole (or the ground, which places a support) to start and click again to finish. If you finish on the ground, drawing continues from there. Up to 100 m per segment; it costs its materials for every meter."
+    "drawingHelpHyper": "Click a hypertube entrance, junction or floor hole (or the ground, which places a support) to start and click again to finish. If you finish on the ground, drawing continues from there. Up to 100 m per segment; it costs its materials for every meter.",
+    "poleHeight": "Belt height",
+    "poleHeightHint": "Machines send and receive belts at 1 m. Between two different heights the belt climbs on a slope, which cannot exceed 35°. If it runs higher than a machine, it passes over without colliding."
   },
   "machine": {
     "recipe": "Recipe",
@@ -552,5 +554,22 @@
     "createFailed": "Could not create the plan",
     "unsaved": "Unsaved plan",
     "firstFactory": "My first factory"
+  },
+  "problems": {
+    "title": "Plan problems",
+    "none": "No problems",
+    "count_one": "1 problem",
+    "count_other": "{{count}} problems",
+    "allGood": "No problems: everything can be built like this in the game.",
+    "hint": "Click a problem to go there: it switches floor, selects it and centers it.",
+    "more_one": "And 1 more.",
+    "more_other": "And {{count}} more.",
+    "checks": "Checked: overlapping structures, belts and pipes going through structures, segments that are too long, belt slope (35° max), wires over 100 m and poles with more wires than they allow.",
+    "overlap": "{{a}} and {{b}} overlap.",
+    "through": "{{a}} goes through {{b}}: route around it, or lift it with poles taller than the structure.",
+    "tooLong": "{{a}} is {{n}} m long and the maximum is {{max}} m: add a pole or support in the middle.",
+    "slope": "{{a}} climbs at {{n}}° and the maximum is 35°: move the poles further apart or use a conveyor lift.",
+    "wireLong": "A wire is {{n}} m long and the maximum is {{max}} m: add a pole in the middle.",
+    "poleFull": "{{a}} has {{n}} wires and allows {{max}}: add another pole or use one with more connections."
   }
 }

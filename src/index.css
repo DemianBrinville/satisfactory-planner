@@ -725,6 +725,41 @@ kbd {
   left: 0;
   right: auto;
 }
+.tb-btn.has-problems {
+  color: #ff8a7f;
+}
+.problems-pop {
+  width: 380px;
+}
+.problem-list {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.problem-list li button {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  padding: 6px 4px;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.problem-list li button:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.problem-floor {
+  flex: none;
+  color: #ff8a7f;
+  font-size: 12px;
+  min-width: 48px;
+}
 .switch {
   display: flex;
   align-items: center;

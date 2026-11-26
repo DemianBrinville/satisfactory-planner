@@ -302,7 +302,9 @@
     "powerUse": "Consumo {{mw}} MW",
     "powerGen": " · Genera {{mw}} MW",
     "noMaterials": "Sin materiales.",
-    "drawingHelpHyper": "Clic en una entrada, una unión o un pase de hipertubo (o en el suelo, que crea un soporte) para empezar y otro clic para terminar. Si terminas en el suelo, el trazado sigue desde ahí. Máximo 100 m por tramo; cuesta su material por cada metro."
+    "drawingHelpHyper": "Clic en una entrada, una unión o un pase de hipertubo (o en el suelo, que crea un soporte) para empezar y otro clic para terminar. Si terminas en el suelo, el trazado sigue desde ahí. Máximo 100 m por tramo; cuesta su material por cada metro.",
+    "poleHeight": "Altura de la cinta",
+    "poleHeightHint": "Las máquinas sacan y reciben la cinta a 1 m. Entre dos alturas distintas la cinta sube en pendiente, que no puede pasar de 35°. Si va más alta que una máquina, pasa por encima sin chocar."
   },
   "machine": {
     "recipe": "Receta",
@@ -552,5 +554,22 @@
     "createFailed": "No se pudo crear el plano",
     "unsaved": "Plano sin guardar",
     "firstFactory": "Mi primera fábrica"
+  },
+  "problems": {
+    "title": "Problemas del plano",
+    "none": "Sin problemas",
+    "count_one": "1 problema",
+    "count_other": "{{count}} problemas",
+    "allGood": "No hay problemas: todo se puede construir así en el juego.",
+    "hint": "Haz clic en un problema para ir al lugar: cambia de piso, lo selecciona y lo centra.",
+    "more_one": "Y 1 más.",
+    "more_other": "Y {{count}} más.",
+    "checks": "Se revisa: estructuras superpuestas, cintas y tuberías que atraviesan estructuras, tramos demasiado largos, pendiente de las cintas (máximo 35°), cables de más de 100 m y postes con más cables de los que admiten.",
+    "overlap": "{{a}} y {{b}} se superponen.",
+    "through": "{{a}} atraviesa {{b}}: rodéala, o súbela con postes más altos que la estructura.",
+    "tooLong": "{{a}} mide {{n}} m y el máximo es {{max}} m: agrega un poste o soporte en el medio.",
+    "slope": "{{a}} sube con una pendiente de {{n}}° y el máximo es 35°: aleja los postes o usa una cinta elevadora.",
+    "wireLong": "Un cable mide {{n}} m y el máximo es {{max}} m: agrega un poste en el medio.",
+    "poleFull": "{{a}} tiene {{n}} cables y admite {{max}}: agrega otro poste o usa uno de más conexiones."
   }
 }

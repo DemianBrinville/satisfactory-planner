@@ -22,6 +22,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { SUPPORTED } from '../i18n'
 import AccountMenu from './AccountMenu'
 import PowerSettingsButton from './PowerSettings'
+import ProblemsButton from './Problems'
 import { AppLogo } from './GameIcons'
 
 interface Props {
@@ -84,6 +85,7 @@ export default function Topbar({ onCalculator, onProgress, onCommunity }: Props)
           <span>{t('topbar.progress')}</span>
         </button>
         <PowerSettingsButton />
+        <ProblemsButton />
         <button className="tb-btn" onClick={onCommunity} title={t('topbar.communityTitle')}>
           <Globe size={16} />
           <span>{t('topbar.community')}</span>

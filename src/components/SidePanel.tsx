@@ -18,6 +18,7 @@ import { isVerticalConnector } from '../editor/geometry'
 import { useEditor, type PlacedEntity, type Purity } from '../editor/store'
 import { NONE } from '../editor/store'
 import { ItemLabel } from './GameIcons'
+import { defaultPoleHeight, poleHeights } from '../editor/validation'
 
 const fmt = (n: number) => n.toLocaleString(locale(), { maximumFractionDigits: 2 })
 const pct = (clock: number) => fmtPct(clock)
@@ -91,6 +92,9 @@ export default function SidePanel() {
 
       {single && singleB && /SplitterSmart|SplitterProgrammable/.test(singleB.id) && <SplitterPanel e={single} b={singleB} />}
       {single && singleB && isVerticalConnector(singleB.id) && <ConnectorPanel e={single} b={singleB} />}
+      {single && singleB && poleHeights(singleB.id, floorHeight ?? 8) && (
+        <PoleHeight e={single} options={poleHeights(singleB.id, floorHeight ?? 8)!} />
+      )}
       {selRoute && <RoutePanel r={selRoute} entities={entities} floorHeight={floorHeight} flow={flows.edges.get(selRoute.uid)} />}
       {single && singleB && vehicleForStation(singleB.id) && (
         <section>
@@ -181,6 +185,25 @@ export default function SidePanel() {
         </p>
       </section>
     </aside>
+  )
+}
+
+/** Altura de un poste de cinta: define la pendiente de las cintas que llegan y si pasan por encima de las máquinas. */
+function PoleHeight({ e, options }: { e: PlacedEntity; options: number[] }) {
+  const { t } = useTranslation()
+  const h = e.height ?? defaultPoleHeight(e.buildingId)
+  return (
+    <section>
+      <h3>{t('side.poleHeight')}</h3>
+      <div className="segmented small">
+        {options.map((o) => (
+          <button key={o} className={o === h ? 'active' : ''} onClick={() => useEditor.getState().updateEntity(e.uid, { height: o })}>
+            {o} m
+          </button>
+        ))}
+      </div>
+      <p className="muted small">{t('side.poleHeightHint')}</p>
+    </section>
   )
 }
 
