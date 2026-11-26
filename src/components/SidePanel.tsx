@@ -165,6 +165,9 @@ export default function SidePanel() {
           <kbd>Shift</kbd>+clic: sumar a la selección · clic derecho: opciones
         </p>
         <p>
+          Cimientos: arrastrar rellena un área · clic en el extremo suelto de una cinta o tubería: seguirla
+        </p>
+        <p>
           Cintas: <span className="ok">verde</span> justo, <span className="warn">amarillo</span> sobra material, <span className="bad">rojo</span>{' '}
           falta material.
         </p>

@@ -86,6 +86,7 @@ type Interaction =
   | { type: 'pan'; startX: number; startY: number; ox: number; oy: number }
   | { type: 'move'; start: Vec; step: number }
   | { type: 'box'; start: Vec }
+  | { type: 'area'; start: Vec }
   | null
 
 /** Extremo candidato para la herramienta de cintas. */
@@ -117,6 +118,8 @@ export default function PlannerCanvas() {
   const [screen, setScreen] = useState<Vec>({ x: 0, y: 0 })
   const [drag, setDrag] = useState<Vec>({ x: 0, y: 0 })
   const [box, setBox] = useState<WRect | null>(null)
+  /** relleno de cimientos en curso: anclaje inicial y actual */
+  const [area, setArea] = useState<{ a: Vec; b: Vec } | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const draftRef = useRef<Draft | null>(null)
   draftRef.current = draft
@@ -455,6 +458,37 @@ export default function PlannerCanvas() {
 
   const target = tool === 'conveyor' ? findTarget(mouse) : null
 
+  /** cintas que tocan cada poste/soporte, para saber cuáles son extremos sueltos */
+  const poleLinks = useMemo(() => {
+    const m = new Map<string, Conveyor[]>()
+    for (const c of conveyors)
+      for (const u of [c.from.uid, c.to.uid]) {
+        if (!m.has(u)) m.set(u, [])
+        m.get(u)!.push(c)
+      }
+    return m
+  }, [conveyors])
+  /** Extremo suelto de una cinta o tubería (poste o soporte con un solo tramo) cerca del punto. */
+  const freeEndAt = (p: Vec) => {
+    for (const e of visible) {
+      if (!BELT_POLES.has(e.buildingId) && !PIPE_POLES.has(e.buildingId)) continue
+      if (Math.hypot(e.x - p.x, e.y - p.y) > 1.2) continue
+      const links = poleLinks.get(e.uid) ?? []
+      if (links.length !== 1) continue
+      return { pole: e, conv: links[0], incoming: links[0].to.uid === e.uid }
+    }
+    return null
+  }
+  /** Sigue trazando desde el extremo suelto con la misma marca de cinta o tubería. */
+  const continueFrom = (fe: NonNullable<ReturnType<typeof freeEndAt>>) => {
+    const end = { uid: fe.pole.uid, port: -1 }
+    const info = endInfo(end, entities)
+    if (!info) return
+    useEditor.getState().startConveyor(fe.conv.buildingId)
+    setDraft({ from: { end, info, dir: 'any' }, reversed: !fe.incoming })
+  }
+  const endHover = tool === 'select' && !inter.current ? freeEndAt(mouse) : null
+
   /** Trazado candidato entre el inicio del borrador y el objetivo actual. */
   const preview = useMemo(() => {
     if (!draft || !target) return null
@@ -521,6 +555,12 @@ export default function PlannerCanvas() {
       return
     }
     if (e.evt.button === 2) {
+      if (area) {
+        // clic derecho durante el relleno: se cancela sin colocar
+        inter.current = null
+        setArea(null)
+        return
+      }
       if (st.tool !== 'select') {
         if (draft) setDraft(null)
         else if (wireFrom) setWireFrom(null)
@@ -542,7 +582,14 @@ export default function PlannerCanvas() {
     if (e.evt.button !== 0) return
     if (st.tool === 'place' && st.placingId) {
       const b = buildingsById.get(st.placingId)!
-      st.place(snapAnchor(b, p, st.placingRot, st.snapStep))
+      const anchor = snapAnchor(b, p, st.placingRot, st.snapStep)
+      if (b.kind === 'foundation') {
+        // cimientos: arrastrar rellena el rectángulo, un clic pone uno solo
+        inter.current = { type: 'area', start: anchor }
+        setArea({ a: anchor, b: anchor })
+        return
+      }
+      st.place(anchor)
       return
     }
     if (st.tool === 'paste' && st.clipboard) {
@@ -563,6 +610,12 @@ export default function PlannerCanvas() {
     }
     if (st.tool === 'route') {
       routeClick(p)
+      return
+    }
+    // clic sobre el extremo suelto de una cinta/tubería: se sigue trazando desde ahí
+    const fe = freeEndAt(p)
+    if (fe) {
+      continueFrom(fe)
       return
     }
     // clic sobre un puerto libre: empieza una cinta/tubería desde esa conexión
@@ -621,6 +674,10 @@ export default function PlannerCanvas() {
       })
     } else if (it.type === 'box') {
       setBox(normRect(it.start, p))
+    } else if (it.type === 'area') {
+      const st = useEditor.getState()
+      const b = st.placingId ? buildingsById.get(st.placingId) : null
+      if (b) setArea({ a: it.start, b: snapAnchor(b, p, st.placingRot, st.snapStep) })
     }
   }
 
@@ -628,7 +685,10 @@ export default function PlannerCanvas() {
     const it = inter.current
     inter.current = null
     const st = useEditor.getState()
-    if (it?.type === 'move') {
+    if (it?.type === 'area') {
+      if (area) st.placeMany(areaAnchors(area, st.placingId, st.placingRot))
+      setArea(null)
+    } else if (it?.type === 'move') {
       if (drag.x || drag.y) {
         const sel = st.selection
         const ok = sel.every((u) => {
@@ -656,13 +716,19 @@ export default function PlannerCanvas() {
 
   // ---------- fantasmas ----------
   const ghost = useMemo(() => {
-    if (tool !== 'place' || !placingId) return null
+    if (tool !== 'place' || !placingId || area) return null
     const b = buildingsById.get(placingId)
     if (!b) return null
     const anchor = snapAnchor(b, mouse, placingRot, snapStep)
     return { b, anchor, ok: s.canPlace(placingId, anchor, placingRot) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tool, placingId, placingRot, mouse, entities, floor, snapStep])
+  }, [tool, placingId, placingRot, mouse, entities, floor, snapStep, area])
+  const areaGhost = useMemo(() => {
+    if (!area || !placingId) return null
+    const anchors = areaAnchors(area, placingId, placingRot)
+    return anchors.map((a) => ({ a, ok: s.canPlace(placingId, a, placingRot) }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [area, placingId, placingRot, entities, floor])
 
   const pasteGhost = useMemo(() => {
     if (tool !== 'paste' || !clipboard) return null
@@ -808,6 +874,16 @@ export default function PlannerCanvas() {
               showLabels={showLabels}
             />
           )}
+          {areaGhost?.map(({ a, ok }, i) => (
+            <EntityShape
+              key={i}
+              e={{ uid: 'area' + i, buildingId: placingId!, x: a.x, y: a.y, rot: placingRot, floor }}
+              scale={view.scale}
+              ghost={ok ? 'ok' : 'bad'}
+              showLabels={false}
+            />
+          ))}
+          {endHover && <Circle x={endHover.pole.x} y={endHover.pole.y} radius={1.1} stroke="#ffffff" strokeWidth={2 / view.scale} />}
           {pasteGhost && (
             <>
               {pasteGhost.doc.conveyors.map((c) => (
@@ -890,8 +966,19 @@ export default function PlannerCanvas() {
           {preview.reason && <div className="bad">{preview.reason}</div>}
         </div>
       )}
+      {areaGhost && (
+        <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
+          <b>{areaGhost.filter((g) => g.ok).length} cimientos</b>
+          {areaGhost.some((g) => !g.ok) && <div className="muted">{areaGhost.filter((g) => !g.ok).length} lugares ocupados se saltean</div>}
+        </div>
+      )}
+      {endHover && (
+        <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
+          <b>Clic para seguir {buildingsById.get(endHover.conv.buildingId)?.kind === 'pipe' ? 'la tubería' : 'la cinta'}</b>
+        </div>
+      )}
       {hover?.conv && <ConveyorTooltip c={hover.conv} flow={flows.edges.get(hover.conv.uid)} head={headIssues.get(hover.conv.uid)} at={screen} />}
-      {hover?.ent && <EntityTooltip e={hover.ent} flows={flows} power={power} at={screen} />}
+      {hover?.ent && !endHover && <EntityTooltip e={hover.ent} flows={flows} power={power} at={screen} />}
       {hover?.route && <RouteTooltip r={hover.route} entities={entities} flows={flows} floorHeight={s.floorHeight} at={screen} />}
       {hover?.rail && (
         <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
@@ -1511,4 +1598,20 @@ function ptsBox(pts: Vec[]) {
     if (p.y > y1) y1 = p.y
   }
   return { x0, y0, x1, y1 }
+}
+
+/** Posiciones de un relleno de área: de un anclaje al otro en pasos del tamaño de la pieza (máx. 50 × 50). */
+function areaAnchors(area: { a: Vec; b: Vec }, buildingId: string | null, rot: Rotation): Vec[] {
+  const b = buildingId ? buildingsById.get(buildingId) : null
+  if (!b) return []
+  const r = worldRect(b, { x: 0, y: 0 }, rot)
+  const sw = r.x1 - r.x0
+  const sh = r.y1 - r.y0
+  const nx = Math.min(50, Math.round(Math.abs(area.b.x - area.a.x) / sw) + 1)
+  const ny = Math.min(50, Math.round(Math.abs(area.b.y - area.a.y) / sh) + 1)
+  const dx = Math.sign(area.b.x - area.a.x) * sw
+  const dy = Math.sign(area.b.y - area.a.y) * sh
+  const out: Vec[] = []
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) out.push({ x: area.a.x + dx * i, y: area.a.y + dy * j })
+  return out
 }

@@ -159,6 +159,8 @@ interface EditorState extends PlanDoc {
   cancelTool: () => void
   rotatePlacing: (dir?: 1 | -1) => void
   place: (anchor: Vec) => boolean
+  /** coloca la pieza elegida en varias posiciones de una vez (relleno de área); devuelve cuántas entraron */
+  placeMany: (anchors: Vec[]) => number
   canPlace: (buildingId: string, anchor: Vec, rot: Rotation, ignore?: string[]) => boolean
   addConveyor: (c: Omit<Conveyor, 'uid' | 'floor' | 'from' | 'to'> & { from: End | Vec; to: End | Vec }) => void
   select: (uids: string[], additive?: boolean) => void
@@ -406,6 +408,18 @@ export const useEditor = create<EditorState>((set, get) => {
         ],
       })
       return true
+    },
+
+    placeMany: (anchors) => {
+      const { placingId, placingRot, floor, entities, canPlace } = get()
+      if (!placingId) return 0
+      const added: PlacedEntity[] = []
+      for (const a of anchors) {
+        if (!canPlace(placingId, a, placingRot)) continue
+        added.push({ uid: newUid(), buildingId: placingId, x: a.x, y: a.y, rot: placingRot, floor })
+      }
+      if (added.length) commit({ entities: [...entities, ...added] })
+      return added.length
     },
 
     addConveyor: ({ buildingId, points, from, to, mode }) => {
