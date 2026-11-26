@@ -21,6 +21,7 @@ import { ItemLabel } from './GameIcons'
 import { PlatformPanel, StationPanel, TrainPanel } from './TrainPanels'
 import { isPlatform, isTimetable, isTrainStation } from '../editor/trains'
 import { defaultPoleHeight, poleHeights } from '../editor/validation'
+import { spotPatch, spotUnder } from '../editor/worldMap'
 
 const fmt = (n: number) => n.toLocaleString(locale(), { maximumFractionDigits: 2 })
 const pct = (clock: number) => fmtPct(clock)
@@ -366,9 +367,23 @@ function ExtractorConfig({ e, b }: { e: PlacedEntity; b: Building }) {
   const resources = extractorResources(b)
   const resource = e.resource ?? resources[0]
   const purityApplies = !/WaterPump/.test(b.id)
+  const map = useEditor((s) => s.map)
+  const spot = map ? spotUnder(e, b, map) : null
+  const fromSpot = spot ? spotPatch(spot) : null
+  const differs = !!fromSpot && ((!!fromSpot.resource && fromSpot.resource !== resource) || (!!fromSpot.purity && fromSpot.purity !== (e.purity ?? 'normal')))
   return (
     <>
       <h3>{t('machine.node')}</h3>
+      {spot && (
+        <p className={'small ' + (differs ? 'warn' : 'ok')}>
+          {t('side.onNode', { item: itemName(spot.resource), purity: spot.purity ? t(`purity.${spot.purity}`).toLowerCase() : '-' })}{' '}
+          {differs && (
+            <button className="link" onClick={() => update(e.uid, fromSpot!)}>
+              {t('side.useNode')}
+            </button>
+          )}
+        </p>
+      )}
       {resources.length > 1 && (
         <select value={resource} onChange={(ev) => update(e.uid, { resource: ev.target.value })}>
           {resources.map((r) => (

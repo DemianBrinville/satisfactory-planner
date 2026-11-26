@@ -23,6 +23,7 @@ import { SUPPORTED } from '../i18n'
 import AccountMenu from './AccountMenu'
 import PowerSettingsButton from './PowerSettings'
 import ProblemsButton from './Problems'
+import MapButton from './MapPanel'
 import { AppLogo } from './GameIcons'
 
 interface Props {
@@ -76,17 +77,18 @@ export default function Topbar({ onCalculator, onProgress, onCommunity }: Props)
             <Redo2 size={16} />
           </button>
         </div>
-        <button className="tb-btn" onClick={onCalculator} title={t('topbar.calculatorTitle')}>
+        <button className="tb-btn tb-collapse" onClick={onCalculator} title={t('topbar.calculatorTitle')}>
           <Calculator size={16} />
           <span>{t('topbar.calculator')}</span>
         </button>
-        <button className="tb-btn" onClick={onProgress} title={t('topbar.progressTitle')}>
+        <button className="tb-btn tb-collapse" onClick={onProgress} title={t('topbar.progressTitle')}>
           <ListChecks size={16} />
           <span>{t('topbar.progress')}</span>
         </button>
         <PowerSettingsButton />
+        <MapButton />
         <ProblemsButton />
-        <button className="tb-btn" onClick={onCommunity} title={t('topbar.communityTitle')}>
+        <button className="tb-btn tb-collapse" onClick={onCommunity} title={t('topbar.communityTitle')}>
           <Globe size={16} />
           <span>{t('topbar.community')}</span>
         </button>
@@ -134,7 +136,7 @@ function PlanTitle() {
           {c.currentName || t('cloud.localDraft')}
         </button>
       )}
-      <span className={'save-state ' + state} title={c.error ?? undefined}>
+      <span className={'save-state ' + state} title={c.error ?? t(`topbar.save.${state}`)}>
         {state === 'saving' && <Loader2 size={14} className="spin" />}
         {state === 'saved' && <Cloud size={14} />}
         {state === 'local' && <CloudOff size={14} />}

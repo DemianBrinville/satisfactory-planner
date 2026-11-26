@@ -1,7 +1,7 @@
 import { TriangleAlert } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { buildingsById } from '../data/gameData'
+import { buildingsById, itemName } from '../data/gameData'
 import i18n from '../i18n'
 import { locale } from '../i18n/format'
 import { NONE, useEditor } from '../editor/store'
@@ -19,7 +19,8 @@ export function useProblems(): Problem[] {
   const floorHeight = useEditor((s) => s.floorHeight) ?? 8
   const rails = useEditor((s) => s.rails) ?? NONE
   const routes = useEditor((s) => s.routes) ?? NONE
-  return problemsOf(entities, conveyors, wires, floorHeight, rails, routes)
+  const map = useEditor((s) => s.map)
+  return problemsOf(entities, conveyors, wires, floorHeight, rails, routes, map)
 }
 
 /** Texto de un problema, con lo que conviene hacer para resolverlo. */
@@ -29,7 +30,7 @@ export function problemText(p: Problem): string {
     const e = uid ? ents.find((x) => x.uid === uid) : undefined
     return e ? stationName(e, ents, (n) => i18n.t('train.stationN', { n })) : ''
   }
-  return i18n.t(`problems.${p.kind}`, { a: p.sa ? st(p.sa) : nameOf(p.a), b: p.sb ? st(p.sb) : nameOf(p.b), n: p.n !== undefined ? fmt(p.n) : '', max: p.max ?? '' })
+  return i18n.t(`problems.${p.kind}`, { a: p.sa ? st(p.sa) : nameOf(p.a), b: p.sb ? st(p.sb) : nameOf(p.b), n: p.n !== undefined ? fmt(p.n) : '', max: p.max ?? '', item: p.item ? itemName(p.item) : '', purity: p.purity ? i18n.t(`purity.${p.purity}` as 'purity.pure').toLowerCase() : '' })
 }
 
 /** Lleva la vista al problema: cambia de piso, lo selecciona y lo centra en pantalla. */

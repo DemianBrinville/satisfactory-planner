@@ -305,7 +305,9 @@
     "noMaterials": "Sin materiales.",
     "drawingHelpHyper": "Clic en una entrada, una unión o un pase de hipertubo (o en el suelo, que crea un soporte) para empezar y otro clic para terminar. Si terminas en el suelo, el trazado sigue desde ahí. Máximo 100 m por tramo; cuesta su material por cada metro.",
     "poleHeight": "Altura de la cinta",
-    "poleHeightHint": "Las máquinas sacan y reciben la cinta a 1 m. Entre dos alturas distintas la cinta sube en pendiente, que no puede pasar de 35°. Si va más alta que una máquina, pasa por encima sin chocar."
+    "poleHeightHint": "Las máquinas sacan y reciben la cinta a 1 m. Entre dos alturas distintas la cinta sube en pendiente, que no puede pasar de 35°. Si va más alta que una máquina, pasa por encima sin chocar.",
+    "onNode": "Sobre un yacimiento de {{item}} ({{purity}})",
+    "useNode": "Usar el del yacimiento"
   },
   "machine": {
     "recipe": "Receta",
@@ -566,7 +568,7 @@
     "hint": "Haz clic en un problema para ir al lugar: cambia de piso, lo selecciona y lo centra.",
     "more_one": "Y 1 más.",
     "more_other": "Y {{count}} más.",
-    "checks": "Se revisa: estructuras superpuestas, cintas y tuberías que atraviesan estructuras, tramos demasiado largos, pendiente de las cintas (máximo 35°), cables de más de 100 m y postes con más cables de los que admiten.",
+    "checks": "Se revisa: estructuras superpuestas, cintas y tuberías que atraviesan estructuras, tramos demasiado largos, pendiente de las cintas (máximo 35°), cables de más de 100 m y postes con más cables de los que admiten. Con el mapa real, también los taladros y extractores que no están sobre su yacimiento.",
     "overlap": "{{a}} y {{b}} se superponen.",
     "through": "{{a}} atraviesa {{b}}: rodéala, o súbela con postes más altos que la estructura.",
     "tooLong": "{{a}} mide {{n}} m y el máximo es {{max}} m: agrega un poste o soporte en el medio.",
@@ -575,7 +577,9 @@
     "poleFull": "{{a}} tiene {{n}} cables y admite {{max}}: agrega otro poste o usa uno de más conexiones.",
     "trainNoTrack": "Un tren va de {{a}} a {{b}}, pero no hay vía que las una.",
     "trainsNoSignals": "{{n}} trenes comparten estas vías sin señales: van a chocar. Pon señales de bloque para dividir la red.",
-    "signalOffRail": "{{a}} no está sobre una vía."
+    "signalOffRail": "{{a}} no está sobre una vía.",
+    "offNode": "{{a}} no está sobre un yacimiento que le sirva",
+    "nodeMismatch": "{{a}}: el yacimiento de abajo es de {{item}} {{purity}}; ajusta el recurso o la pureza"
   },
   "train": {
     "title": "Tren con horario",
@@ -652,5 +656,28 @@
     "description": "Descripción (opcional)",
     "saveHelp": "Se guardan las estructuras con su receta y reloj, las cintas y tuberías entre ellas, los cables y las vías seleccionadas.",
     "save": "Guardar"
+  },
+  "map": {
+    "button": "Mapa",
+    "title": "Mapa real",
+    "intro": "Ubica el plano en el mapa del juego: ves el terreno de fondo y los yacimientos reales con su pureza, y cada taladro se pega a su nodo.",
+    "place": "Ubicar en el mapa",
+    "change": "Cambiar ubicación",
+    "remove": "Quitar del mapa",
+    "at": "Origen del plano en X {{x}} m, Y {{y}} m del juego · cuadrícula girada {{angle}}°",
+    "showImage": "Ver el mapa de fondo",
+    "opacity": "Opacidad",
+    "showNodes": "Ver los yacimientos",
+    "snapHelp": "Al colocar un taladro, extractor de petróleo, de pozo, presurizador o generador geotérmico cerca de un yacimiento, se pone encima y toma el recurso y la pureza del juego.",
+    "source": "Yacimientos sacados del juego (versión 1.2, mundo estándar: con los modos de juego que mezclan los nodos no coinciden). Imagen del mapa: wiki oficial.",
+    "pickTitle": "Ubicar el plano en el mapa",
+    "pickHelp": "Haz clic en el mapa donde va el origen del plano (la esquina de la cuadrícula). Rueda: zoom · arrastrar: mover. El recuadro naranja es lo que ya tienes en el plano.",
+    "angle": "Giro de la cuadrícula",
+    "north": "Norte",
+    "angleHelp": "En el juego la cuadrícula de cimientos sigue al primer cimiento que colocas, con cualquier ángulo. Gírala hasta que coincida con la de tu partida.",
+    "axisX": "eje X del plano",
+    "axisY": "norte del plano",
+    "apply": "Aplicar",
+    "fit": "Ver todo el mapa"
   }
 }

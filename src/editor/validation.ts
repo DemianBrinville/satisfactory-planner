@@ -1,3 +1,4 @@
+import { extractionPoint, spotKindFor, spotPatch, spotUnder, type MapPlacement } from './worldMap'
 import { buildingsById } from '../data/gameData'
 import { maxSegmentOf, pathLength } from './conveyors'
 import { footprintOf, isVerticalConnector, type Rect, type Vec } from './geometry'
@@ -11,7 +12,7 @@ import { buildRailNet, isTimetable, legsOf, netOfStation } from './trains'
  * Cada problema trae el piso, un punto para ubicarlo y las estructuras involucradas.
  */
 
-export type ProblemKind = 'overlap' | 'through' | 'tooLong' | 'slope' | 'wireLong' | 'poleFull' | 'trainNoTrack' | 'trainsNoSignals' | 'signalOffRail'
+export type ProblemKind = 'overlap' | 'through' | 'tooLong' | 'slope' | 'wireLong' | 'poleFull' | 'trainNoTrack' | 'trainsNoSignals' | 'signalOffRail' | 'offNode' | 'nodeMismatch'
 
 export interface Problem {
   id: string
@@ -28,6 +29,9 @@ export interface Problem {
   /** estaciones de tren nombradas en el mensaje (uid) */
   sa?: string
   sb?: string
+  /** yacimiento real: recurso y pureza que tiene en el juego */
+  item?: string
+  purity?: string
 }
 
 /** Pendiente máxima de una cinta transportadora (wiki: "The maximum slope is 35°"). */
@@ -114,6 +118,7 @@ export function findProblems(
   floorHeight: number,
   rails: Rail[] = [],
   routes: Route[] = [],
+  map?: MapPlacement,
 ): Problem[] {
   const problems: Problem[] = []
   const byUid = new Map(entities.map((e) => [e.uid, e]))
@@ -272,6 +277,23 @@ export function findProblems(
     for (const s of net.loose) problems.push({ id: `signalOffRail:${s.uid}`, kind: 'signalOffRail', floor: s.floor, at: { x: s.x, y: s.y }, uids: [s.uid], a: s.buildingId })
   }
 
+  // ---------- mapa real: cada taladro y extractor sobre un yacimiento que le sirva ----------
+  if (map) {
+    for (const e of entities) {
+      const b = buildingsById.get(e.buildingId)
+      if (!b || !spotKindFor(b)) continue
+      const at = extractionPoint(b, e, e.rot)
+      const spot = spotUnder(e, b, map)
+      if (!spot) {
+        problems.push({ id: `offNode:${e.uid}`, kind: 'offNode', floor: e.floor, at, uids: [e.uid], a: e.buildingId })
+        continue
+      }
+      const want = spotPatch(spot)
+      if ((want.resource && e.resource && want.resource !== e.resource) || (want.purity && (e.purity ?? 'normal') !== want.purity))
+        problems.push({ id: `nodeMismatch:${e.uid}`, kind: 'nodeMismatch', floor: e.floor, at, uids: [e.uid], a: e.buildingId, item: spot.resource, purity: spot.purity ?? undefined })
+    }
+  }
+
   return problems
 }
 
@@ -285,10 +307,11 @@ export function problemsOf(
   floorHeight: number,
   rails: Rail[] = [],
   routes: Route[] = [],
+  map?: MapPlacement,
 ): Problem[] {
-  const args = [entities, conveyors, wires, floorHeight, rails, routes]
+  const args = [entities, conveyors, wires, floorHeight, rails, routes, map]
   if (args.every((a, i) => a === lastArgs[i])) return lastResult
   lastArgs = args
-  lastResult = findProblems(entities, conveyors, wires, floorHeight, rails, routes)
+  lastResult = findProblems(entities, conveyors, wires, floorHeight, rails, routes, map)
   return lastResult
 }

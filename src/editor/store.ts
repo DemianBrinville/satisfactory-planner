@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { buildingsById, type CategoryId } from '../data/gameData'
 import { reroute } from './conveyors'
 import type { Route, VehicleKind } from './transport'
+import type { MapPlacement } from './worldMap'
 import { FAMILIES, familyOf, nextVariant } from './families'
 import { isBuildingIdAvailable } from './progress'
 import { FOUNDATION, isVerticalConnector, rectsOverlap, rotate, snapAnchor, snapModeOf, worldRect, type Rect, type Rotation, type Vec } from './geometry'
@@ -98,6 +99,8 @@ export interface PlanDoc {
   routes?: Route[]
   /** altura entre pisos en metros (para elevadoras, tuberías verticales y altura de bombeo) */
   floorHeight?: number
+  /** ubicación del plano en el mapa real del juego (fondo y yacimientos) */
+  map?: MapPlacement
 }
 
 export interface View {
@@ -208,6 +211,8 @@ interface EditorState extends PlanDoc {
   updateRoute: (uid: string, patch: Partial<Route>) => void
   addWire: (from: string, to: string) => void
   setFloorHeight: (h: number) => void
+  /** ubica el plano en el mapa real (null lo quita); no entra en el historial de deshacer */
+  setMap: (m: Partial<MapPlacement> | null) => void
   setPower: (p: Partial<PowerSettings>) => void
 }
 
@@ -598,7 +603,7 @@ export const useEditor = create<EditorState>((set, get) => {
       }),
 
     load: (doc) =>
-      set({ entities: doc.entities ?? [], conveyors: doc.conveyors ?? [], wires: doc.wires ?? [], rails: doc.rails ?? [], routes: doc.routes ?? [], power: { ...DEFAULT_POWER, ...doc.power }, floorHeight: doc.floorHeight ?? DEFAULT_FLOOR_HEIGHT, past: [], future: [], selection: [] }),
+      set({ entities: doc.entities ?? [], conveyors: doc.conveyors ?? [], wires: doc.wires ?? [], rails: doc.rails ?? [], routes: doc.routes ?? [], power: { ...DEFAULT_POWER, ...doc.power }, floorHeight: doc.floorHeight ?? DEFAULT_FLOOR_HEIGHT, map: doc.map, past: [], future: [], selection: [] }),
     addDoc: (doc) => {
       commit({
         entities: [...get().entities, ...doc.entities],
@@ -653,6 +658,13 @@ export const useEditor = create<EditorState>((set, get) => {
     },
     setPower: (p) => set((s) => ({ power: { ...DEFAULT_POWER, ...s.power, ...p } })),
     setFloorHeight: (h) => set({ floorHeight: Math.max(4, Math.min(48, Math.round(h))) }),
+    setMap: (m) =>
+      set((s) => {
+        if (!m) return { map: undefined }
+        const cur = s.map
+        if (!cur && (m.x === undefined || m.y === undefined)) return {}
+        return { map: { angle: 0, show: true, nodes: true, opacity: 0.55, ...cur, ...m } as MapPlacement }
+      }),
   }
 })
 
@@ -689,14 +701,15 @@ useEditor.subscribe((s, prev) => {
     s.rails !== prev.rails ||
     s.routes !== prev.routes ||
     s.power !== prev.power ||
-    s.floorHeight !== prev.floorHeight
+    s.floorHeight !== prev.floorHeight ||
+    s.map !== prev.map
   ) {
     // se guarda un momento después del último cambio: con planos grandes serializar en cada acción traba
     clearTimeout(localTimer)
     localTimer = setTimeout(() => {
       const st = useEditor.getState()
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...snapshot(st), floorHeight: st.floorHeight }))
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...snapshot(st), floorHeight: st.floorHeight, map: st.map }))
       } catch {
         /* sin espacio en el navegador: queda el guardado en la nube */
       }

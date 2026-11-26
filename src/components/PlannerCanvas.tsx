@@ -76,6 +76,7 @@ import {
   type PowerResult,
 } from '../editor/power'
 import { NONE, type Rail } from '../editor/store'
+import { MAP_BOUNDS, MAP_IMAGE, anchorOnSpot, nearestSpot, spotColor, spotKindFor, spotPatch, spotsInPlan, type MapPlacement, type PlanSpot } from '../editor/worldMap'
 import { ItemIcon } from './GameIcons'
 
 const COLORS: Record<string, string> = {
@@ -284,6 +285,14 @@ export default function PlannerCanvas() {
     x: (px - view.offsetX) / view.scale,
     y: (py - view.offsetY) / view.scale,
   })
+
+  /** extractores con el mapa real: se pegan al yacimiento compatible más cercano y toman su recurso y pureza */
+  const spotSnap = (b: Building, mouse: Vec, rot: Rotation) => {
+    const m = useEditor.getState().map
+    if (!m || !m.nodes || !spotKindFor(b)) return null
+    const spot = nearestSpot(b, mouse, m, 10)
+    return spot ? { anchor: anchorOnSpot(b, { x: spot.px, y: spot.py }, rot), extra: spotPatch(spot), spot } : null
+  }
 
   const visible = useMemo(() => entities.filter((e) => onFloor(e, floor)), [entities, floor])
   const below = useMemo(() => entities.filter((e) => e.floor === floor - 1), [entities, floor])
@@ -686,6 +695,11 @@ export default function PlannerCanvas() {
         if (sg) st.place(sg.pos, { angle: sg.angle })
         return
       }
+      const onSpot = spotSnap(b, p, st.placingRot)
+      if (onSpot) {
+        st.place(onSpot.anchor, onSpot.extra)
+        return
+      }
       const anchor = snapAnchor(b, p, st.placingRot, st.snapStep)
       if (b.kind === 'foundation') {
         // cimientos: arrastrar rellena el rectángulo, un clic pone uno solo
@@ -844,10 +858,11 @@ export default function PlannerCanvas() {
       const sg = signalSnap(mouse)
       return { b, anchor: sg?.pos ?? mouse, ok: !!sg && s.canPlace(placingId, sg.pos, 0), angle: sg?.angle ?? 0 }
     }
-    const anchor = snapAnchor(b, mouse, placingRot, snapStep)
-    return { b, anchor, ok: s.canPlace(placingId, anchor, placingRot), angle: undefined as number | undefined }
+    const onSpot = spotSnap(b, mouse, placingRot)
+    const anchor = onSpot?.anchor ?? snapAnchor(b, mouse, placingRot, snapStep)
+    return { b, anchor, ok: s.canPlace(placingId, anchor, placingRot), angle: undefined as number | undefined, spot: onSpot?.spot }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tool, placingId, placingRot, mouse, entities, floor, snapStep, area])
+  }, [tool, placingId, placingRot, mouse, entities, floor, snapStep, area, s.map])
   const areaGhost = useMemo(() => {
     if (!area || !placingId) return null
     const anchors = areaAnchors(area, placingId, placingRot)
@@ -914,8 +929,9 @@ export default function PlannerCanvas() {
           routeDblClick(toWorldPt(pos.x, pos.y))
         }}
       >
+        {s.map?.show && <MapBackground m={s.map} view={view} w={size.w} h={size.h} />}
         <Layer x={view.offsetX} y={view.offsetY} scaleX={view.scale} scaleY={view.scale} listening={false}>
-          <Grid view={view} w={size.w} h={size.h} />
+          <Grid view={view} w={size.w} h={size.h} transparent={!!s.map?.show} />
           {shownBelow.map((e) => (
             <EntityShape key={e.uid} e={e} scale={view.scale} faded showLabels={false} />
           ))}
@@ -930,6 +946,7 @@ export default function PlannerCanvas() {
                 showLabels={showLabels}
               />
             ))}
+          {s.map?.nodes && <MapSpots m={s.map} scale={view.scale} box={{ x0: vx0, y0: vy0, x1: vx1, y1: vy1 }} highlight={ghost?.spot?.id} />}
           {shownConv.map((c) => (
             <ConveyorShape
               key={c.uid}
@@ -1222,7 +1239,7 @@ export default function PlannerCanvas() {
 const layerRank = (e: PlacedEntity) => (buildingsById.get(e.buildingId)?.kind === 'foundation' ? 0 : 1)
 const fmt = (n: number) => n.toLocaleString(locale(), { maximumFractionDigits: 1 })
 
-function Grid({ view, w, h }: { view: { scale: number; offsetX: number; offsetY: number }; w: number; h: number }) {
+function Grid({ view, w, h, transparent }: { view: { scale: number; offsetX: number; offsetY: number }; w: number; h: number; transparent?: boolean }) {
   return (
     <Shape
       sceneFunc={(ctx) => {
@@ -1231,8 +1248,11 @@ function Grid({ view, w, h }: { view: { scale: number; offsetX: number; offsetY:
         const x1 = x0 + w / view.scale
         const y1 = y0 + h / view.scale
         const c = ctx._context
-        c.fillStyle = '#17181a'
-        c.fillRect(x0, y0, x1 - x0, y1 - y0)
+        // con el mapa de fondo la cuadrícula va encima, sin tapar
+        if (!transparent) {
+          c.fillStyle = '#17181a'
+          c.fillRect(x0, y0, x1 - x0, y1 - y0)
+        }
         const lines = (step: number, color: string, width: number) => {
           c.beginPath()
           c.strokeStyle = color
@@ -1247,8 +1267,14 @@ function Grid({ view, w, h }: { view: { scale: number; offsetX: number; offsetY:
           }
           c.stroke()
         }
-        if (view.scale >= 5) lines(1, '#222427', 1)
-        lines(FOUNDATION, view.scale >= 3 ? '#34373c' : '#2a2c30', 1.5)
+        if (transparent) {
+          // sobre el mapa: líneas suaves y, de lejos, solo la cuadrícula de cimientos cuando se distingue
+          if (view.scale >= 5) lines(1, 'rgba(0,0,0,0.12)', 1)
+          if (view.scale >= 1.5) lines(FOUNDATION, 'rgba(0,0,0,0.28)', 1.5)
+        } else {
+          if (view.scale >= 5) lines(1, '#222427', 1)
+          lines(FOUNDATION, view.scale >= 3 ? '#34373c' : '#2a2c30', 1.5)
+        }
         c.beginPath()
         c.strokeStyle = '#5a3d1e'
         c.lineWidth = 2 / view.scale
@@ -1878,6 +1904,84 @@ function areaAnchors(area: { a: Vec; b: Vec }, buildingId: string | null, rot: R
 function productOf(e: PlacedEntity): string | null {
   const item = e.recipeId ? recipesById.get(e.recipeId)?.products[0]?.item : e.resource
   return item && hasOfficialIcon(item) ? item : null
+}
+
+/** Imagen del mapa del juego debajo de la cuadrícula, girada y corrida según dónde está el plano en el mapa. */
+function MapBackground({ m, view, w, h }: { m: MapPlacement; view: { scale: number; offsetX: number; offsetY: number }; w: number; h: number }) {
+  const img = useIconImage(MAP_IMAGE)
+  return (
+    <Layer listening={false}>
+      <Rect x={0} y={0} width={w} height={h} fill="#17181a" />
+      {img && (
+        <Group x={view.offsetX} y={view.offsetY} scaleX={view.scale} scaleY={view.scale}>
+          <Group rotation={-m.angle}>
+            <KImage
+              image={img}
+              x={MAP_BOUNDS.x0 - m.x}
+              y={MAP_BOUNDS.y0 - m.y}
+              width={MAP_BOUNDS.size}
+              height={MAP_BOUNDS.size}
+              opacity={m.opacity}
+              imageSmoothingEnabled={view.scale < 1}
+            />
+          </Group>
+        </Group>
+      )}
+    </Layer>
+  )
+}
+
+const PURITY_MARK: Record<string, string> = { impure: 'I', normal: 'N', pure: 'P' }
+
+/** Yacimientos reales a la vista: color del recurso, pureza e icono cuando hay lugar. */
+const MapSpots = memo(function MapSpots({
+  m,
+  scale,
+  box,
+  highlight,
+}: {
+  m: MapPlacement
+  scale: number
+  box: { x0: number; y0: number; x1: number; y1: number }
+  highlight?: string
+}) {
+  const spots = spotsInPlan(m).filter((s) => s.px >= box.x0 - 10 && s.px <= box.x1 + 10 && s.py >= box.y0 - 10 && s.py <= box.y1 + 10)
+  // de lejos se ve un punto de tamaño fijo en pantalla; de cerca, el tamaño real del yacimiento
+  const r = (s: PlanSpot) => Math.max(s.kind === 'core' ? 5 : s.kind === 'satellite' ? 2.5 : 3.5, 5 / scale)
+  return (
+    <>
+      {spots.map((s) => (
+        <Group key={s.id} x={s.px} y={s.py}>
+          <Circle
+            radius={r(s)}
+            fill={spotColor(s.resource)}
+            opacity={s.kind === 'core' ? 0.35 : 0.85}
+            stroke={highlight === s.id ? '#4fe0c0' : s.purity === 'pure' ? '#ffffff' : s.purity === 'impure' ? '#e05046' : '#1b1c1e'}
+            strokeWidth={(highlight === s.id ? 3 : 1.5) / scale}
+            dash={s.purity === 'impure' ? [3 / scale, 2 / scale] : undefined}
+          />
+          {scale >= 4 && s.kind !== 'core' && <SpotIcon item={s.resource} size={r(s) * 1.1} />}
+          {scale >= 2.5 && s.purity && (
+            <Text
+              text={PURITY_MARK[s.purity]}
+              fontStyle="bold"
+              fontSize={10 / scale}
+              fill="#ffffff"
+              stroke="#000000"
+              strokeWidth={0.6 / scale}
+              x={r(s) * 0.55}
+              y={r(s) * 0.45}
+            />
+          )}
+        </Group>
+      ))}
+    </>
+  )
+})
+
+function SpotIcon({ item, size }: { item: string; size: number }) {
+  const img = useIconImage(hasOfficialIcon(item) ? officialIconSrc(item) : null)
+  return img ? <KImage image={img} x={-size / 2} y={-size / 2} width={size} height={size} listening={false} /> : null
 }
 
 /** Imágenes ya cargadas para el lienzo (se comparten entre todas las máquinas). */

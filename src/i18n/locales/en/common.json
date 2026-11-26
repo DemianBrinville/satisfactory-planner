@@ -305,7 +305,9 @@
     "noMaterials": "No materials.",
     "drawingHelpHyper": "Click a hypertube entrance, junction or floor hole (or the ground, which places a support) to start and click again to finish. If you finish on the ground, drawing continues from there. Up to 100 m per segment; it costs its materials for every meter.",
     "poleHeight": "Belt height",
-    "poleHeightHint": "Machines send and receive belts at 1 m. Between two different heights the belt climbs on a slope, which cannot exceed 35°. If it runs higher than a machine, it passes over without colliding."
+    "poleHeightHint": "Machines send and receive belts at 1 m. Between two different heights the belt climbs on a slope, which cannot exceed 35°. If it runs higher than a machine, it passes over without colliding.",
+    "onNode": "On a {{purity}} {{item}} node",
+    "useNode": "Use the node's"
   },
   "machine": {
     "recipe": "Recipe",
@@ -566,7 +568,7 @@
     "hint": "Click a problem to go there: it switches floor, selects it and centers it.",
     "more_one": "And 1 more.",
     "more_other": "And {{count}} more.",
-    "checks": "Checked: overlapping structures, belts and pipes going through structures, segments that are too long, belt slope (35° max), wires over 100 m and poles with more wires than they allow.",
+    "checks": "Checked: overlapping structures, belts and pipes going through structures, segments that are too long, belt slope (35° max), wires over 100 m and poles with more wires than they allow. With the real map, also miners and extractors that are not on their node.",
     "overlap": "{{a}} and {{b}} overlap.",
     "through": "{{a}} goes through {{b}}: route around it, or lift it with poles taller than the structure.",
     "tooLong": "{{a}} is {{n}} m long and the maximum is {{max}} m: add a pole or support in the middle.",
@@ -575,7 +577,9 @@
     "poleFull": "{{a}} has {{n}} wires and allows {{max}}: add another pole or use one with more connections.",
     "trainNoTrack": "A train goes from {{a}} to {{b}}, but no track connects them.",
     "trainsNoSignals": "{{n}} trains share this track without signals: they will crash. Place block signals to split the network.",
-    "signalOffRail": "{{a}} is not on a track."
+    "signalOffRail": "{{a}} is not on a track.",
+    "offNode": "{{a}} is not on a suitable resource node",
+    "nodeMismatch": "{{a}}: the node below is {{purity}} {{item}}; adjust the resource or purity"
   },
   "train": {
     "title": "Train with timetable",
@@ -652,5 +656,28 @@
     "description": "Description (optional)",
     "saveHelp": "It saves the structures with their recipe and clock speed, the belts and pipes between them, the wires and the selected tracks.",
     "save": "Save"
+  },
+  "map": {
+    "button": "Map",
+    "title": "Real map",
+    "intro": "Place the plan on the game map: you see the terrain in the background and the real resource nodes with their purity, and each miner snaps onto its node.",
+    "place": "Place on the map",
+    "change": "Change location",
+    "remove": "Remove from the map",
+    "at": "Plan origin at game X {{x}} m, Y {{y}} m · grid rotated {{angle}}°",
+    "showImage": "Show the map background",
+    "opacity": "Opacity",
+    "showNodes": "Show resource nodes",
+    "snapHelp": "When you place a miner, oil extractor, well extractor, pressurizer or geothermal generator near a node, it snaps on top and takes the node's resource and purity.",
+    "source": "Nodes taken from the game (version 1.2, standard world: they do not match game modes that shuffle nodes). Map image: official wiki.",
+    "pickTitle": "Place the plan on the map",
+    "pickHelp": "Click on the map where the plan origin goes (the corner of the grid). Wheel: zoom · drag: pan. The orange box is what you already have in the plan.",
+    "angle": "Grid rotation",
+    "north": "North",
+    "angleHelp": "In the game the foundation grid follows the first foundation you place, at any angle. Rotate it until it matches your save.",
+    "axisX": "plan X axis",
+    "axisY": "plan north",
+    "apply": "Apply",
+    "fit": "Show the whole map"
   }
 }

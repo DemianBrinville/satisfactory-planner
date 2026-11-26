@@ -24,6 +24,10 @@ html,
   height: 100%;
   overflow: hidden;
 }
+/* sin desplazamiento ni siquiera por código (un foco fuera de la vista corría toda la app de costado) */
+#root {
+  overflow: clip;
+}
 
 button {
   font: inherit;
@@ -922,4 +926,97 @@ kbd {
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+/* ---------- mapa real ---------- */
+.tb-btn.on {
+  color: var(--accent);
+}
+.map-pop {
+  width: 360px;
+}
+.map-pop .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.map-pop input[type='range'] {
+  flex: 1;
+}
+.map-picker {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.map-view {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #1d2a30;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+.map-view svg {
+  display: block;
+}
+.map-zoom {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+}
+.map-side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.map-side p,
+.map-side h3 {
+  margin: 0;
+}
+.map-side input[type='range'] {
+  flex: 1;
+}
+.map-angle-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.map-angle-btns .btn {
+  padding: 3px 7px;
+  font-size: 12px;
+}
+.axis-x {
+  color: #e05046;
+}
+.axis-y {
+  color: #4fe0c0;
+}
+@media (max-width: 960px) {
+  .map-picker {
+    flex-direction: column;
+  }
+}
+
+/* barra superior en pantallas medianas: los botones de herramientas quedan solo con el icono */
+@media (max-width: 1440px) {
+  .tb-btn.tb-collapse > span {
+    display: none;
+  }
+  .tb-btn.tb-collapse {
+    padding: 0 8px;
+  }
+}
+@media (max-width: 1100px) {
+  .brand-name {
+    display: none;
+  }
+  /* estado de guardado: solo el icono (el texto queda en el título al pasar el mouse) */
+  .save-state {
+    font-size: 0;
+    gap: 0;
+  }
 }
