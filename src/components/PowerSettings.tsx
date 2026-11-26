@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { computeFlows } from '../editor/flow'
 import { computeGrids } from '../editor/power'
 import { DEFAULT_POWER, useEditor } from '../editor/store'
+import { NONE } from '../editor/store'
 
 const fmt = (n: number) => n.toLocaleString('es', { maximumFractionDigits: 1 })
 
@@ -12,8 +13,8 @@ export default function PowerSettingsButton() {
   const { entities, conveyors, routes, wires, floorHeight, setPower } = useEditor()
   const settings = useEditor((s) => s.power) ?? DEFAULT_POWER
   const power = useMemo(() => {
-    const flows = computeFlows(entities, conveyors, routes ?? [], floorHeight)
-    return computeGrids(entities, wires ?? [], flows, settings)
+    const flows = computeFlows(entities, conveyors, routes ?? NONE, floorHeight)
+    return computeGrids(entities, wires ?? NONE, flows, settings)
   }, [entities, conveyors, routes, wires, floorHeight, settings])
 
   const spare = settings.worldGen - settings.worldUse

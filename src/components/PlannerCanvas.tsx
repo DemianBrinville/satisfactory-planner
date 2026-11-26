@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Circle, Group, Layer, Line, Rect, Shape, Stage, Text } from 'react-konva'
 import type Konva from 'konva'
 import { buildingsById, itemName, type Building } from '../data/gameData'
@@ -63,6 +63,7 @@ import {
   wirePoint,
   type PowerResult,
 } from '../editor/power'
+import { NONE } from '../editor/store'
 
 const COLORS: Record<string, string> = {
   machine: '#c9822b',
@@ -130,13 +131,14 @@ export default function PlannerCanvas() {
   const s = useEditor()
   const { view, entities, conveyors, selection, floor, placingId, placingRot, tool, conveyorId, clipboard, pasteRot, snapStep } = s
 
-  const routes = s.routes ?? []
-  const rails = s.rails ?? []
+  const routes = s.routes ?? NONE
+  const entById = useMemo(() => new Map(entities.map((e) => [e.uid, e])), [entities])
+  const rails = s.rails ?? NONE
   const flows: FlowResult = useMemo(
     () => computeFlows(entities, conveyors, routes, s.floorHeight),
     [entities, conveyors, routes, s.floorHeight],
   )
-  const wires = s.wires ?? []
+  const wires = s.wires ?? NONE
   const power: PowerResult = useMemo(() => computeGrids(entities, wires, flows, s.power), [entities, wires, flows, s.power])
   const headIssues = useMemo(() => computeHeadLift(entities, conveyors, s.floorHeight, flows), [entities, conveyors, s.floorHeight, flows])
   useEffect(() => {
@@ -235,13 +237,42 @@ export default function PlannerCanvas() {
   const visible = useMemo(() => entities.filter((e) => onFloor(e, floor)), [entities, floor])
   const below = useMemo(() => entities.filter((e) => e.floor === floor - 1), [entities, floor])
   const visibleConv = useMemo(() => conveyors.filter((c) => c.floor === floor), [conveyors, floor])
+  /** caja de cada cinta y de cada entidad, para dibujar solo lo que entra en pantalla y probar clics rápido */
+  const convBox = useMemo(() => new Map(conveyors.map((c) => [c.uid, ptsBox(c.points)])), [conveyors])
+  const entBox = useMemo(() => new Map(entities.map((e) => [e.uid, entityRect(e)])), [entities])
+  // rectángulo visible del mundo, redondeado a 16 m para no recalcular la lista a cada pixel de paneo
+  const vx0 = Math.floor(-view.offsetX / view.scale / 16) * 16 - 16
+  const vy0 = Math.floor(-view.offsetY / view.scale / 16) * 16 - 16
+  const vx1 = Math.ceil((size.w - view.offsetX) / view.scale / 16) * 16 + 16
+  const vy1 = Math.ceil((size.h - view.offsetY) / view.scale / 16) * 16 + 16
+  const inView = (r: { x0: number; y0: number; x1: number; y1: number } | null | undefined) =>
+    !r || (r.x1 >= vx0 && r.x0 <= vx1 && r.y1 >= vy0 && r.y0 <= vy1)
+  const shownConv = useMemo(
+    () => visibleConv.filter((c) => inView(convBox.get(c.uid))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visibleConv, convBox, vx0, vy0, vx1, vy1],
+  )
+  const shownBelow = useMemo(
+    () => below.filter((e) => inView(entBox.get(e.uid))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [below, entBox, vx0, vy0, vx1, vy1],
+  )
+  /** consejo de reloj por máquina (objetos estables mientras no cambie el plano) */
+  const adviceOf = useMemo(() => {
+    const m = new Map<string, ClockAdvice>()
+    for (const e of entities) {
+      const a = clockAdvice(flows.nodes.get(e.uid), e.clock ?? 1)
+      if (a) m.set(e.uid, a)
+    }
+    return m
+  }, [entities, flows])
+  const hitOrder = useMemo(() => [...visible].sort((a, b) => layerRank(b) - layerRank(a)), [visible])
   const used = useMemo(() => usedPorts(conveyors), [conveyors])
 
   const hitEntity = (p: Vec): PlacedEntity | null => {
-    const ordered = [...visible].sort((a, b) => layerRank(b) - layerRank(a))
     return (
-      ordered.find((e) => {
-        const r = entityRect(e)
+      hitOrder.find((e) => {
+        const r = entBox.get(e.uid)
         return r ? rectContainsPoint(r, p) : false
       }) ?? null
     )
@@ -253,14 +284,14 @@ export default function PlannerCanvas() {
   }
   const freeConnections = (e: PlacedEntity) => connectionsOf(buildingsById.get(e.buildingId)!) - (power.used.get(e.uid) ?? 0)
   const visibleWires = wires.filter((w) => {
-    const a = entities.find((x) => x.uid === w.from)
-    const b = entities.find((x) => x.uid === w.to)
+    const a = entById.get(w.from)
+    const b = entById.get(w.to)
     return a && b && (onFloor(a, floor) || onFloor(b, floor))
   })
   const hitWire = (p: Vec) =>
     visibleWires.find((w) => {
-      const a = entities.find((x) => x.uid === w.from)!
-      const b = entities.find((x) => x.uid === w.to)!
+      const a = entById.get(w.from)!
+      const b = entById.get(w.to)!
       return nearPath(p, [wirePoint(a), wirePoint(b)], 0.6)
     }) ?? null
 
@@ -273,7 +304,7 @@ export default function PlannerCanvas() {
       if (freeConnections(target) > 0) setWireFrom(target.uid)
       return
     }
-    const from = entities.find((x) => x.uid === wireFrom)
+    const from = entById.get(wireFrom)
     if (!from || from.uid === target.uid) return
     const len = wireLength(from, target, st.floorHeight)
     if (len > wireMax(from, target) || freeConnections(from) <= 0 || freeConnections(target) <= 0) return
@@ -341,14 +372,14 @@ export default function PlannerCanvas() {
 
   // ---------- rutas de vehículos ----------
   const visibleRoutes = routes.filter((r) => {
-    const a = entities.find((x) => x.uid === r.from)
-    const b = entities.find((x) => x.uid === r.to)
+    const a = entById.get(r.from)
+    const b = entById.get(r.to)
     return a && b && (onFloor(a, floor) || onFloor(b, floor))
   })
   const hitRoute = (p: Vec) =>
     visibleRoutes.find((r) => {
-      const a = entities.find((x) => x.uid === r.from)!
-      const b = entities.find((x) => x.uid === r.to)!
+      const a = entById.get(r.from)!
+      const b = entById.get(r.to)!
       return nearPath(p, [wirePoint(a), wirePoint(b)], 1.2)
     }) ?? null
   const stationTarget = (p: Vec) => {
@@ -365,7 +396,10 @@ export default function PlannerCanvas() {
   }
 
   const hitConveyor = (p: Vec): Conveyor | null =>
-    [...visibleConv].reverse().find((c) => nearPath(p, c.points, 0.9)) ?? null
+    [...visibleConv].reverse().find((c) => {
+      const r = convBox.get(c.uid)!
+      return p.x >= r.x0 - 1 && p.x <= r.x1 + 1 && p.y >= r.y0 - 1 && p.y <= r.y1 + 1 && nearPath(p, c.points, 0.9)
+    }) ?? null
 
   // ---------- herramienta de cintas/tuberías ----------
   const convBuilding = conveyorId ? buildingsById.get(conveyorId) : null
@@ -598,7 +632,7 @@ export default function PlannerCanvas() {
       if (drag.x || drag.y) {
         const sel = st.selection
         const ok = sel.every((u) => {
-          const en = entities.find((x) => x.uid === u)
+          const en = entById.get(u)
           return !en || st.canPlace(en.buildingId, { x: en.x + drag.x, y: en.y + drag.y }, en.rot, sel)
         })
         if (ok) st.moveSelection(drag.x, drag.y)
@@ -639,7 +673,11 @@ export default function PlannerCanvas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, clipboard, mouse, pasteRot, floor, entities, snapStep])
 
-  const sorted = useMemo(() => [...visible].sort((a, b) => layerRank(a) - layerRank(b)), [visible])
+  const sorted = useMemo(
+    () => [...visible].filter((e) => inView(entBox.get(e.uid))).sort((a, b) => layerRank(a) - layerRank(b)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visible, entBox, vx0, vy0, vx1, vy1],
+  )
   const showLabels = view.scale >= 6
   const dragging = drag.x !== 0 || drag.y !== 0
   const selSet = new Set(selection)
@@ -672,7 +710,7 @@ export default function PlannerCanvas() {
       <Stage width={size.w} height={size.h} onWheel={onWheel} onMouseDown={onDown} onMouseMove={onMove} onMouseUp={(e) => onUp(e)}>
         <Layer x={view.offsetX} y={view.offsetY} scaleX={view.scale} scaleY={view.scale} listening={false}>
           <Grid view={view} w={size.w} h={size.h} />
-          {below.map((e) => (
+          {shownBelow.map((e) => (
             <EntityShape key={e.uid} e={e} scale={view.scale} faded showLabels={false} />
           ))}
           {sorted
@@ -686,7 +724,7 @@ export default function PlannerCanvas() {
                 showLabels={showLabels}
               />
             ))}
-          {visibleConv.map((c) => (
+          {shownConv.map((c) => (
             <ConveyorShape
               key={c.uid}
               c={c}
@@ -710,9 +748,58 @@ export default function PlannerCanvas() {
                 floor={floor}
                 node={flows.nodes.get(e.uid)?.effective}
                 power={powerStatus(e, power)}
-                advice={clockAdvice(flows.nodes.get(e.uid), e.clock ?? 1)}
+                advice={adviceOf.get(e.uid) ?? null}
               />
             ))}
+          {visibleRails.map((r) => (
+            <Group key={r.uid}>
+              <Line
+                points={r.points.flatMap((q) => [q.x, q.y])}
+                stroke={selSet.has(r.uid) ? '#4fe0c0' : '#4a443d'}
+                strokeWidth={4.2}
+                lineJoin="round"
+                lineCap="butt"
+              />
+              <Line points={r.points.flatMap((q) => [q.x, q.y])} stroke="#6b5a48" strokeWidth={3.4} dash={[0.35, 0.55]} lineJoin="round" />
+              <Line points={r.points.flatMap((q) => [q.x, q.y])} stroke="#b9bec6" strokeWidth={0.18} lineJoin="round" />
+            </Group>
+          ))}
+          {visibleRoutes.map((r) => {
+            const a = entById.get(r.from)!
+            const b = entById.get(r.to)!
+            const p = wirePoint(a)
+            const q = wirePoint(b)
+            return (
+              <Line
+                key={r.uid}
+                points={[p.x, p.y, q.x, q.y]}
+                stroke={selSet.has(r.uid) ? '#4fe0c0' : ROUTE_COLOR[r.kind]}
+                strokeWidth={(selSet.has(r.uid) ? 4 : 2.5) / view.scale}
+                dash={[10 / view.scale, 6 / view.scale]}
+                opacity={0.9}
+              />
+            )
+          })}
+          {visibleWires.map((w) => {
+            const a = entById.get(w.from)!
+            const b = entById.get(w.to)!
+            const p = wirePoint(a)
+            const q = wirePoint(b)
+            const other = !onFloor(a, floor) || !onFloor(b, floor)
+            return (
+              <Line
+                key={w.uid}
+                points={[p.x, p.y, q.x, q.y]}
+                stroke={selSet.has(w.uid) ? '#4fe0c0' : '#e8c547'}
+                strokeWidth={(selSet.has(w.uid) ? 3 : 1.5) / view.scale}
+                dash={other ? [6 / view.scale, 4 / view.scale] : undefined}
+                opacity={0.85}
+              />
+            )
+          })}
+        </Layer>
+        {/* capa aparte para lo que sigue al mouse: moverlo no redibuja la fábrica */}
+        <Layer x={view.offsetX} y={view.offsetY} scaleX={view.scale} scaleY={view.scale} listening={false}>
           {ghost && (
             <EntityShape
               e={{ uid: 'ghost', buildingId: ghost.b.id, x: ghost.anchor.x, y: ghost.anchor.y, rot: placingRot, floor, angle: s.placingAngle }}
@@ -731,19 +818,6 @@ export default function PlannerCanvas() {
               ))}
             </>
           )}
-          {visibleRails.map((r) => (
-            <Group key={r.uid}>
-              <Line
-                points={r.points.flatMap((q) => [q.x, q.y])}
-                stroke={selSet.has(r.uid) ? '#4fe0c0' : '#4a443d'}
-                strokeWidth={4.2}
-                lineJoin="round"
-                lineCap="butt"
-              />
-              <Line points={r.points.flatMap((q) => [q.x, q.y])} stroke="#6b5a48" strokeWidth={3.4} dash={[0.35, 0.55]} lineJoin="round" />
-              <Line points={r.points.flatMap((q) => [q.x, q.y])} stroke="#b9bec6" strokeWidth={0.18} lineJoin="round" />
-            </Group>
-          ))}
           {railPreview && (
             <Line
               points={railPreview.pts.flatMap((q) => [q.x, q.y])}
@@ -752,49 +826,16 @@ export default function PlannerCanvas() {
               lineJoin="round"
             />
           )}
-          {visibleRoutes.map((r) => {
-            const a = entities.find((x) => x.uid === r.from)!
-            const b = entities.find((x) => x.uid === r.to)!
-            const p = wirePoint(a)
-            const q = wirePoint(b)
-            return (
-              <Line
-                key={r.uid}
-                points={[p.x, p.y, q.x, q.y]}
-                stroke={selSet.has(r.uid) ? '#4fe0c0' : ROUTE_COLOR[r.kind]}
-                strokeWidth={(selSet.has(r.uid) ? 4 : 2.5) / view.scale}
-                dash={[10 / view.scale, 6 / view.scale]}
-                opacity={0.9}
-              />
-            )
-          })}
           {tool === 'route' && s.routeFrom && (() => {
-            const a = entities.find((x) => x.uid === s.routeFrom)
+            const a = entById.get(s.routeFrom)
             if (!a) return null
             const p = wirePoint(a)
             const t = stationTarget(mouse)
             const q = t ? wirePoint(t) : mouse
             return <Line points={[p.x, p.y, q.x, q.y]} stroke={ROUTE_COLOR[s.routeKind]} strokeWidth={2 / view.scale} dash={[6 / view.scale, 4 / view.scale]} />
           })()}
-          {visibleWires.map((w) => {
-            const a = entities.find((x) => x.uid === w.from)!
-            const b = entities.find((x) => x.uid === w.to)!
-            const p = wirePoint(a)
-            const q = wirePoint(b)
-            const other = !onFloor(a, floor) || !onFloor(b, floor)
-            return (
-              <Line
-                key={w.uid}
-                points={[p.x, p.y, q.x, q.y]}
-                stroke={selSet.has(w.uid) ? '#4fe0c0' : '#e8c547'}
-                strokeWidth={(selSet.has(w.uid) ? 3 : 1.5) / view.scale}
-                dash={other ? [6 / view.scale, 4 / view.scale] : undefined}
-                opacity={0.85}
-              />
-            )
-          })}
           {tool === 'wire' && wireFrom && (() => {
-            const a = entities.find((x) => x.uid === wireFrom)
+            const a = entById.get(wireFrom)
             if (!a) return null
             const p = wirePoint(a)
             const t = powerTarget(mouse)
@@ -881,7 +922,7 @@ export default function PlannerCanvas() {
         <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
           {(() => {
             const t = powerTarget(mouse)
-            const a = wireFrom ? entities.find((x) => x.uid === wireFrom) : null
+            const a = wireFrom ? entById.get(wireFrom) : null
             if (!t) return <span className="muted">{wireFrom ? 'Clic en otra estructura con conexión eléctrica' : 'Clic en un poste, generador o máquina'}</span>
             const b = buildingsById.get(t.buildingId)!
             const free = freeConnections(t)
@@ -978,7 +1019,7 @@ export function edgeStatus(f: EdgeFlow | undefined): 'empty' | 'ok' | 'surplus' 
 }
 const STATUS_COLOR = { empty: null, ok: '#4caf6a', surplus: '#e5b445', deficit: '#e05046' }
 
-function ConveyorShape({
+const ConveyorShape = memo(function ConveyorShape({
   c,
   scale,
   flow,
@@ -1034,7 +1075,7 @@ function ConveyorShape({
       {scale >= 3 && <FlowArrows pts={pts} color={isPipe ? '#a9d4f5' : '#d9d9d9'} />}
     </Group>
   )
-}
+})
 
 /** Flechas a lo largo del trazado para indicar el sentido. */
 function FlowArrows({ pts, color }: { pts: Vec[]; color: string }) {
@@ -1061,7 +1102,7 @@ function FlowArrows({ pts, color }: { pts: Vec[]; color: string }) {
   )
 }
 
-function EntityShape({
+const EntityShape = memo(function EntityShape({
   e,
   scale,
   selected,
@@ -1161,8 +1202,9 @@ function EntityShape({
           fill={node >= 0.999 ? '#4caf6a' : node > 0 ? '#e5b445' : '#e05046'}
         />
       )}
-      {!isFoundation && <FrontMark b={b} e={e} scale={scale} />}
-      {!isFoundation && <Ports b={b} e={e} scale={scale} used={usedPorts} floor={floor} />}
+      {/* de lejos los detalles chicos no se distinguen y hacen lento el dibujo */}
+      {!isFoundation && scale >= 2.5 && <FrontMark b={b} e={e} scale={scale} />}
+      {!isFoundation && (scale >= 2.5 || ghost) && <Ports b={b} e={e} scale={scale} used={usedPorts} floor={floor} />}
       {isVerticalConnector(b.id) && (
         <Text
           x={r.x0}
@@ -1191,7 +1233,7 @@ function EntityShape({
       )}
     </Group>
   )
-}
+})
 
 /** Línea en el borde frontal (lado de salida) para ver la orientación. */
 function FrontMark({ b, e, scale }: { b: Building; e: PlacedEntity; scale: number }) {
@@ -1454,4 +1496,19 @@ function EntityTooltip({ e, flows, power, at }: { e: PlacedEntity; flows: FlowRe
       )}
     </div>
   )
+}
+
+/** Caja que encierra un trazado. */
+function ptsBox(pts: Vec[]) {
+  let x0 = Infinity
+  let y0 = Infinity
+  let x1 = -Infinity
+  let y1 = -Infinity
+  for (const p of pts) {
+    if (p.x < x0) x0 = p.x
+    if (p.y < y0) y0 = p.y
+    if (p.x > x1) x1 = p.x
+    if (p.y > y1) y1 = p.y
+  }
+  return { x0, y0, x1, y1 }
 }

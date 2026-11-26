@@ -61,7 +61,7 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
   }
   // vista previa del armado (para avisar antes de colocar)
   const build = useMemo(() => {
-    if (!result || !wire) return null
+    if (!result || !wire || !result.steps.length) return null
     const o = origin()
     return buildChain(result.steps, result.raw, useEditor.getState().floor, { x: o.x, y: o.y }, split)
     // eslint-disable-next-line react-hooks/exhaustive-deps

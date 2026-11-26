@@ -12,14 +12,15 @@ import { GridLine } from './PlannerCanvas'
 import { canLinkWorld, computeGrids } from '../editor/power'
 import { isVerticalConnector } from '../editor/geometry'
 import { useEditor, type PlacedEntity, type Purity } from '../editor/store'
+import { NONE } from '../editor/store'
 
 const fmt = (n: number) => n.toLocaleString('es', { maximumFractionDigits: 2 })
 const pct = (clock: number) => `${Math.round(clock * 10000) / 100} %`
 
 export default function SidePanel() {
   const { entities, conveyors, selection, placingId, placingRot, tool, conveyorId, floorHeight } = useEditor()
-  const wires = useEditor((s) => s.wires) ?? []
-  const rails = useEditor((s) => s.rails) ?? []
+  const wires = useEditor((s) => s.wires) ?? NONE
+  const rails = useEditor((s) => s.rails) ?? NONE
   const selRails = rails.filter((r) => selection.includes(r.uid))
   const selWires = useMemo(
     () => wires.filter((w) => selection.includes(w.uid) || (selection.includes(w.from) && selection.includes(w.to))),
@@ -36,7 +37,7 @@ export default function SidePanel() {
     () => summarize(entities, conveyors, floorHeight, wires, entities, rails),
     [entities, conveyors, floorHeight, wires, rails],
   )
-  const routes = useEditor((s) => s.routes) ?? []
+  const routes = useEditor((s) => s.routes) ?? NONE
   const flows = useMemo(() => computeFlows(entities, conveyors, routes, floorHeight), [entities, conveyors, routes, floorHeight])
   const powerSettings = useEditor((s) => s.power)
   const power = useMemo(() => computeGrids(entities, wires, flows, powerSettings), [entities, wires, flows, powerSettings])

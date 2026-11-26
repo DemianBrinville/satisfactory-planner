@@ -4,6 +4,7 @@ import { computeFlows } from '../editor/flow'
 import { clockAdvice } from './Production'
 import { buildingsById } from '../data/gameData'
 import { useEditor } from '../editor/store'
+import { NONE } from '../editor/store'
 
 export interface MenuState {
   x: number
@@ -21,7 +22,7 @@ export default function ContextMenu({ menu, onClose }: { menu: MenuState; onClos
   // ajuste de reloj sugerido (bajarlo o subirlo al porcentaje exacto que pide lo de adelante)
   const advice = useMemo(() => {
     if (!entity || count !== 1) return null
-    const f = computeFlows(st.entities, st.conveyors, st.routes ?? [], st.floorHeight)
+    const f = computeFlows(st.entities, st.conveyors, st.routes ?? NONE, st.floorHeight)
     return clockAdvice(f.nodes.get(entity.uid), entity.clock ?? 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entity?.uid, count])

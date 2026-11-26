@@ -164,6 +164,11 @@ export function buildChain(
   /** Agrega un recorrido partiéndolo en tramos de hasta 50 m con postes/soportes. */
   const addPath = (points: Vec[], from: End | Vec, to: End | Vec, kind: Kind, mark: string) => {
     const clean = points.filter((p, i) => i === 0 || Math.hypot(p.x - points[i - 1].x, p.y - points[i - 1].y) > 1e-6)
+    if (clean.length < 2) {
+      // los dos extremos quedaron en el mismo punto: se unen directo si son puertos, si no no hace falta tramo
+      if ('uid' in from && 'uid' in to && clean.length) conveyors.push({ uid: newUid(), buildingId: mark, floor, points: [clean[0], clean[0]], mode: 'straight', from, to })
+      return
+    }
     const poleId = kind === 'pipe' ? PIPE_SUPPORT : BELT_POLE
     const resolve = (v: End | Vec, dir: Vec): End => {
       if ('uid' in v) return v

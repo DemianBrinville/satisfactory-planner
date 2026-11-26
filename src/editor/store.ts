@@ -221,6 +221,9 @@ export const onFloor = (e: PlacedEntity, floor: number) =>
 /** Piso en el que está un puerto (los conectores tienen un puerto abajo y otro arriba). */
 export const portFloor = (e: PlacedEntity, level?: 'bottom' | 'top') => (level === 'top' ? e.topFloor ?? e.floor + 1 : e.floor)
 
+/** Lista vacía estable (un `[]` nuevo en cada render rompe los useMemo). */
+export const NONE: never[] = []
+
 export function entityRect(e: PlacedEntity): Rect | null {
   const b = buildingsById.get(e.buildingId)
   return b ? worldRect(b, e, e.rot) : null
@@ -591,6 +594,7 @@ try {
 } catch {
   /* borrador corrupto: se ignora */
 }
+let localTimer: ReturnType<typeof setTimeout> | undefined
 useEditor.subscribe((s, prev) => {
   if (
     s.entities !== prev.entities ||
@@ -601,7 +605,16 @@ useEditor.subscribe((s, prev) => {
     s.power !== prev.power ||
     s.floorHeight !== prev.floorHeight
   ) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...snapshot(s), floorHeight: s.floorHeight }))
+    // se guarda un momento después del último cambio: con planos grandes serializar en cada acción traba
+    clearTimeout(localTimer)
+    localTimer = setTimeout(() => {
+      const st = useEditor.getState()
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...snapshot(st), floorHeight: st.floorHeight }))
+      } catch {
+        /* sin espacio en el navegador: queda el guardado en la nube */
+      }
+    }, 500)
   }
 })
 
