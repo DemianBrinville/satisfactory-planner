@@ -69,6 +69,7 @@ import {
   connectionsOf,
   consumptionMW,
   hasPowerConnection,
+  isPowerSwitch,
   wireCost,
   wireLength,
   wireMax,
@@ -1023,6 +1024,15 @@ export default function PlannerCanvas() {
             )
           })}
           {baseArea && <FoundationOutline a={baseArea} scale={view.scale} />}
+          {/* luz de los interruptores de energía, como en el juego: verde encendido, amarillo apagado, rojo cortado solo */}
+          {sorted
+            .filter((e) => isPowerSwitch(e.buildingId))
+            .map((e) => {
+              const r = entBox.get(e.uid)
+              if (!r) return null
+              const fill = power.autoOff.has(e.uid) ? '#e05046' : e.switchOn === false ? '#e8c547' : '#5fd35a'
+              return <Circle key={'sw' + e.uid} x={(r.x0 + r.x1) / 2} y={(r.y0 + r.y1) / 2} radius={Math.max(0.35, 3 / view.scale)} fill={fill} stroke="#000" strokeWidth={1 / view.scale} />
+            })}
           {/* problemas del plano en este piso (la lista está en el botón Problemas de la barra superior) */}
           {problemsHere.map((p) => (
             <Group key={p.id} x={p.at.x} y={p.at.y}>

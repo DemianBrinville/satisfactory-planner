@@ -714,5 +714,17 @@
     "minutes": "{{m}} min",
     "hours": "{{h}} h",
     "hoursMinutes": "{{h}} h {{m}} min"
+  },
+  "switch": {
+    "help": "Une las redes de sus dos lados cuando está encendido; apagado, quedan separadas y cada una se arregla con su propia generación.",
+    "helpPriority": "Une las redes de sus dos lados. Si la energía no alcanza (y las baterías se vaciaron), se corta solo según su grupo, antes de que se corte toda la red.",
+    "on": "Encendido",
+    "off": "Apagado",
+    "autoOff": "Se cortó solo: con todo encendido, la red no alcanza a alimentar su consumo.",
+    "group": "Grupo de corte",
+    "noGroup": "Sin grupo (se corta primero)",
+    "groupN": "Grupo {{n}}",
+    "groupHelp": "Cuando falta energía se cortan primero los que no tienen grupo y después del grupo 8 al 1. Pon en el grupo 1 lo que no puede pararse, como lo que fabrica el combustible de los generadores.",
+    "gameNote": "En el juego los interruptores se colocan apagados; acá empiezan encendidos para que la red quede unida mientras planeas."
   }
 }

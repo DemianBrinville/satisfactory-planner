@@ -146,9 +146,41 @@ export interface PowerResult {
   worldSpare: number
   /** aumento total de los amplificadores alienígenas del plano */
   planBoost: number
+  /** interruptores de prioridad que se cortaron solos por falta de energía */
+  autoOff: Set<string>
 }
 
+/** Interruptores de energía: puentes entre dos redes. Apagados, las separan. */
+export const isPowerSwitch = (id: string) => /PowerSwitch/.test(id)
+export const isPrioritySwitch = (id: string) => /PriorityPowerSwitch/.test(id)
+/** Orden en que el juego corta los interruptores de prioridad: primero los sin grupo, después del 8 al 1. */
+const cutOrder = (e: PlacedEntity) => e.circuitPriority ?? 9
+
+/**
+ * Redes eléctricas del plano. Los interruptores apagados separan sus dos lados. Si una red no alcanza a
+ * alimentar su consumo, los interruptores de prioridad que tiene se cortan solos, por grupo, como en el juego.
+ */
 export function computeGrids(entities: PlacedEntity[], wires: Wire[], flows?: FlowResult, settings?: PowerSettings): PowerResult {
+  const off = new Set(entities.filter((e) => isPowerSwitch(e.buildingId) && e.switchOn === false).map((e) => e.uid))
+  const autoOff = new Set<string>()
+  let r = gridsWith(entities, wires, flows, settings, off)
+  if (!settings?.infinite)
+    for (let guard = 0; guard < 20; guard++) {
+      // interruptores de prioridad encendidos dentro de redes sobrecargadas
+      const over = r.grids.filter((g) => g.consumption > g.generation + 1e-6)
+      const cands = over.flatMap((g) => g.members).map((u) => entities.find((e) => e.uid === u)!).filter((e) => isPrioritySwitch(e.buildingId))
+      if (!cands.length) break
+      const worst = Math.max(...cands.map(cutOrder))
+      for (const e of cands) if (cutOrder(e) === worst) {
+        off.add(e.uid)
+        autoOff.add(e.uid)
+      }
+      r = gridsWith(entities, wires, flows, settings, off)
+    }
+  return { ...r, autoOff }
+}
+
+function gridsWith(entities: PlacedEntity[], wires: Wire[], flows: FlowResult | undefined, settings: PowerSettings | undefined, off: Set<string>): Omit<PowerResult, 'autoOff'> {
   const worldSpare = settings ? Math.max(0, settings.worldGen - settings.worldUse) : 0
   const parent = new Map<string, string>()
   const find = (x: string): string => {
@@ -165,15 +197,18 @@ export function computeGrids(entities: PlacedEntity[], wires: Wire[], flows?: Fl
   const used = new Map<string, number>()
   for (const w of wires) {
     if (!parent.has(w.from) || !parent.has(w.to)) continue
-    parent.set(find(w.from), find(w.to))
     used.set(w.from, (used.get(w.from) ?? 0) + 1)
     used.set(w.to, (used.get(w.to) ?? 0) + 1)
+    // un interruptor apagado no une sus dos lados
+    if (off.has(w.from) || off.has(w.to)) continue
+    parent.set(find(w.from), find(w.to))
   }
   const byRoot = new Map<string, Grid>()
   const gridOf = new Map<string, number>()
   let next = 1
   for (const e of powered) {
     if (!used.has(e.uid) && !e.worldLink) continue // sin líneas: no pertenece a ninguna red
+    if (off.has(e.uid)) continue // interruptor apagado: queda fuera de las dos redes
     const root = find(e.uid)
     if (!byRoot.has(root)) byRoot.set(root, { id: next++, members: [], consumption: 0, generation: 0, base: 0, boost: 0, peak: 0, batteries: 0, world: false })
     const g = byRoot.get(root)!

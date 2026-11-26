@@ -714,5 +714,17 @@
     "minutes": "{{m}} min",
     "hours": "{{h}} h",
     "hoursMinutes": "{{h}} h {{m}} min"
+  },
+  "switch": {
+    "help": "Joins the grids on its two sides when on; when off, they stay separate and each one runs on its own generation.",
+    "helpPriority": "Joins the grids on its two sides. If power falls short (and the storage is empty), it cuts off on its own by group, before the whole grid trips.",
+    "on": "On",
+    "off": "Off",
+    "autoOff": "Cut off on its own: with everything on, the grid cannot power its consumption.",
+    "group": "Circuit break priority",
+    "noGroup": "Undefined (cut first)",
+    "groupN": "Group {{n}}",
+    "groupHelp": "When power runs short, undefined switches cut first, then groups 8 to 1. Put in group 1 whatever cannot stop, like what makes fuel for the generators.",
+    "gameNote": "In the game switches are placed off; here they start on so the grid stays joined while you plan."
   }
 }

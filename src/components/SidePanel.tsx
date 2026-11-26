@@ -28,6 +28,8 @@ import {
   consumptionMW,
   isAugmenter,
   isBattery,
+  isPowerSwitch,
+  isPrioritySwitch,
 } from '../editor/power'
 import { isVerticalConnector } from '../editor/geometry'
 import { useEditor, type PlacedEntity, type Purity } from '../editor/store'
@@ -140,6 +142,7 @@ export default function SidePanel() {
       {single && singleB && /MergerPriority/.test(singleB.id) && <PriorityMergerPanel e={single} b={singleB} />}
       {single && singleB && isAugmenter(singleB.id) && <AugmenterPanel e={single} flows={flows} power={power} />}
       {single && singleB && isBattery(singleB.id) && <BatteryPanel e={single} power={power} />}
+      {single && singleB && isPowerSwitch(singleB.id) && <SwitchPanel e={single} power={power} />}
       {single && singleB && configurable && (
         <MachinePanel e={single} b={singleB} node={flows.nodes.get(single.uid)} />
       )}
@@ -386,6 +389,45 @@ export function fmtHours(h: number): string {
   if (m < 60) return i18n.t('battery.minutes', { m })
   const hh = Math.floor(m / 60)
   return m % 60 ? i18n.t('battery.hoursMinutes', { h: hh, m: m % 60 }) : i18n.t('battery.hours', { h: hh })
+}
+
+/** Interruptor de energía: encendido o apagado y, si es de prioridad, su grupo de corte. */
+function SwitchPanel({ e, power }: { e: PlacedEntity; power: ReturnType<typeof computeGrids> }) {
+  const { t } = useTranslation()
+  const update = useEditor((s) => s.updateEntity)
+  const prio = isPrioritySwitch(e.buildingId)
+  const on = e.switchOn !== false
+  const cut = power.autoOff.has(e.uid)
+  return (
+    <section className="machine">
+      <h2>{buildingsById.get(e.buildingId)?.name}</h2>
+      <p className="muted small">{t(prio ? 'switch.helpPriority' : 'switch.help')}</p>
+      <div className="segmented">
+        <button className={on ? 'active' : ''} onClick={() => update(e.uid, { switchOn: undefined })}>
+          {t('switch.on')}
+        </button>
+        <button className={!on ? 'active' : ''} onClick={() => update(e.uid, { switchOn: false })}>
+          {t('switch.off')}
+        </button>
+      </div>
+      {cut && <p className="warn small">{t('switch.autoOff')}</p>}
+      {prio && (
+        <>
+          <h3>{t('switch.group')}</h3>
+          <select value={e.circuitPriority ?? ''} onChange={(ev) => update(e.uid, { circuitPriority: ev.target.value ? Number(ev.target.value) : undefined })}>
+            <option value="">{t('switch.noGroup')}</option>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+              <option key={n} value={n}>
+                {t('switch.groupN', { n })}
+              </option>
+            ))}
+          </select>
+          <p className="muted small">{t('switch.groupHelp')}</p>
+        </>
+      )}
+      <p className="muted small">{t('switch.gameNote')}</p>
+    </section>
+  )
 }
 
 /** Batería: capacidad de su red y si se carga, se descarga o cubre los picos. */

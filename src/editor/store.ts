@@ -46,6 +46,10 @@ export interface PlacedEntity {
   platformMode?: 'load' | 'unload'
   /** amplificador alienígena sin cinta: recibe sus 5 matrices por minuto por otro lado */
   fueled?: boolean
+  /** interruptores de energía: encendido (por defecto) o apagado */
+  switchOn?: boolean
+  /** interruptor de prioridad: grupo de corte del 1 (último en cortarse) al 8; sin grupo, se corta primero */
+  circuitPriority?: number
 }
 
 /** Extremo de una cinta/tubería: un puerto de un edificio o un poste/soporte (port = -1). */
