@@ -155,11 +155,18 @@ export function buildChain(
   // carril de cada ingrediente debajo de la fila que lo consume
   const consumerLaneY = (r: number, item: string) => rowBottom[r] + 4 + LANE * consumedIn(rows[r]).indexOf(item)
 
-  // ---------- tramos con postes ----------
-  let busRight = 0
-  let busLeft = 0
-  const nextRight = () => maxX + 6 + 4 * busRight++
-  const nextLeft = () => minX - 6 - 4 * busLeft++
+  // ---------- troncales a los costados ----------
+  // cada carril vertical se reutiliza cuando los tramos no se pisan, así las troncales quedan pegadas al bloque
+  const BUS_GAP = 3
+  const lanes: Record<'right' | 'left', [number, number][][]> = { right: [], left: [] }
+  const busLane = (side: 'right' | 'left', ya: number, yb: number) => {
+    const lo = Math.min(ya, yb) - 2.5
+    const hi = Math.max(ya, yb) + 2.5
+    let i = 0
+    while (lanes[side][i]?.some(([a, b]) => a < hi && lo < b)) i++
+    ;(lanes[side][i] ??= []).push([lo, hi])
+    return side === 'right' ? maxX + 4 + BUS_GAP * i : minX - 4 - BUS_GAP * i
+  }
 
   /** Agrega un recorrido partiéndolo en tramos de hasta 50 m con postes/soportes. */
   const addPath = (points: Vec[], from: End | Vec, to: End | Vec, kind: Kind, mark: string) => {
@@ -225,27 +232,43 @@ export function buildChain(
   }
 
   // ---------- cadenas ----------
-  /** Junta la producción de un paso en una cadena de uniones; devuelve el extremo derecho. */
-  const collect = (s: Step, mark: string, item: string = s.item): { end: End; pos: Vec } | null => {
+  /**
+   * Junta la producción de un paso en una cadena de uniones y devuelve por dónde sale (a la derecha).
+   * La primera máquina no necesita unión: su cinta entra por atrás a la unión de la segunda; con una sola
+   * máquina sale directo de su puerto.
+   */
+  const collect = (s: Step, mark: string, item: string = s.item): { end: End; pos: Vec; via: Vec[] } | null => {
     const kind = kindOf(item)
     const spec = COLLECTOR[kind]
     const laneY = producerLaneY(s, item)
+    const ms = (machinesByStep.get(s) ?? [])
+      .map((m) => ({ m, pi: outPortOf(m, item) }))
+      .filter((x): x is { m: Machine; pi: number } => x.pi !== undefined)
+      .map((x) => ({ ...x, pp: portPos(x.m.e, x.pi) }))
+      .sort((a, b) => a.pp.x - b.pp.x)
+    if (!ms.length) return null
+    if (ms.length === 1) return { end: { uid: ms[0].m.e.uid, port: ms[0].pi }, pos: ms[0].pp, via: [{ x: ms[0].pp.x, y: laneY }] }
     let prev: PlacedEntity | null = null
-    for (const m of machinesByStep.get(s) ?? []) {
-      const pi = outPortOf(m, item)
-      if (pi === undefined) continue
-      const pp = portPos(m.e, pi)
+    ms.forEach(({ m, pi, pp }, i) => {
+      if (i === 0) return
       const c = add({ uid: newUid(), buildingId: spec.id, x: pp.x, y: laneY, rot: spec.rot, floor })
       addPath([pp, portPos(c, spec.feedIn)], { uid: m.e.uid, port: pi }, { uid: c.uid, port: spec.feedIn }, kind, mark)
       if (prev) addPath([portPos(prev, spec.out), portPos(c, spec.chainIn)], { uid: prev.uid, port: spec.out }, { uid: c.uid, port: spec.chainIn }, kind, mark)
+      else {
+        const f = ms[0]
+        addPath([f.pp, { x: f.pp.x, y: laneY }, portPos(c, spec.chainIn)], { uid: f.m.e.uid, port: f.pi }, { uid: c.uid, port: spec.chainIn }, kind, mark)
+      }
       prev = c
-    }
-    if (!prev) return null
-    return { end: { uid: prev.uid, port: spec.out }, pos: portPos(prev, spec.out) }
+    })
+    const last = prev as unknown as PlacedEntity
+    return { end: { uid: last.uid, port: spec.out }, pos: portPos(last, spec.out), via: [] }
   }
 
-  /** Reparte un ítem a las máquinas de una fila; la cadena va de derecha a izquierda o al revés. */
-  const distribute = (r: number, item: string, rtl: boolean, mark: string) => {
+  /**
+   * Reparte un ítem a las máquinas de una fila; la cadena va de derecha a izquierda o al revés.
+   * La última máquina recibe la cinta directo (sin divisor) salvo que la línea siga hacia otra fila.
+   */
+  const distribute = (r: number, item: string, rtl: boolean, mark: string, continues: boolean) => {
     const kind = kindOf(item)
     const spec = DISTRIBUTOR[kind][rtl ? 'rtl' : 'ltr']
     const laneY = consumerLaneY(r, item)
@@ -257,22 +280,39 @@ export function buildChain(
         if (pi !== undefined) targets.push({ m, port: pi, pos: portPos(m.e, pi) })
       }
     }
+    if (!targets.length) return null
     targets.sort((a, b) => (rtl ? b.pos.x - a.pos.x : a.pos.x - b.pos.x))
-    let first: PlacedEntity | null = null
+    let entry: End | null = null
+    let entryPos: Vec = { x: 0, y: 0 }
+    let tail: Vec[] = []
     let prev: PlacedEntity | null = null
-    for (const t of targets) {
-      const d = add({ uid: newUid(), buildingId: spec.id, x: t.pos.x, y: laneY, rot: spec.rot, floor })
-      addPath([portPos(d, spec.feed), t.pos], { uid: d.uid, port: spec.feed }, { uid: t.m.e.uid, port: t.port }, kind, mark)
-      if (prev) addPath([portPos(prev, spec.out), portPos(d, spec.in)], { uid: prev.uid, port: spec.out }, { uid: d.uid, port: spec.in }, kind, mark)
-      if (!first) first = d
-      prev = d
-    }
-    if (!first || !prev) return null
+    targets.forEach((t, i) => {
+      const machineEnd = { uid: t.m.e.uid, port: t.port }
+      if (i < targets.length - 1 || continues) {
+        const d = add({ uid: newUid(), buildingId: spec.id, x: t.pos.x, y: laneY, rot: spec.rot, floor })
+        addPath([portPos(d, spec.feed), t.pos], { uid: d.uid, port: spec.feed }, machineEnd, kind, mark)
+        if (prev) addPath([portPos(prev, spec.out), portPos(d, spec.in)], { uid: prev.uid, port: spec.out }, { uid: d.uid, port: spec.in }, kind, mark)
+        else {
+          entry = { uid: d.uid, port: spec.in }
+          entryPos = portPos(d, spec.in)
+        }
+        prev = d
+      } else if (prev) {
+        addPath([portPos(prev, spec.out), { x: t.pos.x, y: laneY }, t.pos], { uid: prev.uid, port: spec.out }, machineEnd, kind, mark)
+      } else {
+        // una sola máquina: la línea llega directo a su puerto
+        entry = machineEnd
+        entryPos = { x: t.pos.x, y: laneY }
+        tail = [t.pos]
+      }
+    })
+    const last = prev as PlacedEntity | null
     return {
-      entry: { uid: first.uid, port: spec.in } as End,
-      entryPos: portPos(first, spec.in),
-      exit: { uid: prev.uid, port: spec.out } as End,
-      exitPos: portPos(prev, spec.out),
+      entry: entry as unknown as End,
+      entryPos,
+      tail,
+      exit: continues && last ? ({ uid: last.uid, port: spec.out } as End) : null,
+      exitPos: continues && last ? portPos(last, spec.out) : null,
     }
   }
 
@@ -301,36 +341,43 @@ export function buildChain(
     // de la fila más cercana al productor hacia arriba
     consumerRows.sort((a, b) => b.r - a.r)
 
-    let cur: { end: End | Vec; pos: Vec; side: 'right' | 'left' }
+    // recorrido actual: extremo, posición y puntos intermedios hasta el carril horizontal
+    let cur: { end: End; pos: Vec; via: Vec[] } | null = null
     if (f.producer) {
       const c = collect(f.producer, mark, f.item)
       if (!c) {
         if (kind === 'pipe') skippedFluids++
         continue
       }
-      cur = { end: c.end, pos: c.pos, side: 'right' }
-    } else {
-      // materia prima: entra por abajo a la derecha desde un poste suelto (ahí conectas los taladros)
-      const x = nextRight()
-      cur = { end: { x, y: lowest + 6 }, pos: { x, y: lowest + 6 }, side: 'right' }
+      cur = c
     }
 
     if (!consumerRows.length) {
       if (f.byproduct)
         notes.push(`Subproducto: ${game.items[f.item]?.name} (${Math.round(f.rate * 10) / 10}/min) sale por la derecha; hay que almacenarlo, usarlo o mandarlo al AWESOME Sink para que la máquina no se frene.`)
-      // producto final o subproducto: sale por la derecha hasta un poste/soporte (ahí sigue tu fábrica)
-      const x = nextRight()
-      addPath([cur.pos, { x, y: cur.pos.y }], cur.end, { x, y: cur.pos.y }, kind, mark)
+      // producto final o subproducto: un tramo corto hacia la derecha hasta un poste/soporte (ahí sigue tu fábrica)
+      if (cur) {
+        const lastPt = [cur.pos, ...cur.via].pop()!
+        addPath([cur.pos, ...cur.via, { x: lastPt.x + 4, y: lastPt.y }], cur.end, { x: lastPt.x + 4, y: lastPt.y }, kind, mark)
+      }
       continue
     }
     consumerRows.forEach(({ r }, gi) => {
       const rtl = gi % 2 === 0
-      const d = distribute(r, f.item, rtl, mark)
+      const d = distribute(r, f.item, rtl, mark, gi < consumerRows.length - 1)
       if (!d) return
-      const busX = rtl ? nextRight() : nextLeft()
-      const pts = 'uid' in cur.end || f.producer ? [cur.pos, { x: busX, y: cur.pos.y }, { x: busX, y: d.entryPos.y }, d.entryPos] : [cur.pos, { x: cur.pos.x, y: d.entryPos.y }, d.entryPos]
-      addPath(pts, cur.end, d.entry, kind, mark)
-      cur = { end: d.exit, pos: d.exitPos, side: rtl ? 'left' : 'right' }
+      const side = rtl ? 'right' : 'left'
+      if (!cur) {
+        // materia prima: entra desde un poste/soporte suelto debajo del bloque (ahí conectas los taladros)
+        const busX = busLane(side, lowest + 6, d.entryPos.y)
+        addPath([{ x: busX, y: lowest + 6 }, { x: busX, y: d.entryPos.y }, d.entryPos, ...d.tail], { x: busX, y: lowest + 6 }, d.entry, kind, mark)
+      } else {
+        const start = [cur.pos, ...cur.via]
+        const hy = start[start.length - 1].y
+        const busX = busLane(side, hy, d.entryPos.y)
+        addPath([...start, { x: busX, y: hy }, { x: busX, y: d.entryPos.y }, d.entryPos, ...d.tail], cur.end, d.entry, kind, mark)
+      }
+      cur = d.exit && d.exitPos ? { end: d.exit, pos: d.exitPos, via: [] } : null
     })
   }
   if (skippedFluids) notes.push(`${skippedFluids} salida(s) de fluido sin puerto para conectar.`)
