@@ -6,6 +6,7 @@ import { useAvailability } from '../editor/progress'
 import { useEditor } from '../editor/store'
 import { RAIL, type VehicleKind } from '../editor/transport'
 import { BuildingIcon } from './GameIcons'
+import { BlocksPanel } from './Blocks'
 
 /** Las "Rutas de vehículo" del menú del juego abren la herramienta de rutas. */
 const ROUTE_KINDS: Record<string, VehicleKind> = {
@@ -19,6 +20,8 @@ export default function Palette() {
   const { t } = useTranslation()
   const { category, setCategory, startPlacing, startConveyor, startWire, startRail, startRoute, placingId, conveyorId, tool } = useEditor()
   const [query, setQuery] = useState('')
+  // pestaña de bloques guardados (como la de planos del menú de construcción del juego)
+  const [blocks, setBlocks] = useState(false)
   const avail = useAvailability()
 
   const groups = useMemo(() => {
@@ -40,16 +43,25 @@ export default function Palette() {
         {CATEGORIES.map((c) => (
           <button
             key={c.id}
-            className={c.id === category && !query ? 'active' : ''}
+            className={c.id === category && !query && !blocks ? 'active' : ''}
             onClick={() => {
               setQuery('')
+              setBlocks(false)
               setCategory(c.id)
             }}
           >
             {t(`categories.${c.id}`)}
           </button>
         ))}
+        <button className={'cats-blocks' + (blocks ? ' active' : '')} onClick={() => setBlocks(true)} title={t('blocks.tabTitle')}>
+          {t('blocks.tab')}
+        </button>
       </nav>
+      {blocks ? (
+        <div className="items">
+          <BlocksPanel />
+        </div>
+      ) : (
       <div className="items">
         <input className="search" placeholder={t('palette.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
         {groups.map(([sub, list], gi) => (
@@ -97,6 +109,7 @@ export default function Palette() {
           </section>
         ))}
       </div>
+      )}
     </aside>
   )
 }

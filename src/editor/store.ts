@@ -115,6 +115,10 @@ export interface Clipboard {
   conveyors: Conveyor[]
   /** edificio cuya regla de ajuste se usa para colocar el grupo */
   refBuildingId: string
+  /** líneas eléctricas entre estructuras del grupo */
+  wires?: Wire[]
+  /** vías de tren seleccionadas junto con el grupo */
+  rails?: Rail[]
   /** al cortar: cintas que iban hacia afuera del grupo, para reconectarlas al pegar */
   external?: Conveyor[]
 }
@@ -181,6 +185,8 @@ interface EditorState extends PlanDoc {
   copySelection: () => void
   cutSelection: () => void
   startPaste: () => void
+  /** empieza a colocar un grupo guardado (bloque) como si se hubiera copiado */
+  pasteGroup: (group: Clipboard) => void
   pasteAt: (anchor: Vec) => boolean
   updateEntity: (uid: string, patch: Partial<PlacedEntity>) => void
   undo: () => void
@@ -224,7 +230,7 @@ export const newUid = () => Math.random().toString(36).slice(2, 10)
 const nextRot = (r: Rotation, dir: 1 | -1): Rotation => ((r + 90 * dir + 360) % 360) as Rotation
 
 /** Los cimientos van en su propia capa: las máquinas se apoyan encima. */
-const layerOf = (buildingId: string) =>
+export const layerOf = (buildingId: string) =>
   buildingsById.get(buildingId)?.kind === 'foundation' && !isVerticalConnector(buildingId) ? 'base' : 'top'
 
 /** ¿La estructura ocupa este piso? Los conectores verticales ocupan todos los pisos que atraviesan. */
@@ -244,6 +250,27 @@ export function entityRect(e: PlacedEntity): Rect | null {
 
 export const isEnd = (v: End | Vec): v is End => (v as End).uid !== undefined
 
+/** Arma un grupo copiable (portapapeles o bloque guardado) con lo seleccionado, relativo a una estructura de referencia. */
+export function groupOf(selection: string[], entities: PlacedEntity[], conveyors: Conveyor[], wires: Wire[], rails: Rail[]): Clipboard | null {
+  const sel = new Set(selection)
+  const ents = entities.filter((e) => sel.has(e.uid))
+  if (!ents.length) return null
+  // referencia: un cimiento si hay (mantiene la cuadrícula de 8 m), si no la primera estructura
+  const ref = ents.find((e) => layerOf(e.buildingId) === 'base') ?? ents[0]
+  const ids = new Set(ents.map((e) => e.uid))
+  const rel = (p: Vec) => ({ x: p.x - ref.x, y: p.y - ref.y })
+  const group: Clipboard = {
+    refBuildingId: ref.buildingId,
+    entities: ents.map((e) => ({ ...e, x: e.x - ref.x, y: e.y - ref.y })),
+    conveyors: conveyors.filter((c) => ids.has(c.from.uid) && ids.has(c.to.uid)).map((c) => ({ ...c, points: c.points.map(rel) })),
+  }
+  const w = wires.filter((x) => ids.has(x.from) && ids.has(x.to))
+  if (w.length) group.wires = w
+  const r = rails.filter((x) => sel.has(x.uid)).map((x) => ({ ...x, points: x.points.map(rel) }))
+  if (r.length) group.rails = r
+  return group
+}
+
 /** Grupo del portapapeles transformado a una posición y rotación del mundo. */
 export function placeClipboard(cb: Clipboard, anchor: Vec, rot: Rotation, floor: number): PlanDoc {
   return placeClipboardMapped(cb, anchor, rot, floor).doc
@@ -251,11 +278,20 @@ export function placeClipboard(cb: Clipboard, anchor: Vec, rot: Rotation, floor:
 
 function placeClipboardMapped(cb: Clipboard, anchor: Vec, rot: Rotation, floor: number): { doc: PlanDoc; uidMap: Map<string, string> } {
   const map = new Map<string, string>()
+  const at = (p: Vec) => {
+    const o = rotate(p, rot)
+    return { x: anchor.x + o.x, y: anchor.y + o.y }
+  }
   const entities = cb.entities.map((e) => {
     const off = rotate({ x: e.x, y: e.y }, rot)
     const uid = newUid()
     map.set(e.uid, uid)
-    return { ...e, uid, x: anchor.x + off.x, y: anchor.y + off.y, rot: ((e.rot + rot) % 360) as Rotation, floor }
+    const placed: PlacedEntity = { ...e, uid, x: anchor.x + off.x, y: anchor.y + off.y, rot: ((e.rot + rot) % 360) as Rotation, floor }
+    // elevadoras y pases de piso: el piso superior se guarda relativo al de la pieza
+    if (e.topFloor !== undefined) placed.topFloor = floor + (e.topFloor - e.floor)
+    // postes con ángulo libre: giran junto con el grupo
+    if (rot && (e.angle !== undefined || isPole(e.buildingId))) placed.angle = ((e.angle ?? 0) + rot) % 360
+    return placed
   })
   const conveyors = cb.conveyors.map((c) => ({
     ...c,
@@ -268,7 +304,11 @@ function placeClipboardMapped(cb: Clipboard, anchor: Vec, rot: Rotation, floor: 
     from: { ...c.from, uid: map.get(c.from.uid)! },
     to: { ...c.to, uid: map.get(c.to.uid)! },
   }))
-  return { doc: { entities, conveyors }, uidMap: map }
+  const wires = (cb.wires ?? [])
+    .filter((w) => map.has(w.from) && map.has(w.to))
+    .map((w) => ({ uid: newUid(), from: map.get(w.from)!, to: map.get(w.to)! }))
+  const rails = (cb.rails ?? []).map((r) => ({ uid: newUid(), floor, points: r.points.map(at) }))
+  return { doc: { entities, conveyors, wires, rails }, uidMap: map }
 }
 
 export const useEditor = create<EditorState>((set, get) => {
@@ -301,20 +341,8 @@ export const useEditor = create<EditorState>((set, get) => {
   }
 
   const toClipboard = (): Clipboard | null => {
-    const { selection, entities, conveyors } = get()
-    const sel = new Set(selection)
-    const ents = entities.filter((e) => sel.has(e.uid))
-    if (!ents.length) return null
-    // referencia: un cimiento si hay (mantiene la cuadrícula de 8 m), si no la primera estructura
-    const ref = ents.find((e) => layerOf(e.buildingId) === 'base') ?? ents[0]
-    const ids = new Set(ents.map((e) => e.uid))
-    return {
-      refBuildingId: ref.buildingId,
-      entities: ents.map((e) => ({ ...e, x: e.x - ref.x, y: e.y - ref.y })),
-      conveyors: conveyors
-        .filter((c) => ids.has(c.from.uid) && ids.has(c.to.uid))
-        .map((c) => ({ ...c, points: c.points.map((p) => ({ x: p.x - ref.x, y: p.y - ref.y })) })),
-    }
+    const s = get()
+    return groupOf(s.selection, s.entities, s.conveyors, s.wires ?? [], s.rails ?? [])
   }
 
   return {
@@ -527,6 +555,8 @@ export const useEditor = create<EditorState>((set, get) => {
       const cb = get().clipboard
       if (cb) set({ tool: 'paste', pasteOnce: false, clipboard: { ...cb, external: undefined }, pasteRot: 0, placingId: null, conveyorId: null, selection: [] })
     },
+    pasteGroup: (group) =>
+      set({ clipboard: { ...group, external: undefined }, tool: 'paste', pasteOnce: false, pasteRot: 0, placingId: null, conveyorId: null, selection: [] }),
     pasteAt: (anchor) => {
       const { clipboard, pasteRot, pasteOnce, floor, entities, conveyors, canPlace } = get()
       if (!clipboard) return false
@@ -538,7 +568,12 @@ export const useEditor = create<EditorState>((set, get) => {
         const moved = { ...c, from: { ...c.from, uid: uidMap.get(c.from.uid) ?? c.from.uid }, to: { ...c.to, uid: uidMap.get(c.to.uid) ?? c.to.uid } }
         return reroute(moved, allEntities) ?? []
       })
-      commit({ entities: allEntities, conveyors: [...conveyors, ...doc.conveyors, ...reconnected] })
+      commit({
+        entities: allEntities,
+        conveyors: [...conveyors, ...doc.conveyors, ...reconnected],
+        ...(doc.wires?.length ? { wires: [...(get().wires ?? []), ...doc.wires] } : {}),
+        ...(doc.rails?.length ? { rails: [...(get().rails ?? []), ...doc.rails] } : {}),
+      })
       set({ selection: doc.entities.map((e) => e.uid) })
       if (pasteOnce) set({ tool: 'select', clipboard: { ...clipboard, external: undefined }, pasteOnce: false })
       return true

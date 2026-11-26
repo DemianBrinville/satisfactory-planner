@@ -1,11 +1,12 @@
 import { fmtPct } from '../i18n/format'
 import { useTranslation } from 'react-i18next'
-import { CircleArrowDown, CircleArrowUp, Copy, CopyPlus, Gauge, Move, RotateCw, Trash2 } from 'lucide-react'
+import { BookmarkPlus, CircleArrowDown, CircleArrowUp, Copy, CopyPlus, Gauge, Move, RotateCw, Trash2 } from 'lucide-react'
+import { useBlocks } from '../cloud/blocks'
 import { useEffect, useMemo } from 'react'
 import { computeFlows } from '../editor/flow'
 import { clockAdvice } from './Production'
 import { buildingsById } from '../data/gameData'
-import { useEditor } from '../editor/store'
+import { groupOf, useEditor } from '../editor/store'
 import { NONE } from '../editor/store'
 
 export interface MenuState {
@@ -88,6 +89,17 @@ export default function ContextMenu({ menu, onClose }: { menu: MenuState; onClos
           <button onClick={run(() => { st.copySelection(); st.startPaste() })}>
             <span>
               <CopyPlus size={15} /> {t('menu.duplicate')}
+              {label}
+            </span>
+          </button>
+          <button
+            onClick={run(() => {
+              const g = groupOf(st.selection, st.entities, st.conveyors, st.wires ?? NONE, st.rails ?? NONE)
+              if (g) useBlocks.getState().setSaving(g)
+            })}
+          >
+            <span>
+              <BookmarkPlus size={15} /> {t('menu.saveBlock')}
               {label}
             </span>
           </button>

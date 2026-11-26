@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import { useProgress } from '../editor/progress'
 import { snapshot, useEditor, type PlanDoc } from '../editor/store'
 import { supabase } from './supabase'
+import { useBlocks } from './blocks'
 
 export interface PlanMeta {
   id: string
@@ -363,6 +364,7 @@ async function loadProfile(user: User) {
 async function onLogin(user: User) {
   useCloud.setState({ user, authOpen: null })
   loadProfile(user)
+  useBlocks.getState().sync(user.id)
   // progreso: si hay uno en la nube se usa; si no, se sube el local
   const { data } = await supabase.from('user_progress').select('data').maybeSingle()
   if (data?.data && Object.keys(data.data).length) useProgress.getState().load(data.data)
@@ -397,5 +399,6 @@ supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_OUT') {
     progressReady = false
     useCloud.setState({ user: null })
+    useBlocks.getState().sync(null)
   }
 })

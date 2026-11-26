@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import AuthModal, { RecoveryModal } from './components/AuthModal'
+import { SaveBlockModal } from './components/Blocks'
 import CalculatorModal from './components/CalculatorModal'
 import CommunityModal from './components/CommunityModal'
 import IconZoom from './components/IconZoom'
@@ -109,6 +110,7 @@ function App() {
       {calcOpen && <CalculatorModal onClose={() => setCalcOpen(false)} />}
       <AuthModal />
       <RecoveryModal />
+      <SaveBlockModal />
       <IconZoom />
     </div>
   )
