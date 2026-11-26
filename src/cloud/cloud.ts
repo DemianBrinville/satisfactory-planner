@@ -8,7 +8,26 @@ export interface PlanMeta {
   id: string
   name: string
   updated_at: string
+  is_public?: boolean
+  description?: string | null
 }
+
+export interface Profile {
+  id: string
+  username: string | null
+  display_name: string | null
+  bio: string | null
+}
+
+/** Plano público de la comunidad con su autor. */
+export interface PublicPlan extends PlanMeta {
+  user_id: string
+  author: Profile | null
+  /** cantidad de estructuras (para la tarjeta) */
+  size?: number
+}
+
+export type AuthMode = 'login' | 'signup' | 'reset'
 
 type SaveState = 'local' | 'saving' | 'saved' | 'error'
 
@@ -23,7 +42,20 @@ interface CloudState {
 
   /** recuperación de contraseña: el usuario volvió desde el enlace del correo */
   recovering: boolean
+  /** ventana de inicio de sesión abierta (y en qué pestaña) */
+  authOpen: AuthMode | null
+  openAuth: (mode: AuthMode | null) => void
+  profile: Profile | null
+  updateProfile: (patch: Partial<Profile>) => Promise<boolean>
+  setPlanPublic: (id: string, isPublic: boolean, description?: string) => Promise<void>
+  listPublic: (search?: string) => Promise<PublicPlan[]>
+  /** plano de la comunidad abierto en modo vista (no se guarda) */
+  viewing: { id: string; name: string; author: string } | null
+  viewPublic: (plan: PublicPlan) => Promise<void>
+  copyViewing: () => Promise<void>
+  exitView: () => Promise<void>
   signIn: (email: string, password: string) => Promise<boolean>
+  signInWithGoogle: () => Promise<void>
   signUp: (email: string, password: string) => Promise<'session' | 'confirm' | null>
   resetPassword: (email: string) => Promise<boolean>
   updatePassword: (password: string) => Promise<boolean>
@@ -63,6 +95,102 @@ export const useCloud = create<CloudState>((set, get) => ({
   saveState: 'local',
   error: null,
   recovering: false,
+  authOpen: null,
+  openAuth: (authOpen) => set({ authOpen, error: null }),
+  profile: null,
+  viewing: null,
+
+  updateProfile: async (patch) => {
+    const user = get().user
+    if (!user) return false
+    set({ error: null })
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', user.id)
+      .select('id,username,display_name,bio')
+      .single()
+    if (error) {
+      set({ error: /duplicate|unique/i.test(error.message) ? 'Ese nombre de usuario ya está en uso.' : /check/i.test(error.message) ? 'El nombre de usuario debe tener de 3 a 24 letras, números, punto, guion o guion bajo.' : error.message })
+      return false
+    }
+    set({ profile: data })
+    return true
+  },
+
+  setPlanPublic: async (id, isPublic, description) => {
+    const patch: Record<string, unknown> = { is_public: isPublic }
+    if (description !== undefined) patch.description = description
+    const { error } = await supabase.from('plans').update(patch).eq('id', id)
+    if (error) set({ error: error.message })
+    await get().refreshPlans()
+  },
+
+  listPublic: async (search) => {
+    let q = supabase.from('plans').select('id,name,description,updated_at,user_id,data').eq('is_public', true).order('updated_at', { ascending: false }).limit(60)
+    if (search?.trim()) q = q.ilike('name', `%${search.trim()}%`)
+    const { data, error } = await q
+    if (error || !data) {
+      set({ error: error?.message ?? null })
+      return []
+    }
+    const ids = [...new Set(data.map((p) => p.user_id))]
+    const { data: profiles } = ids.length ? await supabase.from('profiles').select('id,username,display_name,bio').in('id', ids) : { data: [] }
+    return data.map((p) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      updated_at: p.updated_at,
+      user_id: p.user_id,
+      size: (p.data as PlanDoc)?.entities?.length ?? 0,
+      author: (profiles ?? []).find((x) => x.id === p.user_id) ?? null,
+    }))
+  },
+
+  viewPublic: async (plan) => {
+    const { data, error } = await supabase.from('plans').select('data').eq('id', plan.id).single()
+    if (error || !data) {
+      set({ error: error?.message ?? 'No se pudo abrir el plano' })
+      return
+    }
+    suppressSave = true
+    useEditor.getState().load(data.data as PlanDoc)
+    suppressSave = false
+    const author = plan.author?.display_name || (plan.author?.username ? '@' + plan.author.username : 'otro jugador')
+    set({ viewing: { id: plan.id, name: plan.name, author }, currentId: null, currentName: plan.name, saveState: 'local' })
+  },
+
+  copyViewing: async () => {
+    const v = get().viewing
+    if (!v) return
+    if (!get().user) {
+      // sin sesión: queda como borrador local; al entrar se guarda en la cuenta
+      set({ viewing: null, currentName: v.name + ' (copia)' })
+      return
+    }
+    const { data, error } = await supabase
+      .from('plans')
+      .insert({ name: v.name + ' (copia)', data: docOf(), copied_from: v.id })
+      .select('id')
+      .single()
+    if (error || !data) {
+      set({ error: error?.message ?? 'No se pudo copiar' })
+      return
+    }
+    set({ viewing: null })
+    await get().refreshPlans()
+    await get().openPlan(data.id)
+  },
+
+  exitView: async () => {
+    set({ viewing: null })
+    const last = localStorage.getItem(CURRENT_KEY)
+    if (get().user && last) return get().openPlan(last)
+    suppressSave = true
+    useEditor.getState().load({ entities: [], conveyors: [] })
+    suppressSave = false
+    set({ currentName: 'Borrador local' })
+  },
 
   signIn: async (email, password) => {
     set({ error: null })
@@ -72,6 +200,13 @@ export const useCloud = create<CloudState>((set, get) => ({
       return false
     }
     return true
+  },
+
+  signInWithGoogle: async () => {
+    set({ error: null })
+    // vuelve a la misma página; lo dibujado sin sesión queda en el navegador y se guarda al entrar
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: returnUrl() } })
+    if (error) set({ error: /provider is not enabled|Unsupported provider/i.test(error.message) ? 'El inicio con Google todavía no está activado.' : error.message })
   },
 
   signUp: async (email, password) => {
@@ -112,11 +247,17 @@ export const useCloud = create<CloudState>((set, get) => ({
     suppressSave = true
     useEditor.getState().load({ entities: [], conveyors: [] })
     suppressSave = false
-    set({ user: null, plans: [], currentId: null, currentName: 'Borrador local', saveState: 'local' })
+    set({ user: null, profile: null, viewing: null, plans: [], currentId: null, currentName: 'Borrador local', saveState: 'local' })
   },
 
   refreshPlans: async () => {
-    const { data, error } = await supabase.from('plans').select('id,name,updated_at').order('updated_at', { ascending: false })
+    const user = get().user
+    if (!user) return
+    const { data, error } = await supabase
+      .from('plans')
+      .select('id,name,updated_at,is_public,description')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
     if (error) set({ error: error.message })
     else set({ plans: data ?? [] })
   },
@@ -131,7 +272,7 @@ export const useCloud = create<CloudState>((set, get) => ({
     useEditor.getState().load(data.data as PlanDoc)
     suppressSave = false
     localStorage.setItem(CURRENT_KEY, id)
-    set({ currentId: id, currentName: data.name, saveState: 'saved' })
+    set({ currentId: id, currentName: data.name, saveState: 'saved', viewing: null })
   },
 
   newPlan: async (name, fromCurrent = false) => {
@@ -201,8 +342,27 @@ useProgress.subscribe((s) => {
   }, 800)
 })
 
+/** Nombre de usuario inicial a partir del nombre o del email (se puede cambiar en el perfil). */
+function suggestUsername(user: User): string {
+  const base = String(user.user_metadata?.full_name || user.email?.split('@')[0] || 'pionero')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9_.-]+/g, '')
+    .slice(0, 16)
+  return (base.length >= 3 ? base : 'pionero') + Math.floor(1000 + Math.random() * 9000)
+}
+
+async function loadProfile(user: User) {
+  const { data } = await supabase.from('profiles').select('id,username,display_name,bio').eq('id', user.id).maybeSingle()
+  if (data) return useCloud.setState({ profile: data })
+  const fresh = { id: user.id, username: suggestUsername(user), display_name: user.user_metadata?.full_name ?? null, bio: null }
+  const { data: created } = await supabase.from('profiles').insert(fresh).select('id,username,display_name,bio').single()
+  useCloud.setState({ profile: created ?? fresh })
+}
+
 async function onLogin(user: User) {
-  useCloud.setState({ user })
+  useCloud.setState({ user, authOpen: null })
+  loadProfile(user)
   // progreso: si hay uno en la nube se usa; si no, se sube el local
   const { data } = await supabase.from('user_progress').select('data').maybeSingle()
   if (data?.data && Object.keys(data.data).length) useProgress.getState().load(data.data)

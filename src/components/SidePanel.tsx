@@ -7,7 +7,7 @@ import { useAvailability } from '../editor/progress'
 import { PriorityMergerPanel, RoutePanel, SplitterPanel, StoragePanel } from './LogisticsPanels'
 import { vehicleForStation } from '../editor/transport'
 import ConnectorPanel from './ConnectorPanel'
-import Production from './Production'
+import Production, { ClockAdviceText, clockAdvice } from './Production'
 import { GridLine } from './PlannerCanvas'
 import { canLinkWorld, computeGrids } from '../editor/power'
 import { isVerticalConnector } from '../editor/geometry'
@@ -298,7 +298,8 @@ function MachinePanel({ e, b, node }: { e: PlacedEntity; b: Building; node?: Nod
         <>
           <h3>Producción: {pct(node.effective)}</h3>
           <Production n={node} />
-          {canUnderclock && suggestion !== null && (
+          <ClockAdviceText a={clockAdvice(node, clock)} onApply={setClock} />
+          {!clockAdvice(node, clock) && node.bottleneck && canUnderclock && suggestion !== null && (
             <div className="hint">
               {node.outputLimited < node.inputLimited
                 ? 'Lo que está conectado después no consume todo lo que produce.'

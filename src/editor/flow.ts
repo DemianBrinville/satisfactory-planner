@@ -21,6 +21,8 @@ export interface EdgeFlow {
   capacity: number
   /** la cinta no tiene consumidor (termina suelta o en un sumidero): su ideal es la producción ideal de atrás */
   open?: boolean
+  /** ideal del siguiente crafteo: lo que piden las máquinas de destino a su reloj */
+  local?: Rates
 }
 
 export interface NodeFlow {
@@ -34,6 +36,8 @@ export interface NodeFlow {
   inputs: { item: string; need: number; got: number }[]
   /** por ítem: lo que podría producir y lo que se lleva la salida */
   outputs: { item: string; produce: number; taken: number }[]
+  /** reloj que cubriría exactamente la demanda de adelante (1 = 100 %); null si la salida está abierta */
+  required?: number | null
   /** ingrediente que más frena la producción (el que llega más lento respecto a lo que pide) */
   bottleneck?: string | null
   /** duración de un ciclo: la ideal al reloj elegido y la real con lo que llega (s) */
@@ -118,11 +122,17 @@ const sumRates = (m: Rates) => [...m.values()].reduce((a, b) => a + b, 0)
 const demOf = (m: Rates | undefined, item: string) => m?.get(item) ?? m?.get('*') ?? 0
 
 export function computeFlows(entities: PlacedEntity[], baseConveyors: Conveyor[], routes: Route[] = [], floorHeight = 8): FlowResult {
-  const real = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, false)
+  const real = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, 'real')
+  // ideal del siguiente crafteo: lo que pide cada máquina de destino a su reloj, sin mirar más adelante
+  const local = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, 'local')
+  for (const [uid, e] of real.edges) {
+    const d = local.edges.get(uid)
+    if (d && !d.open) e.local = new Map(d.demand)
+  }
   // en las cintas abiertas (salida sin consumidor, sumideros) el ideal es lo que producirían las máquinas
   // de atrás al 100 % de su reloj: se calcula suponiendo que a todas les llega todo lo que piden
   if (![...real.edges.values()].some((e) => e.open)) return real
-  const ideal = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, true)
+  const ideal = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, 'supply')
   for (const [uid, e] of real.edges) {
     if (!e.open) continue
     const supply = ideal.edges.get(uid)?.offer
@@ -136,8 +146,11 @@ function computeFlowsRaw(
   baseConveyors: Conveyor[],
   routes: Route[],
   floorHeight: number,
-  /** supone que a cada máquina le llega todo lo que pide (para calcular el ideal hacia adelante) */
-  idealSupply: boolean,
+  /**
+   * real: cálculo normal · supply: supone que a cada máquina le llega todo lo que pide (ideal hacia adelante)
+   * · local: cada máquina pide lo de su receta a su reloj sin importar lo que consume lo de adelante
+   */
+  mode: 'real' | 'supply' | 'local',
 ): FlowResult {
   // las rutas de vehículos (tren, camión, dron) son aristas virtuales entre estaciones
   const routeById = new Map(routes.map((r) => [r.uid, r]))
@@ -275,12 +288,16 @@ function computeFlowsRaw(
         const r = waterFill(rate, outs, item, demand)
         for (const c of outs) nOffer.get(c.uid)!.set(item, r.get(c.uid)!)
         const taken = Math.min(rate, accepts(outs, item))
+        const base = clock > 0 ? rate / clock : 0
+        const open = outs.some((c) => demand.get(c.uid)?.has('*'))
+        const required = open || base <= 0 ? null : demOf(outDemand, item) / base
         nodes.set(e.uid, {
           inputLimited: clock,
           outputLimited: rate > 0 ? (taken / rate) * clock : 0,
           effective: rate > 0 ? (taken / rate) * clock : 0,
           inputs: [],
           outputs: [{ item, produce: rate, taken }],
+          required,
         })
         continue
       }
@@ -302,7 +319,7 @@ function computeFlowsRaw(
             bottleneck = ing.item
           }
         }
-        if (idealSupply) {
+        if (mode === 'supply') {
           inputLimited = clock
           bottleneck = null
         }
@@ -314,6 +331,16 @@ function computeFlowsRaw(
           if (!connected.length) continue
           outputLimited = Math.min(outputLimited, accepts(connected, p.item) / (p.amount * perMin * amp))
         }
+        // reloj que haría falta para cubrir exactamente lo que piden las máquinas de adelante (sin tope)
+        let required: number | null = null
+        for (const p of recipe.products) {
+          const kind = isFluid(p.item) ? 'pipe' : 'belt'
+          const connected = outs.filter((c) => portKindOf(c) === kind)
+          if (!connected.length || connected.some((c) => demand.get(c.uid)?.has('*'))) continue
+          const r = demOf(outDemand, p.item) / (p.amount * perMin * amp)
+          required = required === null ? r : Math.min(required, r)
+        }
+        if (mode === 'local') outputLimited = clock
         for (const p of recipe.products) {
           const kind = isFluid(p.item) ? 'pipe' : 'belt'
           const connected = outs.filter((c) => portKindOf(c) === kind)
@@ -332,6 +359,7 @@ function computeFlowsRaw(
           outputLimited,
           effective,
           bottleneck: inputLimited < outputLimited ? bottleneck : null,
+          required,
           cycle: { ideal: recipe.duration / clock, actual: effective > 0 ? recipe.duration / effective : Infinity },
           inputs: recipe.ingredients.map((ing) => ({
             item: ing.item,

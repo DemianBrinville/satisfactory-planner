@@ -1,3 +1,4 @@
+import { Zap } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { computeFlows } from '../editor/flow'
 import { computeGrids } from '../editor/power'
@@ -22,8 +23,11 @@ export default function PowerSettingsButton() {
 
   return (
     <div className="power-settings">
-      <button onClick={() => setOpen(!open)} title="Energía del plano">
-        ⚡ {fmt(power.planUse)} MW{settings.infinite && ' · infinita'}
+      <button className="tb-btn" onClick={() => setOpen(!open)} title="Energía del plano">
+        <Zap size={16} />
+        <span>
+          {fmt(power.planUse)} MW{settings.infinite && ' · infinita'}
+        </span>
       </button>
       {open && (
         <div className="popover left">

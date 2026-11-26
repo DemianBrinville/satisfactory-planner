@@ -35,9 +35,10 @@ import {
   type PlacedEntity,
 } from '../editor/store'
 import ContextMenu, { type MenuState } from './ContextMenu'
+import { TriangleAlert, Zap, ZapOff } from 'lucide-react'
 import { HOTKEYS } from '../editor/families'
 import Hotbar from './Hotbar'
-import Production from './Production'
+import Production, { ClockAdviceText, clockAdvice, type ClockAdvice } from './Production'
 import { computeHeadLift, type HeadIssue } from '../editor/fluids'
 import { curvedPath } from '../editor/dubins'
 import {
@@ -684,6 +685,7 @@ export default function PlannerCanvas() {
                 floor={floor}
                 node={flows.nodes.get(e.uid)?.effective}
                 power={powerStatus(e, power)}
+                advice={clockAdvice(flows.nodes.get(e.uid), e.clock ?? 1)}
               />
             ))}
           {ghost && (
@@ -1045,6 +1047,7 @@ function EntityShape({
   node,
   floor,
   power,
+  advice,
 }: {
   e: PlacedEntity
   scale: number
@@ -1056,6 +1059,7 @@ function EntityShape({
   node?: number
   floor?: number
   power?: PowerStatus
+  advice?: ClockAdvice
 }) {
   const b = buildingsById.get(e.buildingId)
   if (!b) return null
@@ -1100,13 +1104,27 @@ function EntityShape({
       />
       {power && !ghost && (
         // estado eléctrico: sin conectar (gris), red sobrecargada (rojo), con energía (amarillo)
-        <Text
-          x={r.x0 + 0.25}
-          y={r.y0 + 0.2}
-          text="⚡"
-          fontSize={1.2}
+        <Line
+          points={boltPoints(r.x0 + 0.35, r.y0 + 0.3, 1.1)}
+          closed
           fill={power === 'none' ? '#8a8d93' : power === 'over' ? '#e05046' : '#e8c547'}
+          stroke="#111"
+          strokeWidth={0.6 / scale}
         />
+      )}
+      {advice && !ghost && (
+        // aviso de reloj: flecha abajo = conviene bajarlo, arriba = hace falta subirlo, cruz = ni al 250 % alcanza
+        <Group>
+          <Circle
+            x={r.x1 - 0.95}
+            y={r.y0 + 0.95}
+            radius={0.75}
+            fill={advice.kind === 'under' ? '#2c6c99' : advice.kind === 'over' ? '#b5781f' : '#b23a33'}
+            stroke="#111"
+            strokeWidth={1 / scale}
+          />
+          <AdviceGlyph kind={advice.kind} cx={r.x1 - 0.95} cy={r.y0 + 0.95} scale={scale} />
+        </Group>
       )}
       {node !== undefined && !ghost && (
         // barra de rendimiento: cuánto está produciendo respecto al 100 %
@@ -1126,7 +1144,7 @@ function EntityShape({
           y={r.y0 + h / 2 - 0.55}
           width={w}
           align="center"
-          text={(e.liftDir === 'down' ? '▼' : '▲') + (e.topFloor ?? e.floor + 1)}
+          text={'P' + (e.topFloor ?? e.floor + 1)}
           fontSize={1.1}
           fill="#fff"
           fontStyle="bold"
@@ -1222,7 +1240,7 @@ function ConveyorTooltip({ c, flow, head, at }: { c: Conveyor; flow?: EdgeFlow; 
       </div>
       {head && (
         <div className="bad">
-          ⚠ Falta altura de bombeo: el líquido tiene que subir hasta {fmt(head.needed)} m y solo alcanza {fmt(head.reach)} m. Agrega una bomba antes de
+          <TriangleAlert size={13} /> Falta altura de bombeo: el líquido tiene que subir hasta {fmt(head.needed)} m y solo alcanza {fmt(head.reach)} m. Agrega una bomba antes de
           subir.
         </div>
       )}
@@ -1238,10 +1256,17 @@ function ConveyorTooltip({ c, flow, head, at }: { c: Conveyor; flow?: EdgeFlow; 
               <b>{itemName(i)}</b>: {fmt(f)} {unit}
             </div>
             <div className="muted">
-              llega {fmt(o)} · ideal {fmt(d)}
+              llega {fmt(o)} · ideal para la receta final {fmt(d)}
               {diff > 0.05 && <span className="warn"> · sobran {fmt(diff)}</span>}
               {diff < -0.05 && <span className="bad"> · faltan {fmt(-diff)}</span>}
             </div>
+            {flow?.local && flow.local.has(i) && Math.abs((flow.local.get(i) ?? 0) - d) > 0.05 && (
+              <div className="muted">
+                lo que viene después pide {fmt(flow.local.get(i) ?? 0)} a su reloj
+                {(flow.local.get(i) ?? 0) - o > 0.05 && <span className="warn"> · le faltan {fmt((flow.local.get(i) ?? 0) - o)}</span>}
+                {o - (flow.local.get(i) ?? 0) > 0.05 && <span className="warn"> · le sobran {fmt(o - (flow.local.get(i) ?? 0))}</span>}
+              </div>
+            )}
             {d > (flow?.capacity ?? Infinity) + 0.05 && (
               <div className="bad">El ideal supera la capacidad de esta {unit === '/min' ? 'cinta' : 'tubería'} ({fmt(flow!.capacity)}): usa una de mayor marca.</div>
             )}
@@ -1300,6 +1325,39 @@ function RouteTooltip({
 
 type PowerStatus = 'none' | 'over' | 'ok' | undefined
 
+/** Rayo (icono propio dibujado en el lienzo). */
+function boltPoints(x: number, y: number, s: number): number[] {
+  const p = [
+    [0.55, 0],
+    [0.1, 0.55],
+    [0.42, 0.55],
+    [0.3, 1],
+    [0.85, 0.38],
+    [0.52, 0.38],
+    [0.7, 0],
+  ]
+  return p.flatMap(([px, py]) => [x + px * s, y + py * s])
+}
+
+/** Insignia de reloj dibujada: flecha abajo, flecha arriba o cruz. */
+function AdviceGlyph({ kind, cx, cy, scale }: { kind: 'under' | 'over' | 'impossible'; cx: number; cy: number; scale: number }) {
+  const w = 2 / scale + 0.06
+  if (kind === 'impossible')
+    return (
+      <>
+        <Line points={[cx - 0.3, cy - 0.3, cx + 0.3, cy + 0.3]} stroke="#fff" strokeWidth={w} lineCap="round" />
+        <Line points={[cx + 0.3, cy - 0.3, cx - 0.3, cy + 0.3]} stroke="#fff" strokeWidth={w} lineCap="round" />
+      </>
+    )
+  const d = kind === 'under' ? 1 : -1
+  return (
+    <>
+      <Line points={[cx, cy - 0.35 * d, cx, cy + 0.35 * d]} stroke="#fff" strokeWidth={w} lineCap="round" />
+      <Line points={[cx - 0.28, cy + 0.08 * d, cx, cy + 0.36 * d, cx + 0.28, cy + 0.08 * d]} stroke="#fff" strokeWidth={w} lineCap="round" lineJoin="round" />
+    </>
+  )
+}
+
 function powerStatus(e: PlacedEntity, power: PowerResult): PowerStatus {
   const b = buildingsById.get(e.buildingId)
   if (!b || !(b.powerMW > 0) || power.infinite) return undefined
@@ -1331,14 +1389,23 @@ function WireTooltip({ w, entities, floorHeight, at }: { w: { from: string; to: 
 export function GridLine({ e, b, power }: { e: PlacedEntity; b: Building; power: PowerResult }) {
   if (!hasPowerConnection(b)) return null
   if (power.infinite)
-    return b.powerMW > 0 ? <div className="muted">⚡ Energía infinita · consume {fmt(consumptionMW(e, b))} MW</div> : null
+    return b.powerMW > 0 ? (
+      <div className="muted">
+        <Zap size={13} /> Energía infinita · consume {fmt(consumptionMW(e, b))} MW
+      </div>
+    ) : null
   const gid = power.gridOf.get(e.uid)
-  if (!gid) return <div className={b.powerMW > 0 ? 'bad' : 'muted'}>⚡ Sin conectar a la red</div>
+  if (!gid)
+    return (
+      <div className={b.powerMW > 0 ? 'bad' : 'muted'}>
+        <ZapOff size={13} /> Sin conectar a la red
+      </div>
+    )
   const g = power.grids.find((x) => x.id === gid)!
   const over = g.consumption > g.generation + 1e-6
   return (
     <div className={over ? 'bad' : 'muted'}>
-      ⚡ Red {g.id}: consume {fmt(g.consumption)} MW de {fmt(g.generation)} MW{over && ' · ¡sobrecargada!'}
+      <Zap size={13} /> Red {g.id}: consume {fmt(g.consumption)} MW de {fmt(g.generation)} MW{over && ' · ¡sobrecargada!'}
     </div>
   )
 }
@@ -1355,6 +1422,7 @@ function EntityTooltip({ e, flows, power, at }: { e: PlacedEntity; flows: FlowRe
       {n ? (
         <>
           <Production n={n} compact />
+          <ClockAdviceText a={clockAdvice(n, e.clock ?? 1)} />
         </>
       ) : (
         b.kind === 'machine' && <div className="muted">{e.recipeId ? 'Sin cintas conectadas' : 'Selecciona la máquina para elegir receta'}</div>

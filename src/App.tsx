@@ -1,50 +1,44 @@
-import { useState } from 'react'
-import AccountBar from './components/AccountBar'
-import PowerSettingsButton from './components/PowerSettings'
+import { useEffect, useState } from 'react'
+import AuthModal, { RecoveryModal } from './components/AuthModal'
+import CommunityModal from './components/CommunityModal'
 import Palette from './components/Palette'
-import ProgressModal from './components/ProgressModal'
 import PlannerCanvas from './components/PlannerCanvas'
+import ProgressModal from './components/ProgressModal'
 import SidePanel from './components/SidePanel'
-import { useEditor } from './editor/store'
+import Topbar from './components/Topbar'
+
+const LAYOUT_KEY = 'satisfactory-planner:layout'
 
 function App() {
-  const { floor, setFloor, undo, redo, past, future, floorHeight, setFloorHeight } = useEditor()
   const [progressOpen, setProgressOpen] = useState(false)
+  const [communityOpen, setCommunityOpen] = useState(false)
+  // paneles laterales plegables, cada uno por separado (se recuerda entre visitas)
+  const [panels, setPanels] = useState<{ left: boolean; right: boolean }>(() => {
+    try {
+      return { left: true, right: true, ...JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') }
+    } catch {
+      return { left: true, right: true }
+    }
+  })
+  useEffect(() => localStorage.setItem(LAYOUT_KEY, JSON.stringify(panels)), [panels])
+
   return (
-    <div className="app">
-      <header className="topbar">
-        <h1>Satisfactory Planner</h1>
-        <div className="floors">
-          <span>Piso</span>
-          <button onClick={() => setFloor(floor - 1)} title="Bajar un piso">−</button>
-          <b>{floor}</b>
-          <button onClick={() => setFloor(floor + 1)} title="Subir un piso">+</button>
-          <span className="muted" title="Altura entre pisos: se usa para elevadoras, tuberías verticales y altura de bombeo">
-            cada
-          </span>
-          <input
-            className="small-input"
-            type="number"
-            min={4}
-            max={48}
-            step={1}
-            value={floorHeight}
-            onChange={(e) => setFloorHeight(Number(e.target.value))}
-          />
-          <span className="muted">m</span>
-        </div>
-        <button onClick={() => setProgressOpen(true)}>Mi progreso</button>
-        <PowerSettingsButton />
-        <div className="history">
-          <button onClick={undo} disabled={!past.length}>Deshacer</button>
-          <button onClick={redo} disabled={!future.length}>Rehacer</button>
-        </div>
-        <AccountBar />
-      </header>
-      <Palette />
+    <div className={'app' + (panels.left ? '' : ' no-left') + (panels.right ? '' : ' no-right')}>
+      <Topbar
+        leftOpen={panels.left}
+        rightOpen={panels.right}
+        onToggleLeft={() => setPanels((p) => ({ ...p, left: !p.left }))}
+        onToggleRight={() => setPanels((p) => ({ ...p, right: !p.right }))}
+        onProgress={() => setProgressOpen(true)}
+        onCommunity={() => setCommunityOpen(true)}
+      />
+      {panels.left && <Palette />}
       <PlannerCanvas />
-      <SidePanel />
+      {panels.right && <SidePanel />}
       {progressOpen && <ProgressModal onClose={() => setProgressOpen(false)} />}
+      {communityOpen && <CommunityModal onClose={() => setCommunityOpen(false)} />}
+      <AuthModal />
+      <RecoveryModal />
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { ArrowDown, ArrowUp } from 'lucide-react'
 import { itemName, type Building } from '../data/gameData'
 import { connectorHeight, entityCost } from '../editor/costs'
 import { useEditor, type PlacedEntity } from '../editor/store'
@@ -30,7 +31,7 @@ export default function ConnectorPanel({ e, b }: { e: PlacedEntity; b: Building 
         <div className="segmented">
           {(['up', 'down'] as const).map((d) => (
             <button key={d} className={(e.liftDir ?? 'up') === d ? 'active' : ''} onClick={() => updateEntity(e.uid, { liftDir: d })}>
-              {d === 'up' ? '▲ Sube' : '▼ Baja'}
+              {d === 'up' ? <ArrowUp size={14} /> : <ArrowDown size={14} />} {d === 'up' ? 'Sube' : 'Baja'}
             </button>
           ))}
         </div>
