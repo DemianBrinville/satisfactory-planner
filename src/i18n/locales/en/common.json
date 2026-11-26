@@ -1,0 +1,50 @@
+{
+  "app": { "name": "Satisfactory Planner" },
+  "language": { "label": "Language", "es": "Español", "en": "English" },
+  "topbar": {
+    "floor": "Floor {{n}}",
+    "floorTitle": "Floor you are viewing",
+    "floorDown": "Go down one floor",
+    "floorUp": "Go up one floor",
+    "floorHeight": "Height between floors: used for lifts, vertical pipes and pump head lift",
+    "undo": "Undo (Ctrl+Z)",
+    "redo": "Redo (Ctrl+Y)",
+    "calculator": "Calculator",
+    "calculatorTitle": "Plan the production chain for X per minute",
+    "progress": "Progress",
+    "progressTitle": "What you have unlocked in your save",
+    "community": "Community",
+    "communityTitle": "Plans shared by other players",
+    "rename": "Click to rename",
+    "signInToSave": "Sign in to save the plan to your account",
+    "save": {
+      "saving": "Saving",
+      "saved": "Saved",
+      "local": "Only in this browser",
+      "error": "Could not save"
+    },
+    "viewing": "Viewing <b>{{name}}</b> by {{author}}",
+    "saveCopy": "Save a copy",
+    "saveCopyTitleUser": "Save a copy to your plans",
+    "saveCopyTitleGuest": "Keep a local copy",
+    "closeView": "Close the view"
+  },
+  "categories": {
+    "especial": "Special",
+    "produccion": "Production",
+    "electricidad": "Power",
+    "logistica": "Logistics",
+    "organizacion": "Organization",
+    "transporte": "Transportation",
+    "cimientos": "Foundations",
+    "paredes": "Walls",
+    "arquitectura": "Architecture"
+  },
+  "panels": {
+    "resize": "Drag to change the width · double-click: default width",
+    "hidePalette": "Hide the build menu",
+    "showPalette": "Show the build menu",
+    "hideDetails": "Hide the details panel",
+    "showDetails": "Show the details panel"
+  }
+}

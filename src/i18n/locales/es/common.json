@@ -1,0 +1,50 @@
+{
+  "app": { "name": "Satisfactory Planner" },
+  "language": { "label": "Idioma", "es": "Español", "en": "English" },
+  "topbar": {
+    "floor": "Piso {{n}}",
+    "floorTitle": "Piso que estás viendo",
+    "floorDown": "Bajar un piso",
+    "floorUp": "Subir un piso",
+    "floorHeight": "Altura entre pisos: se usa para elevadoras, tuberías verticales y altura de bombeo",
+    "undo": "Deshacer (Ctrl+Z)",
+    "redo": "Rehacer (Ctrl+Y)",
+    "calculator": "Calculadora",
+    "calculatorTitle": "Calcular la cadena para producir X por minuto",
+    "progress": "Progreso",
+    "progressTitle": "Lo que tienes desbloqueado en tu partida",
+    "community": "Comunidad",
+    "communityTitle": "Planos compartidos por otros jugadores",
+    "rename": "Clic para renombrar",
+    "signInToSave": "Inicia sesión para guardar el plano en tu cuenta",
+    "save": {
+      "saving": "Guardando",
+      "saved": "Guardado",
+      "local": "Solo en este navegador",
+      "error": "Error al guardar"
+    },
+    "viewing": "Viendo <b>{{name}}</b> de {{author}}",
+    "saveCopy": "Guardar copia",
+    "saveCopyTitleUser": "Guardar una copia en tus planos",
+    "saveCopyTitleGuest": "Quedarte con una copia local",
+    "closeView": "Cerrar la vista"
+  },
+  "categories": {
+    "especial": "Especial",
+    "produccion": "Producción",
+    "electricidad": "Electricidad",
+    "logistica": "Logística",
+    "organizacion": "Organización",
+    "transporte": "Transporte",
+    "cimientos": "Cimientos",
+    "paredes": "Paredes",
+    "arquitectura": "Arquitectura"
+  },
+  "panels": {
+    "resize": "Arrastra para cambiar el ancho · doble clic: ancho por defecto",
+    "hidePalette": "Ocultar la paleta",
+    "showPalette": "Mostrar la paleta",
+    "hideDetails": "Ocultar el panel de detalles",
+    "showDetails": "Mostrar el panel de detalles"
+  }
+}

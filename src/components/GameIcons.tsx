@@ -1,12 +1,18 @@
 import type { ReactNode } from 'react'
 import { Armchair, BrickWall, Car, Lightbulb, Plane, Route, Signpost, TrainFront, Truck, Warehouse } from 'lucide-react'
 import { buildingsById, game } from '../data/gameData'
+import iconManifest from '../data/icon-manifest.json'
 
 /**
  * Iconos propios de la app (no son los del juego): los ítems se dibujan con una forma según el tipo de
  * pieza (mineral, lingote, placa, cable, fluido, envase, electrónica…) y el color de su material; los
  * edificios, con un glifo blanco sobre una ficha del color de su tipo, el mismo que usa el plano.
  */
+
+/** Ids con icono oficial (bajados de la wiki a public/icons por scripts/fetch-wiki-icons.mjs). */
+const OFFICIAL = new Set<string>(iconManifest as string[])
+export const hasOfficialIcon = (id: string) => OFFICIAL.has(id)
+const officialSrc = (id: string) => `${import.meta.env.BASE_URL}icons/${id}.png`
 
 // ---------------------------------------------------------------- colores de material
 const MATERIAL: [RegExp, string][] = [
@@ -361,6 +367,8 @@ function itemShape(shape: Shape, c: string, inner?: string): ReactNode {
 
 /** Icono de un ítem del juego (id tal como viene en los datos, p. ej. Desc_IronPlate_C). */
 export function ItemIcon({ item, size = 18, title }: { item: string; size?: number; title?: string }) {
+  if (OFFICIAL.has(item))
+    return <img className="game-icon official" src={officialSrc(item)} width={size} height={size} alt={title ?? ''} title={title} loading="lazy" draggable={false} />
   const key = item.replace(/^Desc_|^BP_|_C$/g, '')
   const form = game.items[item]?.form
   const shape = shapeOf(key, form)
@@ -468,6 +476,12 @@ function lucideFor(id: string, kind: string, category: string): ReactNode {
 
 /** Icono de un edificio: glifo sobre una ficha del color de su tipo. */
 export function BuildingIcon({ id, size = 22 }: { id: string; size?: number }) {
+  if (OFFICIAL.has(id))
+    return (
+      <span className="building-icon official" style={{ width: size, height: size }} aria-hidden>
+        <img src={officialSrc(id)} width={size} height={size} alt="" loading="lazy" draggable={false} />
+      </span>
+    )
   const b = buildingsById.get(id)
   const kind = b?.kind ?? 'structure'
   const g = glyph(id, kind)

@@ -28,12 +28,30 @@ npm run dev
 node scripts/extract-game-data.mjs "<ruta>/Satisfactory/CommunityResources/Docs/es-ES.json" [--refresh-wiki]
 ```
 
+### Nombres en inglés e iconos
+
+```bash
+node scripts/extract-names.mjs "<ruta>/Satisfactory/CommunityResources/Docs/en-US.json"   # src/data/game-names-en.json
+node scripts/fetch-wiki-icons.mjs [--force]   # public/icons/*.png y src/data/icon-manifest.json
+```
+
+Los iconos de ítems y edificios son propiedad de Coffee Stain Studios y se toman de la [wiki oficial de Satisfactory](https://satisfactory.wiki.gg). Lo que no tiene imagen en la wiki usa los dibujos propios de `src/components/GameIcons.tsx`.
+
+### Idiomas (i18n)
+
+- i18next + react-i18next. Los textos de la interfaz están en `src/i18n/locales/<idioma>/common.json` y se piden por clave (`t('topbar.calculator')`); las claves están tipadas, así que una clave inexistente no compila.
+- El idioma se detecta del navegador y se guarda en `localStorage`; si el navegador pide uno no soportado se usa inglés.
+- Los nombres del juego (ítems, edificios, recetas, hitos) salen de los archivos oficiales del juego en cada idioma, no de las traducciones.
+- Para sumar un idioma: crear su `common.json`, agregarlo a `SUPPORTED` y `resources` en `src/i18n/index.ts` y generar sus nombres con `extract-names.mjs`.
+
 ### Supabase
 
 - El esquema está en `supabase/migrations/`: tablas `plans` y `user_progress`, con RLS para que cada usuario vea solo lo suyo.
 - El login es por enlace mágico (email). La URL del proyecto y la clave publicable son públicas por diseño y están como valores por defecto en `src/cloud/supabase.ts`. Se pueden sobreescribir con las variables `VITE_SUPABASE_*` (ver `.env.example`).
 
 ## Pendientes
+
+- **i18n (importante: la mayoría juega en inglés):** migrar a claves el resto de los textos de la interfaz (paleta, panel lateral, calculadora, progreso, comunidad, cuenta, menús, tooltips y avisos), las subcategorías de la paleta y los mensajes de error; traducirlos al inglés y revisar el inglés con terminología del juego. Ya están en claves la barra superior, las categorías y los paneles.
 
 - Iconos propios dentro del plano (sobre cada máquina, el producto de su receta).
 - Calculadora: ubicar cada taladro sobre su yacimiento real (requiere el mapa de yacimientos) y evitar cruces de líneas.

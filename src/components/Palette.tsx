@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useMemo, useState } from 'react'
 import { CATEGORIES, game, isPathKind, itemName, type Building } from '../data/gameData'
 import { useAvailability } from '../editor/progress'
@@ -14,6 +15,7 @@ const ROUTE_KINDS: Record<string, VehicleKind> = {
 }
 
 export default function Palette() {
+  const { t } = useTranslation()
   const { category, setCategory, startPlacing, startConveyor, startWire, startRail, startRoute, placingId, conveyorId, tool } = useEditor()
   const [query, setQuery] = useState('')
   const avail = useAvailability()
@@ -43,7 +45,7 @@ export default function Palette() {
               setCategory(c.id)
             }}
           >
-            {c.name}
+            {t(`categories.${c.id}`)}
           </button>
         ))}
       </nav>

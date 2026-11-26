@@ -626,3 +626,58 @@
   background: none;
   padding: 0;
 }
+.game-icon.official {
+  object-fit: contain;
+  vertical-align: -4px;
+}
+.building-icon.official {
+  background: none;
+  box-shadow: none;
+}
+.building-icon.official img {
+  object-fit: contain;
+}
+
+/* borde arrastrable de los paneles laterales */
+.panel-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  z-index: 14;
+  cursor: col-resize;
+}
+.panel-resizer.left {
+  left: 0;
+}
+.panel-resizer.right {
+  right: 0;
+}
+.panel-resizer:hover,
+body.resizing .panel-resizer {
+  background: linear-gradient(90deg, transparent 2px, rgba(240, 138, 36, 0.55) 2px, rgba(240, 138, 36, 0.55) 4px, transparent 4px);
+}
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+body.resizing canvas {
+  pointer-events: none;
+}
+
+/* selector de idioma */
+.lang-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #c9c6c1;
+  margin-right: 6px;
+}
+.lang-select select {
+  background: #26272b;
+  border: 1px solid #3a3b40;
+  border-radius: 6px;
+  color: inherit;
+  padding: 3px 4px;
+  font-size: 12.5px;
+}

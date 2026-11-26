@@ -1,4 +1,5 @@
 import raw from './game-data.json'
+import namesEn from './game-names-en.json'
 
 export type CategoryId =
   | 'especial'
@@ -109,6 +110,33 @@ export const buildingsById = new Map(game.buildings.map((b) => [b.id, b]))
 export const recipesById = new Map(game.recipes.map((r) => [r.id, r]))
 export const schematicsById = new Map(game.schematics.map((s) => [s.id, s]))
 export const itemName = (id: string) => game.items[id]?.name ?? id
+
+// ---------- nombres del juego según idioma ----------
+// Los datos se generan en español (es-ES.json del juego); los nombres en inglés salen de en-US.json
+// (scripts/extract-names.mjs). Al cambiar de idioma se reemplazan en el lugar y la app se vuelve a
+// dibujar entera (ver main.tsx), así todo lo que lee `.name` queda en el idioma elegido.
+const NAMES_ES = {
+  items: Object.fromEntries(Object.entries(game.items).map(([id, i]) => [id, i.name])),
+  buildings: Object.fromEntries(game.buildings.map((b) => [b.id, { name: b.name, description: b.description }])),
+  recipes: Object.fromEntries(game.recipes.map((r) => [r.id, r.name])),
+  schematics: Object.fromEntries(game.schematics.map((s) => [s.id, s.name])),
+}
+const NAMES: Record<'es' | 'en', typeof NAMES_ES> = { es: NAMES_ES, en: namesEn as typeof NAMES_ES }
+let gameLanguage: 'es' | 'en' = 'es'
+export const getGameLanguage = () => gameLanguage
+
+export function setGameLanguage(lang: 'es' | 'en') {
+  gameLanguage = lang
+  const n = NAMES[lang]
+  for (const [id, it] of Object.entries(game.items)) it.name = n.items[id] ?? NAMES_ES.items[id]
+  for (const b of game.buildings) {
+    const x = n.buildings[b.id] ?? NAMES_ES.buildings[b.id]
+    b.name = x.name
+    b.description = x.description
+  }
+  for (const r of game.recipes) r.name = n.recipes[r.id] ?? NAMES_ES.recipes[r.id]
+  for (const s of game.schematics) s.name = n.schematics[s.id] ?? NAMES_ES.schematics[s.id]
+}
 
 export const CATEGORIES: { id: CategoryId; name: string }[] = [
   { id: 'especial', name: 'Especial' },

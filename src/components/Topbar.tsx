@@ -4,6 +4,7 @@ import {
   CloudOff,
   Copy,
   Globe,
+  Languages,
   Layers,
   ListChecks,
   Loader2,
@@ -17,6 +18,8 @@ import {
 import { useState } from 'react'
 import { useCloud } from '../cloud/cloud'
 import { useEditor } from '../editor/store'
+import { Trans, useTranslation } from 'react-i18next'
+import { SUPPORTED } from '../i18n'
 import AccountMenu from './AccountMenu'
 import PowerSettingsButton from './PowerSettings'
 import { AppLogo } from './GameIcons'
@@ -29,6 +32,7 @@ interface Props {
 
 /** Barra superior: plano actual, pisos, historial, herramientas y cuenta. */
 export default function Topbar({ onCalculator, onProgress, onCommunity }: Props) {
+  const { t } = useTranslation()
   const { floor, setFloor, undo, redo, past, future, floorHeight, setFloorHeight } = useEditor()
   const cloud = useCloud()
 
@@ -39,7 +43,7 @@ export default function Topbar({ onCalculator, onProgress, onCommunity }: Props)
           <span className="brand-logo app-logo">
             <AppLogo size={28} />
           </span>
-          <span className="brand-name">Satisfactory Planner</span>
+          <span className="brand-name">{t('app.name')}</span>
         </div>
       </div>
 
@@ -48,45 +52,46 @@ export default function Topbar({ onCalculator, onProgress, onCommunity }: Props)
       </div>
 
       <div className="tb-group tools">
-        <div className="segment" title="Piso que estás viendo">
+        <div className="segment" title={t('topbar.floorTitle')}>
           <Layers size={16} className="seg-icon" />
-          <button className="icon-btn sm" onClick={() => setFloor(floor - 1)} title="Bajar un piso">
+          <button className="icon-btn sm" onClick={() => setFloor(floor - 1)} title={t('topbar.floorDown')}>
             <Minus size={14} />
           </button>
-          <span className="seg-value">Piso {floor}</span>
-          <button className="icon-btn sm" onClick={() => setFloor(floor + 1)} title="Subir un piso">
+          <span className="seg-value">{t('topbar.floor', { n: floor })}</span>
+          <button className="icon-btn sm" onClick={() => setFloor(floor + 1)} title={t('topbar.floorUp')}>
             <Plus size={14} />
           </button>
           <span className="seg-sep" />
-          <label className="seg-field" title="Altura entre pisos: se usa para elevadoras, tuberías verticales y altura de bombeo">
+          <label className="seg-field" title={t('topbar.floorHeight')}>
             <input type="number" min={4} max={48} step={1} value={floorHeight} onChange={(e) => setFloorHeight(Number(e.target.value))} />
             <span>m</span>
           </label>
         </div>
         <div className="segment">
-          <button className="icon-btn" onClick={undo} disabled={!past.length} title="Deshacer (Ctrl+Z)">
+          <button className="icon-btn" onClick={undo} disabled={!past.length} title={t('topbar.undo')}>
             <Undo2 size={16} />
           </button>
-          <button className="icon-btn" onClick={redo} disabled={!future.length} title="Rehacer (Ctrl+Y)">
+          <button className="icon-btn" onClick={redo} disabled={!future.length} title={t('topbar.redo')}>
             <Redo2 size={16} />
           </button>
         </div>
-        <button className="tb-btn" onClick={onCalculator} title="Calcular la cadena para producir X por minuto">
+        <button className="tb-btn" onClick={onCalculator} title={t('topbar.calculatorTitle')}>
           <Calculator size={16} />
-          <span>Calculadora</span>
+          <span>{t('topbar.calculator')}</span>
         </button>
-        <button className="tb-btn" onClick={onProgress} title="Lo que tienes desbloqueado en tu partida">
+        <button className="tb-btn" onClick={onProgress} title={t('topbar.progressTitle')}>
           <ListChecks size={16} />
-          <span>Progreso</span>
+          <span>{t('topbar.progress')}</span>
         </button>
         <PowerSettingsButton />
-        <button className="tb-btn" onClick={onCommunity} title="Planos compartidos por otros jugadores">
+        <button className="tb-btn" onClick={onCommunity} title={t('topbar.communityTitle')}>
           <Globe size={16} />
-          <span>Comunidad</span>
+          <span>{t('topbar.community')}</span>
         </button>
       </div>
 
       <div className="tb-group end">
+        <LanguageSelect />
         <AccountMenu />
       </div>
     </header>
@@ -95,6 +100,7 @@ export default function Topbar({ onCalculator, onProgress, onCommunity }: Props)
 
 /** Nombre del plano (editable) y estado de guardado. */
 function PlanTitle() {
+  const { t } = useTranslation()
   const c = useCloud()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
@@ -116,7 +122,7 @@ function PlanTitle() {
       ) : (
         <button
           className="plan-title"
-          title={c.currentId ? 'Clic para renombrar' : 'Inicia sesión para guardar el plano en tu cuenta'}
+          title={c.currentId ? t('topbar.rename') : t('topbar.signInToSave')}
           onClick={() => {
             if (!c.currentId) return
             setName(c.currentName)
@@ -131,7 +137,7 @@ function PlanTitle() {
         {state === 'saved' && <Cloud size={14} />}
         {state === 'local' && <CloudOff size={14} />}
         {state === 'error' && <TriangleAlert size={14} />}
-        {state === 'saving' ? 'Guardando' : state === 'saved' ? 'Guardado' : state === 'local' ? 'Solo en este navegador' : 'Error al guardar'}
+        {t(`topbar.save.${state}`)}
       </span>
     </>
   )
@@ -139,20 +145,38 @@ function PlanTitle() {
 
 /** Aviso de modo vista de un plano de la comunidad. */
 function ViewingBadge() {
+  const { t } = useTranslation()
   const { viewing, copyViewing, exitView, user } = useCloud()
   if (!viewing) return null
   return (
     <div className="viewing">
       <span>
-        Viendo <b>{viewing.name}</b> de {viewing.author}
+        <Trans i18nKey="topbar.viewing" values={{ name: viewing.name, author: viewing.author }} components={{ b: <b /> }} />
       </span>
-      <button className="tb-btn primary" onClick={copyViewing} title={user ? 'Guardar una copia en tus planos' : 'Quedarte con una copia local'}>
+      <button className="tb-btn primary" onClick={copyViewing} title={user ? t('topbar.saveCopyTitleUser') : t('topbar.saveCopyTitleGuest')}>
         <Copy size={14} />
-        <span>Guardar copia</span>
+        <span>{t('topbar.saveCopy')}</span>
       </button>
-      <button className="icon-btn" onClick={exitView} title="Cerrar la vista">
+      <button className="icon-btn" onClick={exitView} title={t('topbar.closeView')}>
         <X size={16} />
       </button>
     </div>
+  )
+}
+
+/** Selector de idioma de la interfaz y de los nombres del juego. */
+function LanguageSelect() {
+  const { t, i18n } = useTranslation()
+  return (
+    <label className="lang-select" title={t('language.label')}>
+      <Languages size={15} />
+      <select value={i18n.resolvedLanguage} onChange={(e) => i18n.changeLanguage(e.target.value)} aria-label={t('language.label')}>
+        {SUPPORTED.map((l) => (
+          <option key={l} value={l}>
+            {t(`language.${l}`)}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
