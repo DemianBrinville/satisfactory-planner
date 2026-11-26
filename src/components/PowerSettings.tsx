@@ -17,7 +17,7 @@ export default function PowerSettingsButton() {
   const settings = useEditor((s) => s.power) ?? DEFAULT_POWER
   const power = useMemo(() => {
     const flows = computeFlows(entities, conveyors, routes ?? NONE, floorHeight, rails ?? NONE)
-    return computeGrids(entities, wires ?? NONE, flows, settings)
+    return computeGrids(entities, wires ?? NONE, flows, settings, routes ?? NONE)
   }, [entities, conveyors, routes, wires, rails, floorHeight, settings])
 
   const spare = settings.worldGen - settings.worldUse
@@ -83,6 +83,7 @@ export default function PowerSettingsButton() {
               <b>{fmt(power.planGen)} MW</b>
             </div>
           )}
+          {power.trainsMW > 0 && <p className="muted small">{t('power.trainsNote', { mw: fmt(power.trainsMW) })}</p>}
           {power.planBoost > 0 && <p className="muted small">{t('power.boostNote', { pct: fmt(power.planBoost * 100) })}</p>}
           {hasWorld && (
             <div className="flowline">

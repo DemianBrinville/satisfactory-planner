@@ -93,7 +93,8 @@
     "enough": "Enough: with the plan built you have {{mw}} MW left.",
     "notEnough": "Not enough: {{mw}} MW short. You need more generators before building this.",
     "fillWorld": "Enter your world production and consumption to see whether it is enough.",
-    "boostNote": "Includes +{{pct}} % from Alien Power Augmenters."
+    "boostNote": "Includes +{{pct}} % from Alien Power Augmenters.",
+    "trainsNote": "Includes {{mw}} MW from locomotives (110 MW each, the most they draw when accelerating)."
   },
   "families": {
     "belt": "Conveyor Belt",
@@ -615,7 +616,7 @@
     "cycle": "Full loop: {{m}} m in {{s}} s, with {{dock}} s of docking at each of the {{stops}} stops.",
     "platformHelp": "Each car uses the platform at its position: car 1 uses the first platform after the station. Select a platform to choose whether it loads or unloads.",
     "power": "Power",
-    "powerUse": "Between {{min}} and {{max}} MW: {{n}} locomotives at 25 to 110 MW each, depending on load and slope.",
+    "powerUse": "Between {{min}} and {{max}} MW: {{n}} locomotives at 25 to 110 MW each, depending on load and slope. The plan's power counts the maximum, on the grid of its stations.",
     "nothingYet": "Nothing reaches the loading platforms yet.",
     "noLoads": "No car has both a loading and an unloading platform along the route.",
     "stationName": "Station name",

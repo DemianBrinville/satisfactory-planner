@@ -93,7 +93,8 @@
     "enough": "Alcanza: con el plano construido te quedan {{mw}} MW libres.",
     "notEnough": "No alcanza: faltan {{mw}} MW. Necesitas más generadores antes de construir esto.",
     "fillWorld": "Carga la generación y el consumo de tu mundo para saber si te alcanza.",
-    "boostNote": "Incluye +{{pct}} % de los amplificadores de energía alienígena."
+    "boostNote": "Incluye +{{pct}} % de los amplificadores de energía alienígena.",
+    "trainsNote": "Incluye {{mw}} MW de las locomotoras (110 MW cada una, lo máximo que usan al acelerar)."
   },
   "families": {
     "belt": "Cinta transportadora",
@@ -615,7 +616,7 @@
     "cycle": "Vuelta completa: {{m}} m en {{s}} s, con {{dock}} s de acople en cada una de las {{stops}} paradas.",
     "platformHelp": "Cada vagón usa la plataforma de su posición: el vagón 1, la primera plataforma después de la estación. Selecciona una plataforma para elegir si carga o descarga.",
     "power": "Energía",
-    "powerUse": "Entre {{min}} y {{max}} MW: {{n}} locomotoras de 25 a 110 MW cada una, según la carga y la pendiente.",
+    "powerUse": "Entre {{min}} y {{max}} MW: {{n}} locomotoras de 25 a 110 MW cada una, según la carga y la pendiente. En la energía del plano se cuenta el máximo, en la red de sus estaciones.",
     "nothingYet": "Todavía no le llega nada a las plataformas de carga.",
     "noLoads": "Ningún vagón tiene una plataforma de carga y otra de descarga en el recorrido.",
     "stationName": "Nombre de la estación",

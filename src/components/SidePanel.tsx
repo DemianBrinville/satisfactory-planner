@@ -69,7 +69,7 @@ export default function SidePanel() {
   const routes = useEditor((s) => s.routes) ?? NONE
   const flows = useMemo(() => computeFlows(entities, conveyors, routes, floorHeight, rails), [entities, conveyors, routes, floorHeight, rails])
   const powerSettings = useEditor((s) => s.power)
-  const power = useMemo(() => computeGrids(entities, wires, flows, powerSettings), [entities, wires, flows, powerSettings])
+  const power = useMemo(() => computeGrids(entities, wires, flows, powerSettings, routes), [entities, wires, flows, powerSettings, routes])
   const placing = tool === 'place' && placingId ? buildingsById.get(placingId) : null
   const conv = tool === 'conveyor' && conveyorId ? buildingsById.get(conveyorId) : null
   const single = selEntities.length === 1 && selConveyors.length === 0 ? selEntities[0] : null

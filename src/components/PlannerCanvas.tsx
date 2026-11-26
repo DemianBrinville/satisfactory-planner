@@ -192,7 +192,7 @@ export default function PlannerCanvas() {
     [entities, conveyors, routes, s.floorHeight, rails],
   )
   const wires = s.wires ?? NONE
-  const power: PowerResult = useMemo(() => computeGrids(entities, wires, flows, s.power), [entities, wires, flows, s.power])
+  const power: PowerResult = useMemo(() => computeGrids(entities, wires, flows, s.power, routes), [entities, wires, flows, s.power, routes])
   const headIssues = useMemo(() => computeHeadLift(entities, conveyors, s.floorHeight, flows), [entities, conveyors, s.floorHeight, flows])
   useEffect(() => {
     if (tool !== 'wire') setWireFrom(null)

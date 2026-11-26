@@ -2,6 +2,8 @@ import { basePowerMW, buildingsById, isVariablePower, recipePowerRange, recipesB
 import { PURITY_MULT, somersloopBoost, type FlowResult } from './flow'
 import { worldRect } from './geometry'
 import { DEFAULT_FLOOR_HEIGHT, type PlacedEntity, type PowerSettings, type Wire } from './store'
+import type { Route } from './transport'
+import { isTimetable } from './trains'
 
 /**
  * Red eléctrica: líneas entre estructuras, límite de conexiones por poste, largo máximo de cada
@@ -128,6 +130,8 @@ export interface Grid {
   peak: number
   /** baterías conectadas */
   batteries: number
+  /** consumo de las locomotoras de los trenes que paran en esta red */
+  trainMW?: number
   /** está conectada a la red del mundo */
   world?: boolean
 }
@@ -148,6 +152,8 @@ export interface PowerResult {
   planBoost: number
   /** interruptores de prioridad que se cortaron solos por falta de energía */
   autoOff: Set<string>
+  /** consumo de todas las locomotoras del plano */
+  trainsMW: number
 }
 
 /** Interruptores de energía: puentes entre dos redes. Apagados, las separan. */
@@ -160,10 +166,10 @@ const cutOrder = (e: PlacedEntity) => e.circuitPriority ?? 9
  * Redes eléctricas del plano. Los interruptores apagados separan sus dos lados. Si una red no alcanza a
  * alimentar su consumo, los interruptores de prioridad que tiene se cortan solos, por grupo, como en el juego.
  */
-export function computeGrids(entities: PlacedEntity[], wires: Wire[], flows?: FlowResult, settings?: PowerSettings): PowerResult {
+export function computeGrids(entities: PlacedEntity[], wires: Wire[], flows?: FlowResult, settings?: PowerSettings, routes: Route[] = []): PowerResult {
   const off = new Set(entities.filter((e) => isPowerSwitch(e.buildingId) && e.switchOn === false).map((e) => e.uid))
   const autoOff = new Set<string>()
-  let r = gridsWith(entities, wires, flows, settings, off)
+  let r = gridsWith(entities, wires, flows, settings, off, routes)
   if (!settings?.infinite)
     for (let guard = 0; guard < 20; guard++) {
       // interruptores de prioridad encendidos dentro de redes sobrecargadas
@@ -175,12 +181,26 @@ export function computeGrids(entities: PlacedEntity[], wires: Wire[], flows?: Fl
         off.add(e.uid)
         autoOff.add(e.uid)
       }
-      r = gridsWith(entities, wires, flows, settings, off)
+      r = gridsWith(entities, wires, flows, settings, off, routes)
     }
   return { ...r, autoOff }
 }
 
-function gridsWith(entities: PlacedEntity[], wires: Wire[], flows: FlowResult | undefined, settings: PowerSettings | undefined, off: Set<string>): Omit<PowerResult, 'autoOff'> {
+/**
+ * Locomotoras (wiki): usan 25 MW siempre y hasta 110 MW al acelerar o subir. Se cuenta el máximo, para que la
+ * red aguante aunque todos los trenes aceleren a la vez; la energía llega por las vías desde sus estaciones.
+ */
+export const LOCO_PLAN_MW = 110
+export const trainMW = (r: Route) => (isTimetable(r) ? LOCO_PLAN_MW * Math.max(1, r.locos ?? 1) * Math.max(1, r.trains ?? 1) : 0)
+
+function gridsWith(
+  entities: PlacedEntity[],
+  wires: Wire[],
+  flows: FlowResult | undefined,
+  settings: PowerSettings | undefined,
+  off: Set<string>,
+  routes: Route[],
+): Omit<PowerResult, 'autoOff'> {
   const worldSpare = settings ? Math.max(0, settings.worldGen - settings.worldUse) : 0
   const parent = new Map<string, string>()
   const find = (x: string): string => {
@@ -222,6 +242,21 @@ function gridsWith(entities: PlacedEntity[], wires: Wire[], flows: FlowResult | 
     gridOf.set(e.uid, g.id)
     if (e.worldLink) g.world = true
   }
+  // trenes: su consumo va a la red de la primera de sus estaciones que esté conectada
+  let trains = 0
+  const gridById = new Map([...byRoot.values()].map((g) => [g.id, g]))
+  for (const rt of routes) {
+    const mw = trainMW(rt)
+    if (!mw) continue
+    trains += mw
+    const gid = (rt.stops ?? []).map((u) => gridOf.get(u)).find((x) => x !== undefined)
+    const g = gid !== undefined ? gridById.get(gid) : undefined
+    if (g) {
+      g.consumption += mw
+      g.peak += mw
+      g.trainMW = (g.trainMW ?? 0) + mw
+    }
+  }
   const worldGen = settings?.worldGen ?? 0
   for (const g of byRoot.values()) {
     g.generation = g.base * (1 + g.boost)
@@ -229,7 +264,7 @@ function gridsWith(entities: PlacedEntity[], wires: Wire[], flows: FlowResult | 
     // aumentan la generación del mundo, porque pasa a ser una sola red
     if (g.world) g.generation += worldSpare + worldGen * g.boost
   }
-  let planUse = 0
+  let planUse = trains
   let planBase = 0
   let planBoost = 0
   for (const e of powered) {
@@ -241,7 +276,7 @@ function gridsWith(entities: PlacedEntity[], wires: Wire[], flows: FlowResult | 
   // totales del plano: con energía infinita se supone todo en una red (la del mundo incluida)
   const worldBoost = settings?.infinite ? planBoost : [...byRoot.values()].filter((g) => g.world).reduce((a, g) => a + g.boost, 0)
   const planGen = planBase * (1 + planBoost) + worldGen * worldBoost
-  return { gridOf, grids: [...byRoot.values()], used, infinite: settings?.infinite ?? false, planUse, planGen, worldSpare, planBoost }
+  return { gridOf, grids: [...byRoot.values()], used, infinite: settings?.infinite ?? false, planUse, planGen, worldSpare, planBoost, trainsMW: trains }
 }
 
 export interface BatteryState {
