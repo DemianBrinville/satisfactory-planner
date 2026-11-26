@@ -205,7 +205,7 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
             <section>
               <h3>{t('calc.raw')}</h3>
               {[...result.raw].map(([i, v]) => {
-                const exId = extractorFor(i)
+                const exId = extractorFor(i, v)
                 const ex = exId ? buildingsById.get(exId) : null
                 const m = ex ? { count: v / (ex.extractPerMinute ?? 60), label: `${ex.name}${ex.kind === 'miner' || /OilPump/.test(ex.id) ? t('calc.normalSuffix') : ''}` } : minersFor(i, v)
                 const traido = inputs.has(i) || result.missing.has(i)

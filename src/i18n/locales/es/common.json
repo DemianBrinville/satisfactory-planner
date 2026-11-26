@@ -539,7 +539,12 @@
     "hyperInfo": "{{len}} m de {{max}} m por tramo",
     "routeWaypoint": "Clic en el suelo agrega un punto de paso",
     "routeFuel": "{{n}} {{fuel}} por viaje",
-    "signalHint": "Las señales van sobre una vía. R las da vuelta: dejan pasar en el sentido de la flecha."
+    "signalHint": "Las señales van sobre una vía. R las da vuelta: dejan pasar en el sentido de la flecha.",
+    "foundationArea": "Superficie de cimientos",
+    "areaRect": "{{w}} × {{h}} cimientos ({{mw}} × {{mh}} m)",
+    "areaShape": "Forma irregular, dentro de {{w}} × {{h}} cimientos",
+    "areaPieces_one": "{{count}} pieza · {{m2}} m²",
+    "areaPieces_other": "{{count}} piezas · {{m2}} m²"
   },
   "cloud": {
     "localDraft": "Borrador local",
@@ -671,13 +676,14 @@
     "snapHelp": "Al colocar un taladro, extractor de petróleo, de pozo, presurizador o generador geotérmico cerca de un yacimiento, se pone encima y toma el recurso y la pureza del juego.",
     "source": "Yacimientos sacados del juego (versión 1.2, mundo estándar: con los modos de juego que mezclan los nodos no coinciden). Imagen del mapa: wiki oficial.",
     "pickTitle": "Ubicar el plano en el mapa",
-    "pickHelp": "Haz clic en el mapa donde va el origen del plano (la esquina de la cuadrícula). Rueda: zoom · arrastrar: mover. El recuadro naranja es lo que ya tienes en el plano.",
+    "pickHelp": "Haz clic en el mapa donde quieres construir: el plano aparece centrado ahí. Rueda: zoom · arrastrar el mapa: moverse.",
     "angle": "Giro de la cuadrícula",
     "north": "Norte",
     "angleHelp": "En el juego la cuadrícula de cimientos sigue al primer cimiento que colocas, con cualquier ángulo. Gírala hasta que coincida con la de tu partida.",
-    "axisX": "eje X del plano",
-    "axisY": "norte del plano",
     "apply": "Aplicar",
-    "fit": "Ver todo el mapa"
+    "fit": "Ver todo el mapa",
+    "dragHelp": "Arrastra el plano para moverlo y la manija redonda para girarlo desde su centro (con Shift, de a 15°). Un clic en otro lugar del mapa lo lleva ahí.",
+    "handleLegend": "manija de giro, del lado del norte del plano",
+    "focus": "Volver al plano"
   }
 }

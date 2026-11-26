@@ -33,12 +33,21 @@ const EXTRACTORS: Record<string, string[]> = {
   Desc_Water_C: ['Build_WaterPump_C'],
   Desc_LiquidOil_C: ['Build_OilPump_C'],
 }
-/** Extractor que conviene para una materia prima (null si no se puede extraer directo, p. ej. nitrógeno). */
-export function extractorFor(item: string): string | null {
+/**
+ * Extractor que conviene para una materia prima (null si no se puede extraer directo, p. ej. nitrógeno).
+ * Con la cantidad pedida: la marca desbloqueada que necesita menos máquinas y, entre las que empatan, la más
+ * barata (36/min de carbón → un Mk.1, no un Mk.2 al 30 %). Sin cantidad: la mejor desbloqueada.
+ */
+export function extractorFor(item: string, rate?: number): string | null {
   const list = EXTRACTORS[item] ?? (MINER_RESOURCES.includes(item) ? MINERS : null)
   if (!list) return null
   const ok = list.filter((id) => buildingsById.has(id))
-  return ok.find((id) => isBuildingIdAvailable(id)) ?? ok[ok.length - 1] ?? null
+  const avail = ok.filter((id) => isBuildingIdAvailable(id))
+  if (!avail.length) return ok[ok.length - 1] ?? null
+  if (rate === undefined || avail.length === 1) return avail[0]
+  const count = (id: string) => Math.ceil(rate / (buildingsById.get(id)!.extractPerMinute ?? 60) - 1e-6)
+  // la lista va de la mejor a la peor: se recorre al revés para que en un empate gane la más barata
+  return [...avail].reverse().reduce((best, id) => (count(id) < count(best) ? id : best))
 }
 
 const isFluid = (item: string) => ['liquid', 'gas'].includes(game.items[item]?.form ?? '')
@@ -94,6 +103,39 @@ interface BusRequest {
   side: 'right' | 'left'
   lo: number
   hi: number
+  /** x del borde del bloque a lo largo del tramo (la troncal va por afuera de este borde) */
+  edge: number
+  /** extremos: a qué altura y hasta qué x va el tramo horizontal que sale de la troncal */
+  ends: Vec[]
+}
+type PlacedBus = { side: 'right' | 'left'; x: number; lo: number; hi: number; h: Vec[] }
+
+const BUS_GAP = 3
+
+/**
+ * Ubica una troncal en el primer x libre por afuera del borde: sin pisar a otra troncal del mismo costado
+ * que se superponga en altura. Las troncales quedan pegadas a las filas que acompañan, no al ancho de
+ * la fila más ancha del bloque.
+ */
+function allocBus(placed: PlacedBus[], r: BusRequest): number {
+  const dir = r.side === 'right' ? 1 : -1
+  const ya = r.lo + 2.5
+  const yb = r.hi - 2.5
+  for (let i = 0; ; i++) {
+    const x = r.edge + dir * BUS_GAP * i
+    const busy = placed.some(
+      (p) =>
+        p.side === r.side &&
+        // otra troncal pegada en el mismo tramo de altura
+        ((Math.abs(p.x - x) < BUS_GAP - 0.01 && p.lo < r.hi && r.lo < p.hi) ||
+          // o un tramo horizontal de otra troncal que esta cortaría (queda adentro de su recorrido)
+          p.h.some((h) => h.y > ya + 0.5 && h.y < yb - 0.5 && x > Math.min(h.x, p.x) - 1 && x < Math.max(h.x, p.x) + 1)),
+    )
+    if (!busy) {
+      placed.push({ side: r.side, x, lo: r.lo, hi: r.hi, h: r.ends })
+      return x
+    }
+  }
 }
 
 const SINK = 'Build_ResourceSink_C'
@@ -166,17 +208,10 @@ export function countCrossings(conveyors: Conveyor[]): number {
  */
 function planLanes(requests: BusRequest[]): number[] {
   const plan: number[] = []
-  for (const side of ['right', 'left'] as const) {
-    const idx = requests.map((r, i) => ({ r, i })).filter((x) => x.r.side === side)
-    idx.sort((a, b) => a.r.hi - a.r.lo - (b.r.hi - b.r.lo) || a.r.lo - b.r.lo)
-    const lanes: [number, number][][] = []
-    for (const { r, i } of idx) {
-      let k = 0
-      while (lanes[k]?.some(([a, b]) => a < r.hi && r.lo < b)) k++
-      ;(lanes[k] ??= []).push([r.lo, r.hi])
-      plan[i] = k
-    }
-  }
+  const placed: PlacedBus[] = []
+  const idx = requests.map((r, i) => ({ r, i }))
+  idx.sort((a, b) => a.r.hi - a.r.lo - (b.r.hi - b.r.lo) || a.r.lo - b.r.lo)
+  for (const { r, i } of idx) plan[i] = allocBus(placed, r)
   return plan
 }
 
@@ -258,10 +293,14 @@ function buildOnce(
   let y = origin.y + 4 + LANE * Math.max(1, slotsOf(rows[0]).length)
   let minX = Infinity
   let maxX = -Infinity
+  /** franja de cada fila (con sus carriles de arriba y de abajo) y hasta dónde llega a cada costado */
+  const bands: { y0: number; y1: number; x0: number; x1: number }[] = []
   rows.forEach((row, r) => {
     rowTop[r] = y
     let x = origin.x
     let bottom = y
+    let rx0 = Infinity
+    let rx1 = -Infinity
     for (const s of row) {
       const b = buildingsById.get(s.building)!
       const r0 = worldRect(b, { x: 0, y: 0 }, 0)
@@ -283,6 +322,8 @@ function buildOnce(
         const rr = worldRect(b, e, 0)
         minX = Math.min(minX, rr.x0)
         maxX = Math.max(maxX, rr.x1)
+        rx0 = Math.min(rx0, rr.x0)
+        rx1 = Math.max(rx1, rr.x1)
         bottom = Math.max(bottom, rr.y1)
         x = rr.x1 + 4
         list.push({ e, step: s })
@@ -294,13 +335,14 @@ function buildOnce(
     rowBottom[r] = bottom
     const K = consumedIn(row).length
     const P = rows[r + 1] ? slotsOf(rows[r + 1]).length : 0
+    if (isFinite(rx0)) bands.push({ y0: y - 4 - LANE * slotsOf(row).length, y1: bottom + 4 + LANE * K, x0: rx0, x1: rx1 })
     y = bottom + 8 + LANE * K + LANE * P
   })
   // ---------- extracción: una fila de taladros/extractores al pie del bloque ----------
   // (en el juego van sobre los yacimientos; acá quedan juntos para ver cantidad, reloj y conexiones)
   const rawGroups = [...raw]
-    .filter(([item]) => extractorFor(item))
-    .map(([item, rate]) => ({ item, rate, id: extractorFor(item)! }))
+    .filter(([item, rate]) => extractorFor(item, rate))
+    .map(([item, rate]) => ({ item, rate, id: extractorFor(item, rate)! }))
   const rawLanes = rawGroups.length
   const rawTop = y + 6 + LANE * Math.max(0, rawLanes - 1)
   const rawUnits = new Map<string, { e: PlacedEntity; pi: number }[]>()
@@ -310,24 +352,35 @@ function buildOnce(
     rawGroups.forEach((g) => {
       const b = buildingsById.get(g.id)!
       const base = b.extractPerMinute ?? 60
-      const r0 = worldRect(b, { x: 0, y: 0 }, 0)
       const { n, even, full, rest } = machineSplit(g.rate / base)
       const list: { e: PlacedEntity; pi: number }[] = []
       for (let i = 0; i < n; i++) {
-        const clock = split === 'even' ? even : i < full ? 1 : rest
+        let clock = split === 'even' ? even : i < full ? 1 : rest
         if (clock <= 1e-6) continue
+        // el último taladro, que va a menos del 100 %, puede ser de una marca más barata (10/min → Mk.1)
+        let id = g.id
+        if (clock < 1 && b.kind === 'miner') {
+          const cheaper = extractorFor(g.item, clock * base)
+          const cb = cheaper ? buildingsById.get(cheaper) : null
+          if (cb && cheaper !== g.id && (cb.extractPerMinute ?? 60) < base) {
+            id = cheaper!
+            clock = (clock * base) / (cb.extractPerMinute ?? 60)
+          }
+        }
+        const ub = buildingsById.get(id)!
+        const ur0 = worldRect(ub, { x: 0, y: 0 }, 0)
         const e = add({
           uid: newUid(),
-          buildingId: g.id,
-          x: Math.round(x - r0.x0),
-          y: Math.round(rawTop - r0.y0),
+          buildingId: id,
+          x: Math.round(x - ur0.x0),
+          y: Math.round(rawTop - ur0.y0),
           rot: 0,
           floor,
           resource: g.item,
           ...(b.kind === 'miner' || /OilPump/.test(g.id) ? { purity: 'normal' as const } : {}),
           clock: Math.round(clock * 10000) / 10000,
         })
-        const rr = worldRect(b, e, 0)
+        const rr = worldRect(ub, e, 0)
         minX = Math.min(minX, rr.x0)
         maxX = Math.max(maxX, rr.x1)
         rawBottom = Math.max(rawBottom, rr.y1)
@@ -337,6 +390,14 @@ function buildOnce(
       x += 4
       rawUnits.set(g.item, list)
     })
+    const rawEnts = [...rawUnits.values()].flat().map((u) => worldRect(buildingsById.get(u.e.buildingId)!, u.e, 0))
+    if (rawEnts.length)
+      bands.push({
+        y0: rawTop - 4 - LANE * rawLanes,
+        y1: rawBottom,
+        x0: Math.min(...rawEnts.map((r) => r.x0)),
+        x1: Math.max(...rawEnts.map((r) => r.x1)),
+      })
     powerRows.push(rawGroups.flatMap((g) => (rawUnits.get(g.item) ?? []).map((u) => u.e)).filter((e) => (buildingsById.get(e.buildingId)?.powerMW ?? 0) > 0))
     if (rawGroups.length)
       notes.push(i18n.t('build.miners'))
@@ -357,22 +418,24 @@ function buildOnce(
 
   // ---------- troncales a los costados ----------
   // cada carril vertical se reutiliza cuando los tramos no se pisan, así las troncales quedan pegadas al bloque
-  const BUS_GAP = 3
-  const lanes: Record<'right' | 'left', [number, number][][]> = { right: [], left: [] }
-  const usedLanes = { right: 0, left: 0 }
-  const busLane = (side: 'right' | 'left', ya: number, yb: number) => {
+  const placedBus: PlacedBus[] = []
+  let busRight = maxX
+  /** borde del bloque entre dos alturas: lo más afuera que llegan las filas que la troncal acompaña */
+  const edgeAt = (side: 'right' | 'left', lo: number, hi: number, ends: number[]) => {
+    const near = bands.filter((b) => b.y1 >= lo && b.y0 <= hi)
+    const xs = [...(side === 'right' ? near.map((b) => b.x1) : near.map((b) => b.x0)), ...ends]
+    if (!xs.length) return side === 'right' ? maxX + 4 : minX - 4
+    return side === 'right' ? Math.max(...xs) + 4 : Math.min(...xs) - 4
+  }
+  const busLane = (side: 'right' | 'left', ya: number, yb: number, ends: Vec[] = []) => {
     const lo = Math.min(ya, yb) - 2.5
     const hi = Math.max(ya, yb) + 2.5
     const k = requests.length
-    requests.push({ side, lo, hi })
-    let i = 0
-    if (plan) i = plan[k] ?? 0
-    else {
-      while (lanes[side][i]?.some(([a, b]) => a < hi && lo < b)) i++
-      ;(lanes[side][i] ??= []).push([lo, hi])
-    }
-    usedLanes[side] = Math.max(usedLanes[side], i + 1)
-    return side === 'right' ? maxX + 4 + BUS_GAP * i : minX - 4 - BUS_GAP * i
+    const req = { side, lo, hi, edge: edgeAt(side, lo, hi, ends.map((e) => e.x)), ends }
+    requests.push(req)
+    const x = plan?.[k] ?? allocBus(placedBus, req)
+    if (side === 'right') busRight = Math.max(busRight, x)
+    return x
   }
 
   /** Agrega un recorrido partiéndolo en tramos de hasta 50 m con postes/soportes. */
@@ -614,13 +677,13 @@ function buildOnce(
       const side = rtl ? 'right' : 'left'
       if (!cur) {
         // materia prima: entra desde un poste/soporte suelto debajo del bloque (ahí conectas los taladros)
-        const busX = busLane(side, lowest + 6, d.entryPos.y)
+        const busX = busLane(side, lowest + 6, d.entryPos.y, [d.entryPos])
         addPath([{ x: busX, y: lowest + 6 }, { x: busX, y: d.entryPos.y }, d.entryPos, ...d.tail], { x: busX, y: lowest + 6 }, d.entry, kind, mark)
         if (game.items[f.item]) notes.push(i18n.t(kind === 'pipe' ? 'build.loosePipe' : 'build.looseBelt', { item: game.items[f.item]?.name }))
       } else {
         const start = [cur.pos, ...cur.via]
         const hy = start[start.length - 1].y
-        const busX = busLane(side, hy, d.entryPos.y)
+        const busX = busLane(side, hy, d.entryPos.y, [start[start.length - 1], d.entryPos])
         addPath([...start, { x: busX, y: hy }, { x: busX, y: d.entryPos.y }, d.entryPos, ...d.tail], cur.end, d.entry, kind, mark)
       }
       cur = d.exit && d.exitPos ? { end: d.exit, pos: d.exitPos, via: [] } : null
@@ -633,7 +696,7 @@ function buildOnce(
   // así ninguna línea cruza a otra. Los destinos tienen la entrada mirando a la izquierda.
   const sinkUnits: PlacedEntity[] = []
   if (loose.length) {
-    const xRight = maxX + 4 + BUS_GAP * usedLanes.right + 4
+    const xRight = Math.max(maxX + 4, busRight + BUS_GAP) + 4
     const lineY = (l: (typeof loose)[number]) => [l.cur.pos, ...l.cur.via].pop()!.y
     loose.sort((a, b) => lineY(a) - lineY(b))
     const n = loose.length

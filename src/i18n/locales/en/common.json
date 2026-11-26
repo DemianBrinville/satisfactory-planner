@@ -539,7 +539,12 @@
     "hyperInfo": "{{len}} m of {{max}} m per segment",
     "routeWaypoint": "Click the ground to add a waypoint",
     "routeFuel": "{{n}} {{fuel}} per trip",
-    "signalHint": "Signals go on a track. R flips them: they let trains through in the arrow direction."
+    "signalHint": "Signals go on a track. R flips them: they let trains through in the arrow direction.",
+    "foundationArea": "Foundation surface",
+    "areaRect": "{{w}} × {{h}} foundations ({{mw}} × {{mh}} m)",
+    "areaShape": "Irregular shape, within {{w}} × {{h}} foundations",
+    "areaPieces_one": "{{count}} piece · {{m2}} m²",
+    "areaPieces_other": "{{count}} pieces · {{m2}} m²"
   },
   "cloud": {
     "localDraft": "Local draft",
@@ -671,13 +676,14 @@
     "snapHelp": "When you place a miner, oil extractor, well extractor, pressurizer or geothermal generator near a node, it snaps on top and takes the node's resource and purity.",
     "source": "Nodes taken from the game (version 1.2, standard world: they do not match game modes that shuffle nodes). Map image: official wiki.",
     "pickTitle": "Place the plan on the map",
-    "pickHelp": "Click on the map where the plan origin goes (the corner of the grid). Wheel: zoom · drag: pan. The orange box is what you already have in the plan.",
+    "pickHelp": "Click on the map where you want to build: the plan appears centered there. Wheel: zoom · drag the map: pan.",
     "angle": "Grid rotation",
     "north": "North",
     "angleHelp": "In the game the foundation grid follows the first foundation you place, at any angle. Rotate it until it matches your save.",
-    "axisX": "plan X axis",
-    "axisY": "plan north",
     "apply": "Apply",
-    "fit": "Show the whole map"
+    "fit": "Show the whole map",
+    "dragHelp": "Drag the plan to move it and the round handle to rotate it around its center (with Shift, in 15° steps). A click elsewhere on the map moves it there.",
+    "handleLegend": "rotation handle, on the plan north side",
+    "focus": "Back to the plan"
   }
 }

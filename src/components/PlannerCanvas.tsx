@@ -76,6 +76,7 @@ import {
   type PowerResult,
 } from '../editor/power'
 import { NONE, type Rail } from '../editor/store'
+import { foundationArea, inFoundations, type FoundationArea } from '../editor/foundationArea'
 import { MAP_BOUNDS, MAP_IMAGE, anchorOnSpot, nearestSpot, spotColor, spotKindFor, spotPatch, spotsInPlan, type MapPlacement, type PlanSpot } from '../editor/worldMap'
 import { ItemIcon } from './GameIcons'
 
@@ -902,9 +903,12 @@ export default function PlannerCanvas() {
     const rail = !ent || isBase ? hitRail(mouse) : null
     if (rail) return { conv: null, ent: null, rail }
     if (ent && !isBase) return { conv: null, ent }
+    if (ent && isBase) return { conv: null, ent: null, base: ent }
     return null
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mouse, tool, visible, visibleConv])
+  /** superficie de cimientos bajo el mouse: piezas contiguas, medidas de sus lados */
+  const baseArea = useMemo(() => (hover?.base ? foundationArea(hover.base, entities) : null), [hover?.base, entities])
 
   return (
     <div
@@ -1018,6 +1022,7 @@ export default function PlannerCanvas() {
               />
             )
           })}
+          {baseArea && <FoundationOutline a={baseArea} scale={view.scale} />}
           {/* problemas del plano en este piso (la lista está en el botón Problemas de la barra superior) */}
           {problemsHere.map((p) => (
             <Group key={p.id} x={p.at.x} y={p.at.y}>
@@ -1162,6 +1167,7 @@ export default function PlannerCanvas() {
         </div>
       )}
       {hover?.conv && <ConveyorTooltip c={hover.conv} flow={flows.edges.get(hover.conv.uid)} head={headIssues.get(hover.conv.uid)} at={screen} />}
+      {baseArea && <FoundationTooltip a={baseArea} at={screen} />}
       {hover?.ent && !endHover && <EntityTooltip e={hover.ent} flows={flows} power={power} at={screen} />}
       {hover?.route && <RouteTooltip r={hover.route} entities={entities} rails={rails} flows={flows} floorHeight={s.floorHeight} at={screen} />}
       {hover?.rail && (
@@ -1844,6 +1850,61 @@ export function GridLine({ e, b, power }: { e: PlacedEntity; b: Building; power:
     <div className={over ? 'bad' : 'muted'}>
       <Zap size={13} /> {i18n.t('canvas.grid', { id: g.id, use: fmt(g.consumption), gen: fmt(g.generation) })}
       {over && i18n.t('canvas.overloaded')}
+    </div>
+  )
+}
+
+/** Contorno de la superficie de cimientos con la medida de cada lado (en metros y en cimientos). */
+function FoundationOutline({ a, scale }: { a: FoundationArea; scale: number }) {
+  const fs = 12 / scale
+  return (
+    <Group listening={false}>
+      {a.edges.map((e, i) => (
+        <Line key={'l' + i} points={[e.a.x, e.a.y, e.b.x, e.b.y]} stroke="#f09628" strokeWidth={2.5 / scale} lineCap="square" />
+      ))}
+      {a.edges
+        .filter((e) => e.len * scale >= 34)
+        .map((e, i) => {
+          const mx = (e.a.x + e.b.x) / 2 + e.out.x * (10 / scale)
+          const my = (e.a.y + e.b.y) / 2 + e.out.y * (10 / scale)
+          const vertical = e.out.x !== 0
+          const label = `${fmtM(e.len)} m · ${fmtM(inFoundations(e.len))}`
+          const w = label.length * fs * 0.62
+          return (
+            <Group key={'t' + i} x={mx} y={my} rotation={vertical ? -90 : 0}>
+              <Rect x={-w / 2 - 3 / scale} y={-fs * 0.65} width={w + 6 / scale} height={fs * 1.3} fill="rgba(20,21,23,0.85)" cornerRadius={3 / scale} />
+              <Text text={label} fontSize={fs} fill="#f4b67c" width={w} x={-w / 2} y={-fs * 0.5} align="center" />
+            </Group>
+          )
+        })}
+    </Group>
+  )
+}
+
+const fmtM = (n: number) => n.toLocaleString(locale(), { maximumFractionDigits: 1 })
+
+/** Resumen de la superficie de cimientos bajo el mouse. */
+function FoundationTooltip({ a, at }: { a: FoundationArea; at: Vec }) {
+  const w = a.bbox.x1 - a.bbox.x0
+  const h = a.bbox.y1 - a.bbox.y0
+  const types = [...a.byType].sort((x, y) => y[1] - x[1])
+  return (
+    <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
+      <b>{i18n.t('canvas.foundationArea')}</b>
+      <div>
+        {a.rect
+          ? i18n.t('canvas.areaRect', { w: fmtM(inFoundations(w)), h: fmtM(inFoundations(h)), mw: fmtM(w), mh: fmtM(h) })
+          : i18n.t('canvas.areaShape', { w: fmtM(inFoundations(w)), h: fmtM(inFoundations(h)) })}
+      </div>
+      <div className="muted">
+        {i18n.t('canvas.areaPieces', { count: a.uids.length, m2: fmtM(a.area) })}
+      </div>
+      {types.length > 1 &&
+        types.map(([id, n]) => (
+          <div key={id} className="muted small">
+            {buildingsById.get(id)?.name ?? id} ×{n}
+          </div>
+        ))}
     </div>
   )
 }
