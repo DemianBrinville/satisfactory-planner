@@ -84,6 +84,7 @@ Ideas propuestas, pendientes de decidir: calculadora que elige las recetas ópti
 - **Interruptores de energía:** se encienden y se apagan; apagados, las redes de sus dos lados quedan separadas y cada una se calcula con su propia generación. Los de prioridad tienen grupo de corte (sin grupo, 1 a 8): si una red no alcanza, se cortan solos los sin grupo y después del 8 al 1, hasta que alcance (como en el juego). En el plano llevan una luz: verde encendido, amarilla apagado, roja cortado solo.
 - **Válvula:** limita el caudal que pasa de su entrada a su salida (0 a 600 m³/min, o sin límite); el cálculo de flujos lo respeta y el panel muestra lo que pasa.
 - **Diseñador de planos (Mk.1, Mk.2 y Mk.3):** plataforma de 40, 48 y 56 m con su zona de construcción de 32, 40 y 48 m de lado y de alto, marcada en el plano; se construye encima como sobre un cimiento. El panel cuenta lo que hay adentro, avisa lo que se sale (también en Problemas) y guarda lo de adentro como bloque. El Mk.3 faltaba en los datos porque su descriptor no coincide en mayúsculas con el edificio.
+- **Monitor de rendimiento de la cinta:** al colocarlo se acopla a la cinta más cercana (alineado con el tramo); encima muestra las piezas por minuto que mide y, al pasar el mouse, el detalle por ítem y la capacidad de la cinta.
 
 ## Pendientes
 

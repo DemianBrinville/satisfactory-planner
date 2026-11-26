@@ -742,5 +742,12 @@
     "outside_other": "{{count}} estructuras se salen de la zona: en el juego no se podrían construir así.",
     "select": "Seleccionar lo de adentro",
     "saveBlock": "Guardar como bloque"
+  },
+  "monitor": {
+    "noBelt": "sin cinta",
+    "noBeltLong": "No está sobre una cinta: colócalo encima de una para medirla.",
+    "total": "Mide {{n}}/min (la cinta lleva hasta {{cap}}/min)",
+    "empty": "No pasa nada por esta cinta.",
+    "hint": " · clic sobre una cinta para acoplarlo"
   }
 }

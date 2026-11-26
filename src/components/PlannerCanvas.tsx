@@ -79,6 +79,7 @@ import {
 import { NONE, type Rail } from '../editor/store'
 import { foundationArea, inFoundations, type FoundationArea } from '../editor/foundationArea'
 import { designerZone, isDesigner } from '../editor/designer'
+import { isBeltMonitor, monitoredBelt, nearestBelt } from '../editor/monitor'
 import { MAP_BOUNDS, MAP_IMAGE, anchorOnSpot, nearestSpot, spotColor, spotKindFor, spotPatch, spotsInPlan, type MapPlacement, type PlanSpot } from '../editor/worldMap'
 import { ItemIcon } from './GameIcons'
 
@@ -423,6 +424,13 @@ export default function PlannerCanvas() {
     const flip = s.placingRot >= 180 ? 180 : 0
     return { pos: { x: Math.round(best.pos.x * 100) / 100, y: Math.round(best.pos.y * 100) / 100 }, angle: (best.deg + flip + 360) % 360 }
   }
+  /** Monitor de cinta: punto de la cinta más cercana (hasta 4 m) y giro de a 90° según el tramo. */
+  const monitorSnap = (p: Vec): { pos: Vec; rot: Rotation } | null => {
+    const n = nearestBelt(p, floor, visibleConv, 4)
+    if (!n) return null
+    const rot = ((((Math.round((n.deg + 90) / 90) * 90) % 360) + 360) % 360) as Rotation
+    return { pos: { x: Math.round(n.pos.x * 100) / 100, y: Math.round(n.pos.y * 100) / 100 }, rot }
+  }
   const railPreview = (() => {
     if (tool !== 'rail' || !railDraft) return null
     const snap = railSnap(mouse)
@@ -698,6 +706,17 @@ export default function PlannerCanvas() {
         if (sg) st.place(sg.pos, { angle: sg.angle })
         return
       }
+      if (isBeltMonitor(b.id)) {
+        // el monitor se acopla a una cinta: va sobre ella, alineado con el tramo
+        const m = monitorSnap(p)
+        if (m) {
+          const prev = st.placingRot
+          useEditor.setState({ placingRot: m.rot })
+          st.place(m.pos)
+          useEditor.setState({ placingRot: prev })
+        }
+        return
+      }
       const onSpot = spotSnap(b, p, st.placingRot)
       if (onSpot) {
         st.place(onSpot.anchor, onSpot.extra)
@@ -857,6 +876,10 @@ export default function PlannerCanvas() {
     if (tool !== 'place' || !placingId || area) return null
     const b = buildingsById.get(placingId)
     if (!b) return null
+    if (isBeltMonitor(b.id)) {
+      const m = monitorSnap(mouse)
+      return { b, anchor: m?.pos ?? mouse, ok: !!m && s.canPlace(placingId, m.pos, m.rot), angle: undefined as number | undefined, rot: m?.rot }
+    }
     if (isSignal(b.id)) {
       const sg = signalSnap(mouse)
       return { b, anchor: sg?.pos ?? mouse, ok: !!sg && s.canPlace(placingId, sg.pos, 0), angle: sg?.angle ?? 0 }
@@ -1047,6 +1070,23 @@ export default function PlannerCanvas() {
                 </Group>
               )
             })}
+          {/* monitores de cinta: lo que mide cada uno, encima */}
+          {view.scale >= 3 &&
+            sorted
+              .filter((e) => isBeltMonitor(e.buildingId))
+              .map((e) => {
+                const c = monitoredBelt(e, visibleConv)
+                const n = c ? [...(flows.edges.get(c.uid)?.flow.values() ?? [])].reduce((a, v) => a + v, 0) : null
+                const fs = 11 / view.scale
+                const label = n === null ? i18n.t('monitor.noBelt') : `${fmt(n)}/min`
+                const w = label.length * fs * 0.62
+                return (
+                  <Group key={'mon' + e.uid} x={e.x} y={e.y - 1.6 - fs} listening={false}>
+                    <Rect x={-w / 2 - 3 / view.scale} y={-fs * 0.6} width={w + 6 / view.scale} height={fs * 1.3} fill="rgba(20,21,23,0.9)" cornerRadius={3 / view.scale} />
+                    <Text text={label} fontSize={fs} fill={n === null ? '#e05046' : '#4fe0c0'} width={w} x={-w / 2} y={-fs * 0.45} align="center" />
+                  </Group>
+                )
+              })}
           {/* luz de los interruptores de energía, como en el juego: verde encendido, amarillo apagado, rojo cortado solo */}
           {sorted
             .filter((e) => isPowerSwitch(e.buildingId))
@@ -1079,7 +1119,7 @@ export default function PlannerCanvas() {
         <Layer x={view.offsetX} y={view.offsetY} scaleX={view.scale} scaleY={view.scale} listening={false}>
           {ghost && (
             <EntityShape
-              e={{ uid: 'ghost', buildingId: ghost.b.id, x: ghost.anchor.x, y: ghost.anchor.y, rot: ghost.angle !== undefined ? 0 : placingRot, floor, angle: ghost.angle ?? s.placingAngle }}
+              e={{ uid: 'ghost', buildingId: ghost.b.id, x: ghost.anchor.x, y: ghost.anchor.y, rot: ghost.angle !== undefined ? 0 : 'rot' in ghost && ghost.rot !== undefined ? ghost.rot : placingRot, floor, angle: ghost.angle ?? s.placingAngle }}
               scale={view.scale}
               ghost={ghost.ok ? 'ok' : 'bad'}
               showLabels={showLabels}
@@ -1269,6 +1309,7 @@ export default function PlannerCanvas() {
         {tool === 'wire' && i18n.t('canvas.hintWire')}
         {tool === 'rail' && i18n.t('canvas.hintRail')}
         {tool === 'place' && placingId && isSignal(placingId) && i18n.t('canvas.signalHint')}
+        {tool === 'place' && placingId && isBeltMonitor(placingId) && i18n.t('monitor.hint')}
         {tool === 'route' && i18n.t('canvas.hintRoute')}
       </div>
     </div>
@@ -1892,6 +1933,32 @@ export function GridLine({ e, b, power }: { e: PlacedEntity; b: Building; power:
   )
 }
 
+/** Monitor de cinta: lo que pasa por la cinta que mide, por ítem, y la capacidad. */
+function MonitorTooltip({ e, b, flows, at }: { e: PlacedEntity; b: Building; flows: FlowResult; at: Vec }) {
+  const conveyors = useEditor((s) => s.conveyors)
+  const c = monitoredBelt(e, conveyors)
+  const f = c ? flows.edges.get(c.uid) : undefined
+  const items = f ? [...f.flow].filter(([, v]) => v > 1e-6) : []
+  return (
+    <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
+      <b>{b.name}</b>
+      {!c ? (
+        <div className="bad">{i18n.t('monitor.noBeltLong')}</div>
+      ) : (
+        <>
+          <div>{i18n.t('monitor.total', { n: fmt(items.reduce((a, [, v]) => a + v, 0)), cap: fmt(f?.capacity ?? 0) })}</div>
+          {items.map(([item, v]) => (
+            <div key={item} className="muted">
+              {itemName(item)}: {fmt(v)}/min
+            </div>
+          ))}
+          {!items.length && <div className="muted">{i18n.t('monitor.empty')}</div>}
+        </>
+      )}
+    </div>
+  )
+}
+
 /** Contorno de la superficie de cimientos con la medida de cada lado (en metros y en cimientos). */
 function FoundationOutline({ a, scale }: { a: FoundationArea; scale: number }) {
   const fs = 12 / scale
@@ -1951,6 +2018,7 @@ function EntityTooltip({ e, flows, power, at }: { e: PlacedEntity; flows: FlowRe
   const b = buildingsById.get(e.buildingId)
   const n = flows.nodes.get(e.uid)
   if (!b) return null
+  if (isBeltMonitor(b.id)) return <MonitorTooltip e={e} b={b} flows={flows} at={at} />
   return (
     <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
       <b>{b.name}</b>

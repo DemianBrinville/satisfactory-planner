@@ -742,5 +742,12 @@
     "outside_other": "{{count}} structures stick out of the area: the game would not allow them.",
     "select": "Select what is inside",
     "saveBlock": "Save as block"
+  },
+  "monitor": {
+    "noBelt": "no belt",
+    "noBeltLong": "It is not on a belt: place it on one to measure it.",
+    "total": "Measures {{n}}/min (the belt carries up to {{cap}}/min)",
+    "empty": "Nothing goes through this belt.",
+    "hint": " · click on a belt to attach it"
   }
 }
