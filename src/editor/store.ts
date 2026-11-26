@@ -192,7 +192,7 @@ interface EditorState extends PlanDoc {
   routeFrom: string | null
   setRouteFrom: (uid: string | null) => void
   addRail: (points: Vec[]) => void
-  addRoute: (kind: VehicleKind, from: string, to: string) => void
+  addRoute: (kind: VehicleKind, from: string, to: string, waypoints?: Vec[]) => void
   updateRoute: (uid: string, patch: Partial<Route>) => void
   addWire: (from: string, to: string) => void
   setFloorHeight: (h: number) => void
@@ -464,6 +464,12 @@ export const useEditor = create<EditorState>((set, get) => {
           if (a || b) return reroute(c, nextEntities) ?? []
           return [c]
         }),
+        // rutas con las dos estaciones movidas (o la ruta seleccionada): los puntos de paso acompañan
+        routes: (get().routes ?? []).map((r) =>
+          r.waypoints && ((sel.has(r.from) && sel.has(r.to)) || sel.has(r.uid))
+            ? { ...r, waypoints: r.waypoints.map((p) => ({ x: p.x + dx, y: p.y + dy })) }
+            : r,
+        ),
       })
     },
 
@@ -574,9 +580,9 @@ export const useEditor = create<EditorState>((set, get) => {
     routeFrom: null,
     setRouteFrom: (routeFrom) => set({ routeFrom }),
     addRail: (points) => commit({ rails: [...(get().rails ?? []), { uid: newUid(), floor: get().floor, points }] }),
-    addRoute: (kind, from, to) => {
+    addRoute: (kind, from, to, waypoints) => {
       const uid = newUid()
-      commit({ routes: [...(get().routes ?? []), { uid, kind, from, to, count: 1 }] })
+      commit({ routes: [...(get().routes ?? []), { uid, kind, from, to, count: 1, ...(waypoints?.length ? { waypoints } : {}) }] })
       set({ selection: [uid], tool: 'select' })
     },
     updateRoute: (uid, patch) => commit({ routes: (get().routes ?? []).map((r) => (r.uid === uid ? { ...r, ...patch } : r)) }),

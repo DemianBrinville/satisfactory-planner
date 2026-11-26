@@ -55,7 +55,11 @@ import {
   railCost,
   roundTrip,
   routeDistance,
+  fuelOf,
+  fuelPerTrip,
+  routePath,
   routeThroughput,
+  stationPoint,
   type Route,
 } from '../editor/transport'
 import {
@@ -102,6 +106,7 @@ type Interaction =
   | { type: 'move'; start: Vec; step: number }
   | { type: 'box'; start: Vec }
   | { type: 'area'; start: Vec }
+  | { type: 'waypoint'; uid: string; i: number }
   | null
 
 /** Extremo candidato para la herramienta de cintas. */
@@ -142,8 +147,14 @@ export default function PlannerCanvas() {
   const [wireFrom, setWireFrom] = useState<string | null>(null)
   /** vía en curso: punto y rumbo de salida */
   const [railDraft, setRailDraft] = useState<{ pos: Vec; th: number | null } | null>(null)
+  /** puntos de paso de la ruta que se está dibujando */
+  const [routePts, setRoutePts] = useState<Vec[]>([])
+  /** punto de paso de una ruta que se está arrastrando */
+  const [wpDrag, setWpDrag] = useState<{ uid: string; i: number; pos: Vec } | null>(null)
   const inter = useRef<Interaction>(null)
   const spaceDown = useRef(false)
+  /** los dos últimos clics (herramienta y posición en pantalla), para validar el doble clic */
+  const lastDowns = useRef<{ tool: string; x: number; y: number }[]>([])
   const onUpRef = useRef<(e: { evt: { shiftKey: boolean } }) => void>(() => {})
 
   const s = useEditor()
@@ -163,6 +174,9 @@ export default function PlannerCanvas() {
     if (tool !== 'wire') setWireFrom(null)
     if (tool !== 'rail') setRailDraft(null)
   }, [tool])
+  useEffect(() => {
+    if (tool !== 'route' || !s.routeFrom) setRoutePts([])
+  }, [tool, s.routeFrom])
 
   useEffect(() => {
     const el = wrapRef.current
@@ -394,12 +408,38 @@ export default function PlannerCanvas() {
     const b = entById.get(r.to)
     return a && b && (onFloor(a, floor) || onFloor(b, floor))
   })
-  const hitRoute = (p: Vec) =>
-    visibleRoutes.find((r) => {
-      const a = entById.get(r.from)!
-      const b = entById.get(r.to)!
-      return nearPath(p, [wirePoint(a), wirePoint(b)], 1.2)
-    }) ?? null
+  /** Recorrido de una ruta tal como se dibuja (con el punto que se esté arrastrando). */
+  const pathOf = (r: Route): Vec[] => {
+    const pts = routePath(r, entities)
+    if (wpDrag && wpDrag.uid === r.uid) pts[wpDrag.i + 1] = wpDrag.pos
+    return pts
+  }
+  const hitRoute = (p: Vec) => visibleRoutes.find((r) => nearPath(p, pathOf(r), 1.2)) ?? null
+  /** Ruta seleccionada sola, con puntos de paso editables (los drones vuelan en línea recta). */
+  const editRoute = selection.length === 1 ? (visibleRoutes.find((r) => r.uid === selection[0] && r.kind !== 'drone') ?? null) : null
+  const waypointAt = (p: Vec) => {
+    if (!editRoute) return -1
+    return (editRoute.waypoints ?? []).findIndex((q) => Math.hypot(q.x - p.x, q.y - p.y) < 1.4)
+  }
+  const snapPt = (p: Vec) => ({ x: Math.round(p.x), y: Math.round(p.y) })
+  /** Doble clic: sobre un punto de paso lo quita; sobre el recorrido agrega uno en ese lugar. */
+  const routeDblClick = (p: Vec) => {
+    const st = useEditor.getState()
+    const i = waypointAt(p)
+    if (editRoute && i >= 0) {
+      st.updateRoute(editRoute.uid, { waypoints: (editRoute.waypoints ?? []).filter((_, k) => k !== i) })
+      return
+    }
+    const r = hitRoute(p)
+    if (!r || r.kind === 'drone') return
+    const pts = pathOf(r)
+    let best = 1
+    for (let k = 2; k < pts.length; k++) if (ptSegDist(p, pts[k - 1], pts[k]) < ptSegDist(p, pts[best - 1], pts[best])) best = k
+    const wps = [...(r.waypoints ?? [])]
+    wps.splice(best - 1, 0, snapPt(p))
+    st.updateRoute(r.uid, { waypoints: wps })
+    st.select([r.uid])
+  }
   const stationTarget = (p: Vec) => {
     const e = hitEntity(p)
     return e && VEHICLES[s.routeKind].stations.test(e.buildingId) ? e : null
@@ -407,10 +447,15 @@ export default function PlannerCanvas() {
   const routeClick = (p: Vec) => {
     const st = useEditor.getState()
     const t = stationTarget(p)
-    if (!t) return
+    if (!t) {
+      // clic en el suelo con el origen elegido: punto de paso del recorrido (no en drones)
+      if (st.routeFrom && st.routeKind !== 'drone') setRoutePts([...routePts, snapPt(p)])
+      return
+    }
     if (!st.routeFrom) return st.setRouteFrom(t.uid)
     if (t.uid === st.routeFrom) return
-    st.addRoute(st.routeKind, st.routeFrom, t.uid)
+    st.addRoute(st.routeKind, st.routeFrom, t.uid, routePts)
+    setRoutePts([])
   }
 
   const hitConveyor = (p: Vec): Conveyor | null =>
@@ -565,6 +610,7 @@ export default function PlannerCanvas() {
     const pos = e.target.getStage()!.getPointerPosition()!
     const p = toWorldPt(pos.x, pos.y)
     const st = useEditor.getState()
+    lastDowns.current = [...lastDowns.current, { tool: st.tool, x: pos.x, y: pos.y }].slice(-2)
     setMenu(null)
     if (e.evt.button === 1 || (e.evt.button === 0 && spaceDown.current)) {
       inter.current = { type: 'pan', startX: pos.x, startY: pos.y, ox: view.offsetX, oy: view.offsetY }
@@ -581,7 +627,10 @@ export default function PlannerCanvas() {
         if (draft) setDraft(null)
         else if (wireFrom) setWireFrom(null)
         else if (railDraft) setRailDraft(null)
-        else if (st.routeFrom) st.setRouteFrom(null)
+        else if (st.routeFrom) {
+          if (routePts.length) setRoutePts(routePts.slice(0, -1))
+          else st.setRouteFrom(null)
+        }
         else st.cancelTool()
         return
       }
@@ -626,6 +675,13 @@ export default function PlannerCanvas() {
     }
     if (st.tool === 'route') {
       routeClick(p)
+      return
+    }
+    // punto de paso de la ruta seleccionada: se arrastra
+    const wi = waypointAt(p)
+    if (editRoute && wi >= 0) {
+      inter.current = { type: 'waypoint', uid: editRoute.uid, i: wi }
+      setWpDrag({ uid: editRoute.uid, i: wi, pos: editRoute.waypoints![wi] })
       return
     }
     // clic sobre el extremo suelto de una cinta/tubería: se sigue trazando desde ahí
@@ -688,6 +744,8 @@ export default function PlannerCanvas() {
         x: Math.round((p.x - it.start.x) / it.step) * it.step,
         y: Math.round((p.y - it.start.y) / it.step) * it.step,
       })
+    } else if (it.type === 'waypoint') {
+      setWpDrag({ uid: it.uid, i: it.i, pos: snapPt(p) })
     } else if (it.type === 'box') {
       setBox(normRect(it.start, p))
     } else if (it.type === 'area') {
@@ -701,7 +759,15 @@ export default function PlannerCanvas() {
     const it = inter.current
     inter.current = null
     const st = useEditor.getState()
-    if (it?.type === 'area') {
+    if (it?.type === 'waypoint') {
+      const r = (st.routes ?? []).find((x) => x.uid === it.uid)
+      if (r && wpDrag && r.waypoints) {
+        const old = r.waypoints[it.i]
+        if (old.x !== wpDrag.pos.x || old.y !== wpDrag.pos.y)
+          st.updateRoute(r.uid, { waypoints: r.waypoints.map((q, k) => (k === it.i ? wpDrag.pos : q)) })
+      }
+      setWpDrag(null)
+    } else if (it?.type === 'area') {
       if (area) st.placeMany(areaAnchors(area, st.placingId, st.placingRot))
       setArea(null)
     } else if (it?.type === 'move') {
@@ -789,7 +855,22 @@ export default function PlannerCanvas() {
       onContextMenu={(e) => e.preventDefault()}
       style={{ cursor: tool === 'select' ? 'default' : 'crosshair' }}
     >
-      <Stage width={size.w} height={size.h} onWheel={onWheel} onMouseDown={onDown} onMouseMove={onMove} onMouseUp={(e) => onUp(e)}>
+      <Stage
+        width={size.w}
+        height={size.h}
+        onWheel={onWheel}
+        onMouseDown={onDown}
+        onMouseMove={onMove}
+        onMouseUp={(e) => onUp(e)}
+        onDblClick={(e) => {
+          // Konva toma dos clics seguidos como doble clic aunque estén lejos o el primero haya sido con
+          // otra herramienta (p. ej. el clic que termina una ruta): solo cuenta si los dos fueron en el mismo lugar
+          const pos = e.target.getStage()!.getPointerPosition()!
+          const [a, b] = lastDowns.current
+          if (!a || !b || a.tool !== 'select' || b.tool !== 'select' || Math.hypot(a.x - b.x, a.y - b.y) > 6) return
+          routeDblClick(toWorldPt(pos.x, pos.y))
+        }}
+      >
         <Layer x={view.offsetX} y={view.offsetY} scaleX={view.scale} scaleY={view.scale} listening={false}>
           <Grid view={view} w={size.w} h={size.h} />
           {shownBelow.map((e) => (
@@ -847,14 +928,12 @@ export default function PlannerCanvas() {
             </Group>
           ))}
           {visibleRoutes.map((r) => {
-            const a = entById.get(r.from)!
-            const b = entById.get(r.to)!
-            const p = wirePoint(a)
-            const q = wirePoint(b)
+            const pts = pathOf(r)
             return (
               <Line
                 key={r.uid}
-                points={[p.x, p.y, q.x, q.y]}
+                points={pts.flatMap((q) => [q.x, q.y])}
+                lineJoin="round"
                 stroke={selSet.has(r.uid) ? '#4fe0c0' : ROUTE_COLOR[r.kind]}
                 strokeWidth={(selSet.has(r.uid) ? 4 : 2.5) / view.scale}
                 dash={[10 / view.scale, 6 / view.scale]}
@@ -921,11 +1000,22 @@ export default function PlannerCanvas() {
           {tool === 'route' && s.routeFrom && (() => {
             const a = entById.get(s.routeFrom)
             if (!a) return null
-            const p = wirePoint(a)
             const t = stationTarget(mouse)
-            const q = t ? wirePoint(t) : mouse
-            return <Line points={[p.x, p.y, q.x, q.y]} stroke={ROUTE_COLOR[s.routeKind]} strokeWidth={2 / view.scale} dash={[6 / view.scale, 4 / view.scale]} />
+            const pts = [stationPoint(a), ...routePts, t ? stationPoint(t) : s.routeKind === 'drone' ? mouse : snapPt(mouse)]
+            return (
+              <>
+                <Line points={pts.flatMap((q) => [q.x, q.y])} stroke={ROUTE_COLOR[s.routeKind]} strokeWidth={2 / view.scale} dash={[6 / view.scale, 4 / view.scale]} lineJoin="round" />
+                {routePts.map((q, i) => (
+                  <Circle key={i} x={q.x} y={q.y} radius={5 / view.scale} fill={ROUTE_COLOR[s.routeKind]} />
+                ))}
+              </>
+            )
           })()}
+          {editRoute &&
+            (editRoute.waypoints ?? []).map((q, i) => {
+              const at = wpDrag && wpDrag.uid === editRoute.uid && wpDrag.i === i ? wpDrag.pos : q
+              return <Circle key={i} x={at.x} y={at.y} radius={6 / view.scale} fill="#1b1d21" stroke="#4fe0c0" strokeWidth={2 / view.scale} />
+            })}
           {tool === 'wire' && wireFrom && (() => {
             const a = entById.get(wireFrom)
             if (!a) return null
@@ -1018,6 +1108,7 @@ export default function PlannerCanvas() {
         <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
           <b>{i18n.t(`route.title.${s.routeKind}`)}</b>
           <div className="muted">{s.routeFrom ? i18n.t('canvas.routeDest') : i18n.t('canvas.routeOrigin')}</div>
+          {s.routeFrom && s.routeKind !== 'drone' && <div className="muted">{i18n.t('canvas.routeWaypoint')}</div>}
         </div>
       )}
       {hover?.wire && <WireTooltip w={hover.wire} entities={entities} floorHeight={s.floorHeight} at={screen} />}
@@ -1515,6 +1606,7 @@ function RouteTooltip({
   const items = f ? [...f.offer.keys()] : []
   const dist = routeDistance(r, entities, floorHeight)
   const t = roundTrip(r, entities, floorHeight)
+  const fuel = fuelPerTrip(r, entities, floorHeight)
   return (
     <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
       <b>
@@ -1524,6 +1616,9 @@ function RouteTooltip({
       <div className="muted">
         {i18n.t('canvas.routeInfo', { dist: fmt(dist), t: fmt(t) })}
       </div>
+      {fuel !== null && (
+        <div className="muted">{i18n.t('canvas.routeFuel', { n: fmt(fuel), fuel: itemName(fuelOf(r) ?? '') })}</div>
+      )}
       {items.length === 0 && (
         <div className="muted">{i18n.t('canvas.routeGeneric', { n: fmt(routeThroughput(r, null, entities, floorHeight)) })}</div>
       )}

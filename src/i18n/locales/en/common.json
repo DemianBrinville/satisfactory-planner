@@ -252,7 +252,7 @@
     "wagons": "Freight cars",
     "vehicles": "Vehicles on the route",
     "distance": "Distance per trip (m)",
-    "distanceHint": "Default: straight line + 20 % (drones fly straight)",
+    "distanceHint": "Empty: the drawn path or, with no waypoints, the straight line + 20 % (drones fly straight). Type a value to use the real distance you measured in the game.",
     "speed": "Average speed (km/h)",
     "roundTrip": "Round trip: {{t}} s ({{dist}} m of travel + {{dock}} s loading and unloading).",
     "carriesWagon": "Each freight car carries {{slots}} slots",
@@ -261,7 +261,21 @@
     "capacity": "Capacity",
     "genericCapacity": "{{n}}/min for items that stack to 100. Connect belts to the origin station to see the real item.",
     "carries": "carries {{f}} of {{cap}}/min",
-    "short": " · not enough: add freight cars/vehicles"
+    "short": " · not enough: add freight cars/vehicles",
+    "source": {
+      "manual": "Distance typed by hand.",
+      "drawn_one": "Distance of the drawn path (1 waypoint).",
+      "drawn_other": "Distance of the drawn path ({{count}} waypoints).",
+      "straight": "No path drawn: straight line + 20 %.",
+      "droneStraight": "Drones fly in a straight line."
+    },
+    "drawHelp": "With the route selected: drag a point to move it, double-click the path to add one and double-click a point to remove it.",
+    "clearWaypoints": "Remove waypoints",
+    "fuel": "Fuel",
+    "fuelTrip": "{{n}} per round trip · {{m}}/min for the whole route",
+    "fuelElectric": "Trains are electric: the locomotive draws 25 to 110 MW from the grid.",
+    "fuelGround": "Game consumption: {{mw}} MW while driving.",
+    "fuelDrone": "Per trip: 24,000 MJ plus 6 MJ per meter. Speed depends on the fuel."
   },
   "side": {
     "building": "Building: {{name}}",
@@ -478,7 +492,7 @@
     "hintPaste": " · click: paste · R: rotate · Esc: exit",
     "hintWire": " · click: connect buildings · right-click: cut",
     "hintRail": " · click: start/finish railway segment (snaps to other rails and platforms) · right-click: cut",
-    "hintRoute": " · click: origin station, then destination",
+    "hintRoute": " · click: origin station, clicks on the ground for the path and click the destination station · right-click: remove the last point",
     "convInfo": "{{len}} m · capacity {{cap}} {{unit}} · usage {{use}} %",
     "headLift": "Not enough head lift: the fluid has to rise to {{needed}} m and only reaches {{reach}} m. Add a pump before going up.",
     "noMaterial": "No material: connect an output with a recipe or a miner.",
@@ -503,7 +517,9 @@
     "noBelts": "No belts connected",
     "pickRecipe": "Select the machine to choose a recipe",
     "continueHyper": "Click to keep drawing the hypertube",
-    "hyperInfo": "{{len}} m of {{max}} m per segment"
+    "hyperInfo": "{{len}} m of {{max}} m per segment",
+    "routeWaypoint": "Click the ground to add a waypoint",
+    "routeFuel": "{{n}} {{fuel}} per trip"
   },
   "cloud": {
     "localDraft": "Local draft",

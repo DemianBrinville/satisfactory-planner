@@ -1,4 +1,5 @@
 import { buildingsById, game, type ItemAmount } from '../data/gameData'
+import { worldRect, type Vec } from './geometry'
 import type { PlacedEntity } from './store'
 
 /**
@@ -36,16 +37,19 @@ export interface VehicleSpec {
   dock: number
   /** estaciones compatibles */
   stations: RegExp
+  /** consumo de combustible mientras anda (MW); los trenes son eléctricos */
+  fuelMW?: number
 }
 
 export const VEHICLES: Record<VehicleKind, VehicleSpec> = {
   // plataforma de carga: 27,08 s por carga y por descarga; vagón 32 espacios o 1600 m³
   train: { name: 'Tren', slots: 32, fluid: 1600, speed: 100, dock: 2 * 27.08 + 10, stations: /TrainDockingStation/ },
-  truck: { name: 'Camión', slots: 48, fluid: 2400, speed: 60, dock: 2 * 20, stations: /TruckStation/ },
-  tractor: { name: 'Tractor', slots: 25, fluid: 1250, speed: 45, dock: 2 * 15, stations: /TruckStation/ },
-  explorer: { name: 'Explorador', slots: 12, fluid: 0, speed: 80, dock: 2 * 12, stations: /TruckStation/ },
-  // dron con baterías: ~70 m/s; despegue + aterrizaje en cada punta
-  drone: { name: 'Dron', slots: 9, fluid: 0, speed: 252, dock: 2 * 25, stations: /DroneStation/ },
+  // estación de camiones: 8 s de acople en cada punta; consumo del juego (mManualFuelConsumption)
+  truck: { name: 'Camión', slots: 48, fluid: 2400, speed: 60, dock: 2 * 8, stations: /TruckStation/, fuelMW: 75 },
+  tractor: { name: 'Tractor', slots: 25, fluid: 1250, speed: 45, dock: 2 * 8, stations: /TruckStation/, fuelMW: 55 },
+  explorer: { name: 'Explorador', slots: 12, fluid: 0, speed: 80, dock: 2 * 8, stations: /TruckStation/, fuelMW: 90 },
+  // dron: 51 s de despegue y 51 s de aterrizaje en cada punta (wiki); la velocidad depende del combustible
+  drone: { name: 'Dron', slots: 9, fluid: 0, speed: 270, dock: 4 * 51, stations: /DroneStation/ },
 }
 
 export interface Route {
@@ -59,6 +63,64 @@ export interface Route {
   distance?: number
   /** velocidad promedio (km/h) */
   speed?: number
+  /** puntos de paso del recorrido entre las dos estaciones (los drones vuelan en línea recta) */
+  waypoints?: Vec[]
+  /** combustible que usan los vehículos de la ruta */
+  fuel?: string
+}
+
+/** Combustibles que aceptan los drones y su velocidad de vuelo (m/s, wiki). */
+export const DRONE_FUELS: Record<string, number> = {
+  Desc_Battery_C: 75,
+  Desc_Fuel_C: 50,
+  Desc_TurboFuel_C: 60,
+  Desc_PackagedRocketFuel_C: 75,
+  Desc_PackagedIonizedFuel_C: 100,
+  Desc_NuclearFuelRod_C: 90,
+  Desc_PlutoniumFuelRod_C: 100,
+}
+/** Consumo del dron por viaje de ida y vuelta: base fija más un tanto por metro (mTripPowerCost, mTripPowerPerMeterCost). */
+const DRONE_TRIP_MJ = 24000
+const DRONE_MJ_PER_M = 6
+
+/** Combustibles sólidos que puede cargar un vehículo terrestre (todo lo que tiene energía y va en el inventario). */
+export const groundFuels = () =>
+  Object.entries(game.items)
+    .filter(([, i]) => (i.energyMJ ?? 0) > 0 && i.form === 'solid')
+    .sort((a, b) => (a[1].energyMJ ?? 0) - (b[1].energyMJ ?? 0))
+    .map(([id]) => id)
+
+export const defaultFuel = (kind: VehicleKind): string | null =>
+  kind === 'train' ? null : kind === 'drone' ? 'Desc_Battery_C' : 'Desc_Fuel_C'
+export const fuelOf = (r: Route) => r.fuel ?? defaultFuel(r.kind)
+
+/** Velocidad por defecto de la ruta (km/h): la del vehículo, o la que da el combustible en los drones. */
+export function defaultSpeed(r: Route): number {
+  if (r.kind === 'drone') return (DRONE_FUELS[fuelOf(r) ?? ''] ?? 70) * 3.6
+  return VEHICLES[r.kind].speed
+}
+
+/** Centro de una estación, donde empieza y termina el recorrido. */
+export function stationPoint(e: PlacedEntity): Vec {
+  const b = buildingsById.get(e.buildingId)
+  if (!b) return { x: e.x, y: e.y }
+  const r = worldRect(b, e, e.rot)
+  return { x: (r.x0 + r.x1) / 2, y: (r.y0 + r.y1) / 2 }
+}
+
+/** Recorrido dibujado: de la estación de origen, por los puntos de paso, a la de destino. */
+export function routePath(r: Route, entities: PlacedEntity[]): Vec[] {
+  const a = entities.find((e) => e.uid === r.from)
+  const b = entities.find((e) => e.uid === r.to)
+  if (!a || !b) return []
+  const mid = r.kind === 'drone' ? [] : r.waypoints ?? []
+  return [stationPoint(a), ...mid, stationPoint(b)]
+}
+
+/** De dónde sale la distancia de un trayecto. */
+export function distanceSource(r: Route): 'manual' | 'drawn' | 'straight' {
+  if (r.distance && r.distance > 0) return 'manual'
+  return r.kind !== 'drone' && r.waypoints?.length ? 'drawn' : 'straight'
 }
 
 export function vehicleForStation(buildingId: string): VehicleKind | null {
@@ -73,16 +135,45 @@ export function routeDistance(r: Route, entities: PlacedEntity[], floorHeight = 
   const a = entities.find((e) => e.uid === r.from)
   const b = entities.find((e) => e.uid === r.to)
   if (!a || !b) return 0
-  // en línea recta más un 20 % por curvas y desvíos (los drones vuelan en línea recta)
-  const straight = Math.hypot(a.x - b.x, a.y - b.y, (a.floor - b.floor) * floorHeight)
-  return r.kind === 'drone' ? straight : straight * 1.2
+  const rise = (a.floor - b.floor) * floorHeight
+  const pts = routePath(r, entities)
+  let flat = 0
+  for (let i = 1; i < pts.length; i++) flat += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y)
+  const len = Math.hypot(flat, rise)
+  // sin recorrido dibujado: en línea recta más un 20 % por curvas y desvíos (los drones vuelan en línea recta)
+  return distanceSource(r) === 'drawn' || r.kind === 'drone' ? len : len * 1.2
+}
+
+/** Segundos en movimiento de un viaje de ida y vuelta (sin acoples). */
+export function travelTime(r: Route, entities: PlacedEntity[], floorHeight?: number): number {
+  const v = ((r.speed ?? defaultSpeed(r)) * 1000) / 3600
+  return (2 * routeDistance(r, entities, floorHeight)) / v
+}
+
+/**
+ * Combustible por viaje de ida y vuelta de un vehículo (unidades del combustible elegido).
+ * Terrestres: consumo en MW por el tiempo en movimiento. Drones: base fija + un tanto por metro.
+ * Trenes: eléctricos, null.
+ */
+export function fuelPerTrip(r: Route, entities: PlacedEntity[], floorHeight?: number): number | null {
+  const fuel = fuelOf(r)
+  const mj = fuel ? game.items[fuel]?.energyMJ ?? 0 : 0
+  if (!fuel || mj <= 0) return null
+  if (r.kind === 'drone') return (DRONE_TRIP_MJ + DRONE_MJ_PER_M * routeDistance(r, entities, floorHeight)) / mj
+  const mw = VEHICLES[r.kind].fuelMW
+  return mw ? (mw * travelTime(r, entities, floorHeight)) / mj : null
+}
+
+/** Combustible por minuto de toda la ruta (todos sus vehículos). */
+export function fuelPerMinute(r: Route, entities: PlacedEntity[], floorHeight?: number): number | null {
+  const f = fuelPerTrip(r, entities, floorHeight)
+  const t = roundTrip(r, entities, floorHeight)
+  return f === null || t <= 0 ? null : (f * Math.max(1, r.count ?? 1) * 60) / t
 }
 
 /** Tiempo de ida y vuelta en segundos. */
 export function roundTrip(r: Route, entities: PlacedEntity[], floorHeight?: number): number {
-  const spec = VEHICLES[r.kind]
-  const v = ((r.speed ?? spec.speed) * 1000) / 3600
-  return (2 * routeDistance(r, entities, floorHeight)) / v + spec.dock
+  return travelTime(r, entities, floorHeight) + VEHICLES[r.kind].dock
 }
 
 const STACK: Record<string, number> = { ONE: 1, SMALL: 50, MEDIUM: 100, BIG: 200, HUGE: 500 }

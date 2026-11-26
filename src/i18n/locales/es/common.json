@@ -252,7 +252,7 @@
     "wagons": "Vagones de carga",
     "vehicles": "Vehículos en la ruta",
     "distance": "Distancia por trayecto (m)",
-    "distanceHint": "Por defecto: línea recta + 20 % (los drones van en línea recta)",
+    "distanceHint": "Vacío: la del recorrido dibujado o, sin puntos de paso, la línea recta + 20 % (los drones van en línea recta). Escribe un valor para usar la distancia real que mediste en el juego.",
     "speed": "Velocidad promedio (km/h)",
     "roundTrip": "Ida y vuelta: {{t}} s ({{dist}} m de viaje + {{dock}} s de carga y descarga).",
     "carriesWagon": "Cada vagón lleva {{slots}} espacios",
@@ -261,7 +261,21 @@
     "capacity": "Capacidad",
     "genericCapacity": "{{n}}/min para ítems que se apilan de a 100. Conecta cintas a la estación de origen para ver el ítem real.",
     "carries": "lleva {{f}} de {{cap}}/min",
-    "short": " · no alcanza: agrega vagones/vehículos"
+    "short": " · no alcanza: agrega vagones/vehículos",
+    "source": {
+      "manual": "Distancia escrita a mano.",
+      "drawn_one": "Distancia del recorrido dibujado (1 punto de paso).",
+      "drawn_other": "Distancia del recorrido dibujado ({{count}} puntos de paso).",
+      "straight": "Sin recorrido dibujado: línea recta + 20 %.",
+      "droneStraight": "Los drones vuelan en línea recta."
+    },
+    "drawHelp": "Con la ruta seleccionada: arrastra un punto para moverlo, doble clic en el recorrido para agregar uno y doble clic en un punto para quitarlo.",
+    "clearWaypoints": "Quitar puntos de paso",
+    "fuel": "Combustible",
+    "fuelTrip": "{{n}} por viaje de ida y vuelta · {{m}}/min para toda la ruta",
+    "fuelElectric": "Los trenes son eléctricos: la locomotora consume de 25 a 110 MW de la red.",
+    "fuelGround": "Consumo del juego: {{mw}} MW mientras anda.",
+    "fuelDrone": "Por viaje: 24 000 MJ más 6 MJ por metro. La velocidad depende del combustible."
   },
   "side": {
     "building": "Construyendo: {{name}}",
@@ -478,7 +492,7 @@
     "hintPaste": " · clic: pegar · R: girar · Esc: salir",
     "hintWire": " · clic: conectar estructuras · clic derecho: cortar",
     "hintRail": " · clic: empezar/terminar tramo de vía (se engancha a otras vías y andenes) · clic derecho: cortar",
-    "hintRoute": " · clic: estación de origen y luego de destino",
+    "hintRoute": " · clic: estación de origen, clics en el suelo para el recorrido y clic en la estación de destino · clic derecho: quitar el último punto",
     "convInfo": "{{len}} m · capacidad {{cap}} {{unit}} · uso {{use}} %",
     "headLift": "Falta altura de bombeo: el líquido tiene que subir hasta {{needed}} m y solo alcanza {{reach}} m. Agrega una bomba antes de subir.",
     "noMaterial": "Sin material: conecta una salida con receta o un taladro.",
@@ -503,7 +517,9 @@
     "noBelts": "Sin cintas conectadas",
     "pickRecipe": "Selecciona la máquina para elegir receta",
     "continueHyper": "Clic para seguir el hipertubo",
-    "hyperInfo": "{{len}} m de {{max}} m por tramo"
+    "hyperInfo": "{{len}} m de {{max}} m por tramo",
+    "routeWaypoint": "Clic en el suelo agrega un punto de paso",
+    "routeFuel": "{{n}} {{fuel}} por viaje"
   },
   "cloud": {
     "localDraft": "Borrador local",

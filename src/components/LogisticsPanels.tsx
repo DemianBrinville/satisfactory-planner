@@ -4,8 +4,23 @@ import { locale } from '../i18n/format'
 import { useMemo, useState } from 'react'
 import { buildingsById, game, itemName, type Building } from '../data/gameData'
 import { FILTER_ANY, FILTER_NONE, FILTER_OVERFLOW, FILTER_UNDEFINED, type EdgeFlow } from '../editor/flow'
-import { VEHICLES, roundTrip, routeDistance, routeThroughput, type Route, type VehicleKind } from '../editor/transport'
+import {
+  DRONE_FUELS,
+  VEHICLES,
+  defaultSpeed,
+  distanceSource,
+  fuelOf,
+  fuelPerMinute,
+  fuelPerTrip,
+  groundFuels,
+  roundTrip,
+  routeDistance,
+  routeThroughput,
+  type Route,
+  type VehicleKind,
+} from '../editor/transport'
 import { useEditor, type PlacedEntity } from '../editor/store'
+import { ItemIcon } from './GameIcons'
 
 /** Salidas de un divisor por número de puerto (ver portsOf): 1 centro, 2 izquierda, 3 derecha. */
 const SPLITTER_OUTS: [number, 'left' | 'center' | 'right'][] = [
@@ -190,6 +205,9 @@ export function StoragePanel({
   )
 }
 
+/** Cantidad de combustible: con decimales si es menos de 10 (barras de uranio, baterías). */
+const fmtFuel = (n: number) => (n >= 10 ? Math.round(n).toLocaleString(locale()) : n.toLocaleString(locale(), { maximumFractionDigits: 2 }))
+
 const fmtTime = (min: number) => (min >= 120 ? `${(min / 60).toFixed(1)} h` : min >= 1 ? `${min.toFixed(1)} min` : `${Math.round(min * 60)} s`)
 
 /** Ruta entre dos estaciones: vehículo, cantidad, distancia y capacidad resultante. */
@@ -203,6 +221,11 @@ export function RoutePanel({ r, entities, floorHeight, flow }: { r: Route; entit
   const dist = routeDistance(r, entities, floorHeight)
   const trip = roundTrip(r, entities, floorHeight)
   const items = flow ? [...flow.offer.keys()] : []
+  const src = distanceSource(r)
+  const fuel = fuelOf(r)
+  const fuelOptions = r.kind === 'drone' ? Object.keys(DRONE_FUELS) : groundFuels()
+  const perTrip = fuelPerTrip(r, entities, floorHeight)
+  const perMin = fuelPerMinute(r, entities, floorHeight)
   return (
     <section className="machine">
       <h2>{t(`route.title.${r.kind}`)}</h2>
@@ -245,16 +268,50 @@ export function RoutePanel({ r, entities, floorHeight, flow }: { r: Route; entit
           className="small-input"
           type="number"
           min={5}
-          placeholder={String(spec.speed)}
+          placeholder={String(Math.round(defaultSpeed(r)))}
           value={r.speed ?? ''}
           onChange={(ev) => updateRoute(r.uid, { speed: ev.target.value ? Number(ev.target.value) : undefined })}
         />
       </div>
       <p className="muted">
+        {r.kind === 'drone' ? t('route.source.droneStraight') : src === 'drawn' ? t('route.source.drawn', { count: r.waypoints?.length ?? 0 }) : t(`route.source.${src}`)}
+      </p>
+      {r.kind !== 'drone' && (
+        <p className="muted">
+          {t('route.drawHelp')}{' '}
+          {!!r.waypoints?.length && (
+            <button className="link" onClick={() => updateRoute(r.uid, { waypoints: undefined })}>
+              {t('route.clearWaypoints')}
+            </button>
+          )}
+        </p>
+      )}
+      <p className="muted">
         {t('route.roundTrip', { t: trip.toFixed(0), dist: (2 * dist).toFixed(0), dock: spec.dock.toFixed(0) })}{' '}
         {t(r.kind === 'train' ? 'route.carriesWagon' : 'route.carriesVehicle', { slots: spec.slots })}
         {spec.fluid ? t('route.orFluid', { m3: spec.fluid }) : ''}.
       </p>
+      <h3>{t('route.fuel')}</h3>
+      {r.kind === 'train' ? (
+        <p className="muted">{t('route.fuelElectric')}</p>
+      ) : (
+        <>
+          <div className="flowline">
+            <span>{fuel && <ItemIcon item={fuel} size={20} />}</span>
+            <select value={fuel ?? ''} onChange={(ev) => updateRoute(r.uid, { fuel: ev.target.value })}>
+              {fuelOptions.map((id) => (
+                <option key={id} value={id}>
+                  {itemName(id)}
+                </option>
+              ))}
+            </select>
+          </div>
+          {perTrip !== null && (
+            <p className="muted">{t('route.fuelTrip', { n: fmtFuel(perTrip), m: fmtFuel(perMin ?? 0) })}</p>
+          )}
+          <p className="muted">{r.kind === 'drone' ? t('route.fuelDrone') : t('route.fuelGround', { mw: spec.fuelMW })}</p>
+        </>
+      )}
       <h3>{t('route.capacity')}</h3>
       {items.length === 0 && (
         <p className="muted">
