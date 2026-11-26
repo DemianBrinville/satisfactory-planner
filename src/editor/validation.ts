@@ -2,14 +2,16 @@ import { buildingsById } from '../data/gameData'
 import { maxSegmentOf, pathLength } from './conveyors'
 import { footprintOf, isVerticalConnector, type Rect, type Vec } from './geometry'
 import { connectionsOf, wireLength, wireMax, wirePoint } from './power'
-import { BELT_POLES, entityRect, isPole, onFloor, type Conveyor, type PlacedEntity, type Wire } from './store'
+import { BELT_POLES, entityRect, isPole, onFloor, type Conveyor, type PlacedEntity, type Rail, type Wire } from './store'
+import type { Route } from './transport'
+import { buildRailNet, isTimetable, legsOf, netOfStation } from './trains'
 
 /**
  * Validación del plano: lo que en el juego no se podría construir así o no funcionaría.
  * Cada problema trae el piso, un punto para ubicarlo y las estructuras involucradas.
  */
 
-export type ProblemKind = 'overlap' | 'through' | 'tooLong' | 'slope' | 'wireLong' | 'poleFull'
+export type ProblemKind = 'overlap' | 'through' | 'tooLong' | 'slope' | 'wireLong' | 'poleFull' | 'trainNoTrack' | 'trainsNoSignals' | 'signalOffRail'
 
 export interface Problem {
   id: string
@@ -23,6 +25,9 @@ export interface Problem {
   b?: string
   n?: number
   max?: number
+  /** estaciones de tren nombradas en el mensaje (uid) */
+  sa?: string
+  sb?: string
 }
 
 /** Pendiente máxima de una cinta transportadora (wiki: "The maximum slope is 35°"). */
@@ -102,7 +107,14 @@ const floorsOf = (e: PlacedEntity) => {
   return out
 }
 
-export function findProblems(entities: PlacedEntity[], conveyors: Conveyor[], wires: Wire[], floorHeight: number): Problem[] {
+export function findProblems(
+  entities: PlacedEntity[],
+  conveyors: Conveyor[],
+  wires: Wire[],
+  floorHeight: number,
+  rails: Rail[] = [],
+  routes: Route[] = [],
+): Problem[] {
   const problems: Problem[] = []
   const byUid = new Map(entities.map((e) => [e.uid, e]))
   const rects = new Map<string, Rect>()
@@ -227,16 +239,56 @@ export function findProblems(entities: PlacedEntity[], conveyors: Conveyor[], wi
     if (n > max) problems.push({ id: `poleFull:${uid}`, kind: 'poleFull', floor: e.floor, at: center(rects.get(uid) ?? { x0: e.x, y0: e.y, x1: e.x, y1: e.y }), uids: [uid], a: e.buildingId, n, max })
   }
 
+  // ---------- trenes: vías entre paradas, señales cuando comparten vías, señales fuera de la vía ----------
+  const trains = routes.filter(isTimetable)
+  const signals = entities.some((e) => /RailroadBlockSignal|RailroadPathSignal/.test(e.buildingId))
+  if (trains.length || signals) {
+    const net = buildRailNet(entities, rails)
+    const users = new Map<number, { n: number; at: Vec; floor: number; uid: string }>()
+    for (const r of trains) {
+      for (const l of legsOf(r, net)) {
+        if (l.dist !== null) continue
+        const a = byUid.get(l.from)
+        if (!a) continue
+        problems.push({ id: `trainNoTrack:${r.uid}:${l.from}:${l.to}`, kind: 'trainNoTrack', floor: a.floor, at: center(rects.get(a.uid)!), uids: [r.uid, l.from, l.to], sa: l.from, sb: l.to })
+      }
+      // redes por las que el tren de verdad anda (una estación suelta, sin vías, no cuenta)
+      const nets = new Set(
+        legsOf(r, net)
+          .filter((l) => l.dist !== null && l.dist > 0)
+          .map((l) => netOfStation(net, l.from))
+          .filter((x): x is number => x !== undefined),
+      )
+      for (const k of nets) {
+        const st = byUid.get(r.stops![0])!
+        const u = users.get(k) ?? { n: 0, at: center(rects.get(st.uid)!), floor: st.floor, uid: r.uid }
+        u.n += Math.max(1, r.trains ?? 1)
+        users.set(k, u)
+      }
+    }
+    for (const [k, u] of users)
+      if (u.n >= 2 && !(net.signalsIn.get(k) ?? 0))
+        problems.push({ id: `trainsNoSignals:${k}`, kind: 'trainsNoSignals', floor: u.floor, at: u.at, uids: [u.uid], n: u.n })
+    for (const s of net.loose) problems.push({ id: `signalOffRail:${s.uid}`, kind: 'signalOffRail', floor: s.floor, at: { x: s.x, y: s.y }, uids: [s.uid], a: s.buildingId })
+  }
+
   return problems
 }
 
 let lastArgs: unknown[] = []
 let lastResult: Problem[] = []
 /** Igual que findProblems, pero reutiliza el resultado mientras el plano no cambie (lo usan el lienzo y el panel). */
-export function problemsOf(entities: PlacedEntity[], conveyors: Conveyor[], wires: Wire[], floorHeight: number): Problem[] {
-  const args = [entities, conveyors, wires, floorHeight]
+export function problemsOf(
+  entities: PlacedEntity[],
+  conveyors: Conveyor[],
+  wires: Wire[],
+  floorHeight: number,
+  rails: Rail[] = [],
+  routes: Route[] = [],
+): Problem[] {
+  const args = [entities, conveyors, wires, floorHeight, rails, routes]
   if (args.every((a, i) => a === lastArgs[i])) return lastResult
   lastArgs = args
-  lastResult = findProblems(entities, conveyors, wires, floorHeight)
+  lastResult = findProblems(entities, conveyors, wires, floorHeight, rails, routes)
   return lastResult
 }

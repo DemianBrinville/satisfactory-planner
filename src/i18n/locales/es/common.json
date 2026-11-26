@@ -535,7 +535,8 @@
     "continueHyper": "Clic para seguir el hipertubo",
     "hyperInfo": "{{len}} m de {{max}} m por tramo",
     "routeWaypoint": "Clic en el suelo agrega un punto de paso",
-    "routeFuel": "{{n}} {{fuel}} por viaje"
+    "routeFuel": "{{n}} {{fuel}} por viaje",
+    "signalHint": "Las señales van sobre una vía. R las da vuelta: dejan pasar en el sentido de la flecha."
   },
   "cloud": {
     "localDraft": "Borrador local",
@@ -570,6 +571,45 @@
     "tooLong": "{{a}} mide {{n}} m y el máximo es {{max}} m: agrega un poste o soporte en el medio.",
     "slope": "{{a}} sube con una pendiente de {{n}}° y el máximo es 35°: aleja los postes o usa una cinta elevadora.",
     "wireLong": "Un cable mide {{n}} m y el máximo es {{max}} m: agrega un poste en el medio.",
-    "poleFull": "{{a}} tiene {{n}} cables y admite {{max}}: agrega otro poste o usa uno de más conexiones."
+    "poleFull": "{{a}} tiene {{n}} cables y admite {{max}}: agrega otro poste o usa uno de más conexiones.",
+    "trainNoTrack": "Un tren va de {{a}} a {{b}}, pero no hay vía que las una.",
+    "trainsNoSignals": "{{n}} trenes comparten estas vías sin señales: van a chocar. Pon señales de bloque para dividir la red.",
+    "signalOffRail": "{{a}} no está sobre una vía."
+  },
+  "train": {
+    "title": "Tren con horario",
+    "stationN": "Estación {{n}}",
+    "trains": "Trenes con este horario",
+    "trainsHint": "Varios trenes pueden hacer el mismo recorrido; si comparten vías necesitan señales.",
+    "locos": "Locomotoras por tren",
+    "length": "Largo del tren: {{m}} m (cada locomotora y cada vagón miden 16 m). Si hay más de una locomotora, conviene ponerlas atrás: los vagones se cuentan desde la primera.",
+    "timetable": "Horario",
+    "selectStation": "Seleccionar la estación",
+    "up": "Antes",
+    "down": "Después",
+    "removeStop": "Quitar la parada",
+    "noPlatforms": "Sin plataformas: el tren para pero no carga ni descarga.",
+    "platforms_one": "1 plataforma: {{load}} de carga y {{unload}} de descarga.",
+    "platforms_other": "{{count}} plataformas: {{load}} de carga y {{unload}} de descarga.",
+    "fewPlatforms": "Del vagón {{n}} al {{wagons}} no tienen plataforma en esta estación.",
+    "noTrack": "No hay vía hasta {{to}}.",
+    "leg": "{{m}} m por la vía hasta {{to}}",
+    "pickStation": "Elegir estación…",
+    "addStop": "Agregar parada",
+    "cycle": "Vuelta completa: {{m}} m en {{s}} s, con {{dock}} s de acople en cada una de las {{stops}} paradas.",
+    "platformHelp": "Cada vagón usa la plataforma de su posición: el vagón 1, la primera plataforma después de la estación. Selecciona una plataforma para elegir si carga o descarga.",
+    "power": "Energía",
+    "powerUse": "Entre {{min}} y {{max}} MW: {{n}} locomotoras de 25 a 110 MW cada una, según la carga y la pendiente.",
+    "nothingYet": "Todavía no le llega nada a las plataformas de carga.",
+    "noLoads": "Ningún vagón tiene una plataforma de carga y otra de descarga en el recorrido.",
+    "stationName": "Nombre de la estación",
+    "noPlatformsHelp": "Sin plataformas: engánchalas en fila a un extremo de la estación, una por vagón.",
+    "platformTitle": "Plataforma de tren",
+    "load": "Carga",
+    "unload": "Descarga",
+    "platformOf": "Plataforma {{n}} de {{station}}: atiende al vagón {{n}}.",
+    "platformLoose": "No está enganchada a ninguna estación: ponla en fila junto a una estación o a otra plataforma.",
+    "tooltip": "Vuelta de {{m}} m en {{s}} s · {{trains}} trenes",
+    "missingTrack": "Falta vía entre algunas paradas."
   }
 }

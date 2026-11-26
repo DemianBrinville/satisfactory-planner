@@ -13,12 +13,12 @@ const fmt = (n: number) => n.toLocaleString(locale(), { maximumFractionDigits: 1
 export default function PowerSettingsButton() {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const { entities, conveyors, routes, wires, floorHeight, setPower } = useEditor()
+  const { entities, conveyors, routes, wires, rails, floorHeight, setPower } = useEditor()
   const settings = useEditor((s) => s.power) ?? DEFAULT_POWER
   const power = useMemo(() => {
-    const flows = computeFlows(entities, conveyors, routes ?? NONE, floorHeight)
+    const flows = computeFlows(entities, conveyors, routes ?? NONE, floorHeight, rails ?? NONE)
     return computeGrids(entities, wires ?? NONE, flows, settings)
-  }, [entities, conveyors, routes, wires, floorHeight, settings])
+  }, [entities, conveyors, routes, wires, rails, floorHeight, settings])
 
   const spare = settings.worldGen - settings.worldUse
   const hasWorld = settings.worldGen > 0

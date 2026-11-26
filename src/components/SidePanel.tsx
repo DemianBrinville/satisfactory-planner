@@ -18,6 +18,8 @@ import { isVerticalConnector } from '../editor/geometry'
 import { useEditor, type PlacedEntity, type Purity } from '../editor/store'
 import { NONE } from '../editor/store'
 import { ItemLabel } from './GameIcons'
+import { PlatformPanel, StationPanel, TrainPanel } from './TrainPanels'
+import { isPlatform, isTimetable, isTrainStation } from '../editor/trains'
 import { defaultPoleHeight, poleHeights } from '../editor/validation'
 
 const fmt = (n: number) => n.toLocaleString(locale(), { maximumFractionDigits: 2 })
@@ -45,7 +47,7 @@ export default function SidePanel() {
     [entities, conveyors, floorHeight, wires, rails],
   )
   const routes = useEditor((s) => s.routes) ?? NONE
-  const flows = useMemo(() => computeFlows(entities, conveyors, routes, floorHeight), [entities, conveyors, routes, floorHeight])
+  const flows = useMemo(() => computeFlows(entities, conveyors, routes, floorHeight, rails), [entities, conveyors, routes, floorHeight, rails])
   const powerSettings = useEditor((s) => s.power)
   const power = useMemo(() => computeGrids(entities, wires, flows, powerSettings), [entities, wires, flows, powerSettings])
   const placing = tool === 'place' && placingId ? buildingsById.get(placingId) : null
@@ -95,7 +97,14 @@ export default function SidePanel() {
       {single && singleB && poleHeights(singleB.id, floorHeight ?? 8) && (
         <PoleHeight e={single} options={poleHeights(singleB.id, floorHeight ?? 8)!} />
       )}
-      {selRoute && <RoutePanel r={selRoute} entities={entities} floorHeight={floorHeight} flow={flows.edges.get(selRoute.uid)} />}
+      {selRoute &&
+        (isTimetable(selRoute) ? (
+          <TrainPanel r={selRoute} flows={flows} />
+        ) : (
+          <RoutePanel r={selRoute} entities={entities} floorHeight={floorHeight} flow={flows.edges.get(selRoute.uid)} />
+        ))}
+      {single && singleB && isTrainStation(singleB.id) && <StationPanel e={single} />}
+      {single && singleB && isPlatform(singleB.id) && <PlatformPanel e={single} />}
       {single && singleB && vehicleForStation(singleB.id) && (
         <section>
           <button onClick={() => useEditor.getState().startRoute(vehicleForStation(singleB.id)!, single.uid)}>

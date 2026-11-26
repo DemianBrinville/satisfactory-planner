@@ -42,8 +42,8 @@ export interface VehicleSpec {
 }
 
 export const VEHICLES: Record<VehicleKind, VehicleSpec> = {
-  // plataforma de carga: 27,08 s por carga y por descarga; vagón 32 espacios o 1600 m³
-  train: { name: 'Tren', slots: 32, fluid: 1600, speed: 100, dock: 2 * 27.08 + 10, stations: /TrainDockingStation/ },
+  // plataforma de carga: 27,08 s por carga y por descarga; vagón 32 espacios o 2400 m³ (wiki)
+  train: { name: 'Tren', slots: 32, fluid: 2400, speed: 90, dock: 2 * 27.08 + 10, stations: /TrainDockingStation|TrainStation/ },
   // estación de camiones: 8 s de acople en cada punta; consumo del juego (mManualFuelConsumption)
   truck: { name: 'Camión', slots: 48, fluid: 2400, speed: 60, dock: 2 * 8, stations: /TruckStation/, fuelMW: 75 },
   tractor: { name: 'Tractor', slots: 25, fluid: 1250, speed: 45, dock: 2 * 8, stations: /TruckStation/, fuelMW: 55 },
@@ -67,6 +67,14 @@ export interface Route {
   waypoints?: Vec[]
   /** combustible que usan los vehículos de la ruta */
   fuel?: string
+  /** trenes con horario: estaciones de tren en el orden en que se visitan (se repite en ciclo) */
+  stops?: string[]
+  /** trenes con horario: cuántos trenes hacen este mismo horario */
+  trains?: number
+  /** trenes con horario: locomotoras por tren */
+  locos?: number
+  /** duración fija de la vuelta (s): la usan las aristas por vagón de los trenes con horario */
+  cycle?: number
 }
 
 /** Combustibles que aceptan los drones y su velocidad de vuelo (m/s, wiki). */
@@ -113,6 +121,11 @@ export function routePath(r: Route, entities: PlacedEntity[]): Vec[] {
   const a = entities.find((e) => e.uid === r.from)
   const b = entities.find((e) => e.uid === r.to)
   if (!a || !b) return []
+  if (r.stops && r.stops.length >= 2) {
+    // tren con horario: de parada en parada y de vuelta a la primera
+    const pts = r.stops.map((uid) => entities.find((e) => e.uid === uid)).filter((e): e is PlacedEntity => !!e).map(stationPoint)
+    return pts.length ? [...pts, pts[0]] : []
+  }
   const mid = r.kind === 'drone' ? [] : r.waypoints ?? []
   return [stationPoint(a), ...mid, stationPoint(b)]
 }
@@ -124,7 +137,8 @@ export function distanceSource(r: Route): 'manual' | 'drawn' | 'straight' {
 }
 
 export function vehicleForStation(buildingId: string): VehicleKind | null {
-  if (/TrainDockingStation/.test(buildingId)) return 'train'
+  // los trenes se arman desde la estación (con horario); las plataformas se configuran aparte
+  if (/TrainStation/.test(buildingId)) return 'train'
   if (/TruckStation/.test(buildingId)) return 'truck'
   if (/DroneStation/.test(buildingId)) return 'drone'
   return null
@@ -173,6 +187,7 @@ export function fuelPerMinute(r: Route, entities: PlacedEntity[], floorHeight?: 
 
 /** Tiempo de ida y vuelta en segundos. */
 export function roundTrip(r: Route, entities: PlacedEntity[], floorHeight?: number): number {
+  if (r.cycle) return r.cycle
   return travelTime(r, entities, floorHeight) + VEHICLES[r.kind].dock
 }
 

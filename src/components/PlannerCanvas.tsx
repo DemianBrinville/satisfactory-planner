@@ -48,6 +48,7 @@ import { useProblems } from './Problems'
 import Production, { ClockAdviceText, clockAdvice, type ClockAdvice } from './Production'
 import { computeHeadLift, type HeadIssue } from '../editor/fluids'
 import { curvedPath } from '../editor/dubins'
+import { buildRailNet, cycleTime, expandTimetable, hasTrack, isPathSignal, isSignal, isTimetable, legsOf, timetableFlows, trackEnds } from '../editor/trains'
 import {
   RAIL_MAX,
   RAIL_MIN,
@@ -74,7 +75,7 @@ import {
   wirePoint,
   type PowerResult,
 } from '../editor/power'
-import { NONE } from '../editor/store'
+import { NONE, type Rail } from '../editor/store'
 import { ItemIcon } from './GameIcons'
 
 const COLORS: Record<string, string> = {
@@ -130,6 +131,23 @@ const ptSegDist = (p: Vec, a: Vec, b: Vec) => {
   const t = l2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0
   return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
 }
+/** Punto más cercano sobre una polilínea y el rumbo del tramo (grados). */
+function closestOnPath(p: Vec, pts: Vec[]): { pos: Vec; deg: number; d: number } | null {
+  let best: { pos: Vec; deg: number; d: number } | null = null
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]
+    const b = pts[i]
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const L = dx * dx + dy * dy
+    if (!L) continue
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L))
+    const q = { x: a.x + dx * t, y: a.y + dy * t }
+    const d = Math.hypot(p.x - q.x, p.y - q.y)
+    if (!best || d < best.d) best = { pos: q, deg: (Math.atan2(dy, dx) * 180) / Math.PI, d }
+  }
+  return best
+}
 const nearPath = (p: Vec, pts: Vec[], tol: number) => pts.some((q, i) => i > 0 && ptSegDist(p, pts[i - 1], q) <= tol)
 
 export default function PlannerCanvas() {
@@ -165,8 +183,8 @@ export default function PlannerCanvas() {
   const entById = useMemo(() => new Map(entities.map((e) => [e.uid, e])), [entities])
   const rails = s.rails ?? NONE
   const flows: FlowResult = useMemo(
-    () => computeFlows(entities, conveyors, routes, s.floorHeight),
-    [entities, conveyors, routes, s.floorHeight],
+    () => computeFlows(entities, conveyors, routes, s.floorHeight, rails),
+    [entities, conveyors, routes, s.floorHeight, rails],
   )
   const wires = s.wires ?? NONE
   const power: PowerResult = useMemo(() => computeGrids(entities, wires, flows, s.power), [entities, wires, flows, s.power])
@@ -371,17 +389,27 @@ export default function PlannerCanvas() {
       consider(a, Math.atan2(a.y - a2.y, a.x - a2.x))
       consider(z, Math.atan2(z.y - z2.y, z.x - z2.x))
     }
+    // estaciones y plataformas: su vía va a lo largo de los 16 m (wiki: 34 m de ancho × 16 m de largo)
     for (const e of visible) {
-      if (!/TrainStation|TrainDockingStation|TrainPlatform/.test(e.buildingId)) continue
-      const b = buildingsById.get(e.buildingId)!
-      const f = b.footprint!
-      const cx = (f.minX + f.maxX) / 2
-      const front = toWorld(b, e, e.rot, { x: cx, y: f.minY })
-      const back = toWorld(b, e, e.rot, { x: cx, y: f.maxY })
-      consider(front, Math.atan2(front.y - back.y, front.x - back.x))
-      consider(back, Math.atan2(back.y - front.y, back.x - front.x))
+      if (!hasTrack(e.buildingId)) continue
+      const ends = trackEnds(e)
+      if (!ends) continue
+      const [a, z] = ends
+      consider(a, Math.atan2(a.y - z.y, a.x - z.x))
+      consider(z, Math.atan2(z.y - a.y, z.x - a.x))
     }
     return best ? { pos: (best as { pos: Vec }).pos, th: (best as { th: number }).th } : null
+  }
+  /** Señales: van sobre una vía, en el sentido del tramo (R las da vuelta: las señales son de un solo sentido). */
+  const signalSnap = (p: Vec): { pos: Vec; angle: number } | null => {
+    let best: { pos: Vec; deg: number; d: number } | null = null
+    for (const r of visibleRails) {
+      const c = closestOnPath(p, r.points)
+      if (c && c.d < 4 && (!best || c.d < best.d)) best = c
+    }
+    if (!best) return null
+    const flip = s.placingRot >= 180 ? 180 : 0
+    return { pos: { x: Math.round(best.pos.x * 100) / 100, y: Math.round(best.pos.y * 100) / 100 }, angle: (best.deg + flip + 360) % 360 }
   }
   const railPreview = (() => {
     if (tool !== 'rail' || !railDraft) return null
@@ -422,7 +450,7 @@ export default function PlannerCanvas() {
   }
   const hitRoute = (p: Vec) => visibleRoutes.find((r) => nearPath(p, pathOf(r), 1.2)) ?? null
   /** Ruta seleccionada sola, con puntos de paso editables (los drones vuelan en línea recta). */
-  const editRoute = selection.length === 1 ? (visibleRoutes.find((r) => r.uid === selection[0] && r.kind !== 'drone') ?? null) : null
+  const editRoute = selection.length === 1 ? (visibleRoutes.find((r) => r.uid === selection[0] && r.kind !== 'drone' && !isTimetable(r)) ?? null) : null
   const waypointAt = (p: Vec) => {
     if (!editRoute) return -1
     return (editRoute.waypoints ?? []).findIndex((q) => Math.hypot(q.x - p.x, q.y - p.y) < 1.4)
@@ -653,6 +681,11 @@ export default function PlannerCanvas() {
     if (e.evt.button !== 0) return
     if (st.tool === 'place' && st.placingId) {
       const b = buildingsById.get(st.placingId)!
+      if (isSignal(b.id)) {
+        const sg = signalSnap(p)
+        if (sg) st.place(sg.pos, { angle: sg.angle })
+        return
+      }
       const anchor = snapAnchor(b, p, st.placingRot, st.snapStep)
       if (b.kind === 'foundation') {
         // cimientos: arrastrar rellena el rectángulo, un clic pone uno solo
@@ -807,8 +840,12 @@ export default function PlannerCanvas() {
     if (tool !== 'place' || !placingId || area) return null
     const b = buildingsById.get(placingId)
     if (!b) return null
+    if (isSignal(b.id)) {
+      const sg = signalSnap(mouse)
+      return { b, anchor: sg?.pos ?? mouse, ok: !!sg && s.canPlace(placingId, sg.pos, 0), angle: sg?.angle ?? 0 }
+    }
     const anchor = snapAnchor(b, mouse, placingRot, snapStep)
-    return { b, anchor, ok: s.canPlace(placingId, anchor, placingRot) }
+    return { b, anchor, ok: s.canPlace(placingId, anchor, placingRot), angle: undefined as number | undefined }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, placingId, placingRot, mouse, entities, floor, snapStep, area])
   const areaGhost = useMemo(() => {
@@ -987,7 +1024,7 @@ export default function PlannerCanvas() {
         <Layer x={view.offsetX} y={view.offsetY} scaleX={view.scale} scaleY={view.scale} listening={false}>
           {ghost && (
             <EntityShape
-              e={{ uid: 'ghost', buildingId: ghost.b.id, x: ghost.anchor.x, y: ghost.anchor.y, rot: placingRot, floor, angle: s.placingAngle }}
+              e={{ uid: 'ghost', buildingId: ghost.b.id, x: ghost.anchor.x, y: ghost.anchor.y, rot: ghost.angle !== undefined ? 0 : placingRot, floor, angle: ghost.angle ?? s.placingAngle }}
               scale={view.scale}
               ghost={ghost.ok ? 'ok' : 'bad'}
               showLabels={showLabels}
@@ -1109,7 +1146,7 @@ export default function PlannerCanvas() {
       )}
       {hover?.conv && <ConveyorTooltip c={hover.conv} flow={flows.edges.get(hover.conv.uid)} head={headIssues.get(hover.conv.uid)} at={screen} />}
       {hover?.ent && !endHover && <EntityTooltip e={hover.ent} flows={flows} power={power} at={screen} />}
-      {hover?.route && <RouteTooltip r={hover.route} entities={entities} flows={flows} floorHeight={s.floorHeight} at={screen} />}
+      {hover?.route && <RouteTooltip r={hover.route} entities={entities} rails={rails} flows={flows} floorHeight={s.floorHeight} at={screen} />}
       {hover?.rail && (
         <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
           <b>{i18n.t('canvas.rail')}</b>
@@ -1175,6 +1212,7 @@ export default function PlannerCanvas() {
         {tool === 'paste' && i18n.t('canvas.hintPaste')}
         {tool === 'wire' && i18n.t('canvas.hintWire')}
         {tool === 'rail' && i18n.t('canvas.hintRail')}
+        {tool === 'place' && placingId && isSignal(placingId) && i18n.t('canvas.signalHint')}
         {tool === 'route' && i18n.t('canvas.hintRoute')}
       </div>
     </div>
@@ -1368,6 +1406,17 @@ const EntityShape = memo(function EntityShape({
   const h = r.y1 - r.y0
   const pole = isPole(e.buildingId)
   const base = COLORS[b.kind] ?? COLORS.structure
+  if (isSignal(e.buildingId)) {
+    // señal: poste con una flecha en el sentido en que deja pasar (verde: de bloque; azul: de trayecto)
+    const c = ghost ? (ghost === 'ok' ? 'rgba(79,170,224,0.8)' : 'rgba(224,80,70,0.8)') : isPathSignal(e.buildingId) ? '#4f9be0' : '#4caf6a'
+    return (
+      <Group x={e.x} y={e.y} rotation={e.angle ?? 0} opacity={faded ? 0.18 : 1}>
+        {/* en el juego la señal va al costado de la vía: se dibuja a la derecha del sentido de marcha */}
+        <Line points={[0, 1.2, 0, 3]} stroke="#111" strokeWidth={2 / scale} />
+        <Line points={[-1.4, 2.0, 1.6, 3.2, -1.4, 4.4]} closed fill={c} stroke={selected ? '#4fe0c0' : '#111'} strokeWidth={(selected ? 2.5 : 1) / scale} />
+      </Group>
+    )
+  }
   const fill = ghost ? (ghost === 'ok' ? 'rgba(79,170,224,0.45)' : 'rgba(224,80,70,0.5)') : base
   const isFoundation = b.kind === 'foundation'
   if (pole) {
@@ -1616,16 +1665,46 @@ const ROUTE_COLOR: Record<string, string> = {
 function RouteTooltip({
   r,
   entities,
+  rails,
   flows,
   floorHeight,
   at,
 }: {
   r: Route
   entities: PlacedEntity[]
+  rails: Rail[]
   flows: FlowResult
   floorHeight?: number
   at: Vec
 }) {
+  if (isTimetable(r)) {
+    // tren con horario: vuelta por las vías y lo que mueven todos sus vagones
+    const net = buildRailNet(entities, rails)
+    const legs = legsOf(r, net)
+    const virtual = expandTimetable(r, net, entities)
+    const moved = timetableFlows(flows.edges, (v, item) => routeThroughput(v, item, entities), virtual)
+    return (
+      <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
+        <b>
+          {i18n.t('route.title.train')}
+          {i18n.t('canvas.wagons', { n: r.count ?? 1 })}
+        </b>
+        <div className="muted">
+          {i18n.t('train.tooltip', {
+            m: fmt(legs.reduce((a, l) => a + (l.dist ?? 0), 0)),
+            s: fmt(cycleTime(r, net, entities)),
+            trains: r.trains ?? 1,
+          })}
+        </div>
+        {legs.some((l) => l.dist === null) && <div className="bad">{i18n.t('train.missingTrack')}</div>}
+        {[...moved].map(([item, [fl, cap]]) => (
+          <div key={item}>
+            <b>{itemName(item)}</b>: {i18n.t('canvas.routeItem', { f: fmt(fl), cap: fmt(cap) })}
+          </div>
+        ))}
+      </div>
+    )
+  }
   const f = flows.edges.get(r.uid)
   const items = f ? [...f.offer.keys()] : []
   const dist = routeDistance(r, entities, floorHeight)

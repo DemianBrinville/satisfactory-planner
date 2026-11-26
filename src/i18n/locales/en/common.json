@@ -535,7 +535,8 @@
     "continueHyper": "Click to keep drawing the hypertube",
     "hyperInfo": "{{len}} m of {{max}} m per segment",
     "routeWaypoint": "Click the ground to add a waypoint",
-    "routeFuel": "{{n}} {{fuel}} per trip"
+    "routeFuel": "{{n}} {{fuel}} per trip",
+    "signalHint": "Signals go on a track. R flips them: they let trains through in the arrow direction."
   },
   "cloud": {
     "localDraft": "Local draft",
@@ -570,6 +571,45 @@
     "tooLong": "{{a}} is {{n}} m long and the maximum is {{max}} m: add a pole or support in the middle.",
     "slope": "{{a}} climbs at {{n}}° and the maximum is 35°: move the poles further apart or use a conveyor lift.",
     "wireLong": "A wire is {{n}} m long and the maximum is {{max}} m: add a pole in the middle.",
-    "poleFull": "{{a}} has {{n}} wires and allows {{max}}: add another pole or use one with more connections."
+    "poleFull": "{{a}} has {{n}} wires and allows {{max}}: add another pole or use one with more connections.",
+    "trainNoTrack": "A train goes from {{a}} to {{b}}, but no track connects them.",
+    "trainsNoSignals": "{{n}} trains share this track without signals: they will crash. Place block signals to split the network.",
+    "signalOffRail": "{{a}} is not on a track."
+  },
+  "train": {
+    "title": "Train with timetable",
+    "stationN": "Station {{n}}",
+    "trains": "Trains on this timetable",
+    "trainsHint": "Several trains can run the same timetable; if they share track they need signals.",
+    "locos": "Locomotives per train",
+    "length": "Train length: {{m}} m (each locomotive and each car is 16 m). With more than one locomotive, put the extra ones at the back: cars are counted from the first one.",
+    "timetable": "Timetable",
+    "selectStation": "Select the station",
+    "up": "Earlier",
+    "down": "Later",
+    "removeStop": "Remove stop",
+    "noPlatforms": "No platforms: the train stops but does not load or unload.",
+    "platforms_one": "1 platform: {{load}} loading and {{unload}} unloading.",
+    "platforms_other": "{{count}} platforms: {{load}} loading and {{unload}} unloading.",
+    "fewPlatforms": "Cars {{n}} to {{wagons}} have no platform at this station.",
+    "noTrack": "No track to {{to}}.",
+    "leg": "{{m}} m by track to {{to}}",
+    "pickStation": "Pick a station…",
+    "addStop": "Add stop",
+    "cycle": "Full loop: {{m}} m in {{s}} s, with {{dock}} s of docking at each of the {{stops}} stops.",
+    "platformHelp": "Each car uses the platform at its position: car 1 uses the first platform after the station. Select a platform to choose whether it loads or unloads.",
+    "power": "Power",
+    "powerUse": "Between {{min}} and {{max}} MW: {{n}} locomotives at 25 to 110 MW each, depending on load and slope.",
+    "nothingYet": "Nothing reaches the loading platforms yet.",
+    "noLoads": "No car has both a loading and an unloading platform along the route.",
+    "stationName": "Station name",
+    "noPlatformsHelp": "No platforms: attach them in a row to one end of the station, one per car.",
+    "platformTitle": "Train platform",
+    "load": "Load",
+    "unload": "Unload",
+    "platformOf": "Platform {{n}} of {{station}}: serves car {{n}}.",
+    "platformLoose": "It is not attached to any station: place it in a row next to a station or another platform.",
+    "tooltip": "{{m}} m loop in {{s}} s · {{trains}} trains",
+    "missingTrack": "Track is missing between some stops."
   }
 }

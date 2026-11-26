@@ -1,7 +1,8 @@
 import { buildingsById, game, recipesById, type Building } from '../data/gameData'
 import { portsOf } from './geometry'
 import { routeThroughput, type Route } from './transport'
-import type { Conveyor, PlacedEntity, Purity } from './store'
+import type { Conveyor, PlacedEntity, Purity, Rail } from './store'
+import { flowRoutes } from './trains'
 
 /**
  * Motor de flujos.
@@ -118,10 +119,17 @@ const demOf = (m: Rates | undefined, item: string) => m?.get(item) ?? m?.get('*'
 let lastArgs: unknown[] | null = null
 let lastResult: FlowResult | null = null
 
-export function computeFlows(entities: PlacedEntity[], baseConveyors: Conveyor[], routes: Route[] = [], floorHeight = 8): FlowResult {
-  const args = [entities, baseConveyors, routes, floorHeight]
+export function computeFlows(
+  entities: PlacedEntity[],
+  baseConveyors: Conveyor[],
+  routes: Route[] = [],
+  floorHeight = 8,
+  rails: Rail[] = [],
+): FlowResult {
+  const args = [entities, baseConveyors, routes, floorHeight, rails]
   if (lastArgs && lastResult && args.every((a, i) => a === lastArgs![i])) return lastResult
-  lastResult = computeFlowsUncached(entities, baseConveyors, routes, floorHeight)
+  // los trenes con horario se reparten en una arista por vagón (con la distancia por las vías)
+  lastResult = computeFlowsUncached(entities, baseConveyors, flowRoutes(routes, entities, rails), floorHeight)
   lastArgs = args
   return lastResult
 }

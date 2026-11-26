@@ -39,6 +39,10 @@ export interface PlacedEntity {
   worldLink?: boolean
   /** postes de cinta: altura de la cinta sobre el piso (m) */
   height?: number
+  /** estaciones de tren: nombre que le puso el jugador */
+  name?: string
+  /** plataformas de carga de tren: cargan o descargan los vagones */
+  platformMode?: 'load' | 'unload'
 }
 
 /** Extremo de una cinta/tubería: un puerto de un edificio o un poste/soporte (port = -1). */
@@ -165,7 +169,7 @@ interface EditorState extends PlanDoc {
   startConveyor: (buildingId: string) => void
   cancelTool: () => void
   rotatePlacing: (dir?: 1 | -1) => void
-  place: (anchor: Vec) => boolean
+  place: (anchor: Vec, extra?: Partial<PlacedEntity>) => boolean
   /** coloca la pieza elegida en varias posiciones de una vez (relleno de área); devuelve cuántas entraron */
   placeMany: (anchors: Vec[]) => number
   canPlace: (buildingId: string, anchor: Vec, rot: Rotation, ignore?: string[]) => boolean
@@ -284,7 +288,14 @@ export const useEditor = create<EditorState>((set, get) => {
       entities: entities.filter((e) => !gone.has(e.uid)),
       wires: (get().wires ?? []).filter((w) => !gone.has(w.uid) && !gone.has(w.from) && !gone.has(w.to)),
       rails: (get().rails ?? []).filter((r) => !gone.has(r.uid)),
-      routes: (get().routes ?? []).filter((r) => !gone.has(r.uid) && !gone.has(r.from) && !gone.has(r.to)),
+      // trenes con horario: se quitan las paradas borradas (con menos de dos, el tren deja de existir)
+      routes: (get().routes ?? [])
+        .map((r) => {
+          if (!r.stops) return r
+          const stops = r.stops.filter((u) => !gone.has(u))
+          return stops.length === r.stops.length ? r : { ...r, stops, from: stops[0] ?? r.from, to: stops[1] ?? r.to }
+        })
+        .filter((r) => !gone.has(r.uid) && (r.stops ? r.stops.length >= 2 : !gone.has(r.from) && !gone.has(r.to))),
       conveyors: conveyors.filter((c) => !gone.has(c.uid) && !gone.has(c.from.uid) && !gone.has(c.to.uid)),
     }
   }
@@ -394,7 +405,7 @@ export const useEditor = create<EditorState>((set, get) => {
       })
     },
 
-    place: (anchor) => {
+    place: (anchor, extra) => {
       const { placingId, placingRot, placingAngle, floor, entities, canPlace } = get()
       if (!placingId || !canPlace(placingId, anchor, placingRot)) return false
       const pole = isPole(placingId)
@@ -411,6 +422,7 @@ export const useEditor = create<EditorState>((set, get) => {
             floor,
             ...(pole ? { angle: placingAngle } : {}),
             ...vertical,
+            ...extra,
           },
         ],
       })
@@ -588,7 +600,14 @@ export const useEditor = create<EditorState>((set, get) => {
     addRail: (points) => commit({ rails: [...(get().rails ?? []), { uid: newUid(), floor: get().floor, points }] }),
     addRoute: (kind, from, to, waypoints) => {
       const uid = newUid()
-      commit({ routes: [...(get().routes ?? []), { uid, kind, from, to, count: 1, ...(waypoints?.length ? { waypoints } : {}) }] })
+      // entre dos estaciones de tren se arma un tren con horario (se le pueden agregar más paradas)
+      const ents = get().entities
+      const isStation = (u: string) => ents.find((e) => e.uid === u)?.buildingId === 'Build_TrainStation_C'
+      const timetable = kind === 'train' && isStation(from) && isStation(to)
+      const route: Route = timetable
+        ? { uid, kind, from, to, count: 1, stops: [from, to], trains: 1, locos: 1 }
+        : { uid, kind, from, to, count: 1, ...(waypoints?.length ? { waypoints } : {}) }
+      commit({ routes: [...(get().routes ?? []), route] })
       set({ selection: [uid], tool: 'select' })
     },
     updateRoute: (uid, patch) => commit({ routes: (get().routes ?? []).map((r) => (r.uid === uid ? { ...r, ...patch } : r)) }),

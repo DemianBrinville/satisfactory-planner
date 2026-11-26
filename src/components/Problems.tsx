@@ -6,6 +6,7 @@ import i18n from '../i18n'
 import { locale } from '../i18n/format'
 import { NONE, useEditor } from '../editor/store'
 import { problemsOf, type Problem } from '../editor/validation'
+import { stationName } from '../editor/trains'
 
 const fmt = (n: number) => n.toLocaleString(locale(), { maximumFractionDigits: 1 })
 const nameOf = (id?: string) => (id ? buildingsById.get(id)?.name ?? id : '')
@@ -16,12 +17,19 @@ export function useProblems(): Problem[] {
   const conveyors = useEditor((s) => s.conveyors)
   const wires = useEditor((s) => s.wires) ?? NONE
   const floorHeight = useEditor((s) => s.floorHeight) ?? 8
-  return problemsOf(entities, conveyors, wires, floorHeight)
+  const rails = useEditor((s) => s.rails) ?? NONE
+  const routes = useEditor((s) => s.routes) ?? NONE
+  return problemsOf(entities, conveyors, wires, floorHeight, rails, routes)
 }
 
 /** Texto de un problema, con lo que conviene hacer para resolverlo. */
 export function problemText(p: Problem): string {
-  return i18n.t(`problems.${p.kind}`, { a: nameOf(p.a), b: nameOf(p.b), n: p.n !== undefined ? fmt(p.n) : '', max: p.max ?? '' })
+  const ents = useEditor.getState().entities
+  const st = (uid?: string) => {
+    const e = uid ? ents.find((x) => x.uid === uid) : undefined
+    return e ? stationName(e, ents, (n) => i18n.t('train.stationN', { n })) : ''
+  }
+  return i18n.t(`problems.${p.kind}`, { a: p.sa ? st(p.sa) : nameOf(p.a), b: p.sb ? st(p.sb) : nameOf(p.b), n: p.n !== undefined ? fmt(p.n) : '', max: p.max ?? '' })
 }
 
 /** Lleva la vista al problema: cambia de piso, lo selecciona y lo centra en pantalla. */
