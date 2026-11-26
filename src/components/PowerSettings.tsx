@@ -30,7 +30,7 @@ export default function PowerSettingsButton() {
       <button className="tb-btn" onClick={() => setOpen(!open)} title={t('power.title')}>
         <Zap size={16} />
         <span>
-          {fmt(power.planUse)} MW{settings.infinite && t('power.infiniteSuffix')}
+          {fmt(power.planUse)} MW{settings.infinite && <span className="tb-extra">{t('power.infiniteSuffix')}</span>}
         </span>
       </button>
       {open && (

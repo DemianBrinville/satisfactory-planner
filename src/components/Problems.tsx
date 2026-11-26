@@ -68,7 +68,9 @@ export default function ProblemsButton() {
     <div className="power-settings problems" ref={ref}>
       <button className={'tb-btn' + (n ? ' has-problems' : '')} onClick={() => setOpen(!open)} title={t('problems.title')}>
         <TriangleAlert size={16} />
-        <span>{n ? t('problems.count', { count: n }) : t('problems.none')}</span>
+        {/* en pantallas angostas queda solo el número */}
+        <span className="tb-extra">{n ? t('problems.count', { count: n }) : t('problems.none')}</span>
+        {n > 0 && <span className="tb-short">{n}</span>}
       </button>
       {open && (
         <div className="popover problems-pop">

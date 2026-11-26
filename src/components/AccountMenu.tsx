@@ -23,11 +23,11 @@ export default function AccountMenu() {
   if (!c.user)
     return (
       <div className="tb-group">
-        <button className="tb-btn" onClick={() => c.openAuth('login')}>
+        <button className="tb-btn tb-collapse" onClick={() => c.openAuth('login')} title={t('account.signIn')}>
           <LogIn size={16} />
           <span>{t('account.signIn')}</span>
         </button>
-        <button className="tb-btn primary" onClick={() => c.openAuth('signup')}>
+        <button className="tb-btn primary tb-collapse" onClick={() => c.openAuth('signup')} title={t('account.signUp')}>
           <UserPlus size={16} />
           <span>{t('account.signUp')}</span>
         </button>
