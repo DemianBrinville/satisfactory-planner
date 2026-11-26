@@ -50,6 +50,8 @@ export interface PlacedEntity {
   switchOn?: boolean
   /** interruptor de prioridad: grupo de corte del 1 (último en cortarse) al 8; sin grupo, se corta primero */
   circuitPriority?: number
+  /** válvula: caudal máximo que deja pasar (m³/min); sin valor, no limita */
+  flowLimit?: number
 }
 
 /** Extremo de una cinta/tubería: un puerto de un edificio o un poste/soporte (port = -1). */

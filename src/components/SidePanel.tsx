@@ -143,6 +143,7 @@ export default function SidePanel() {
       {single && singleB && isAugmenter(singleB.id) && <AugmenterPanel e={single} flows={flows} power={power} />}
       {single && singleB && isBattery(singleB.id) && <BatteryPanel e={single} power={power} />}
       {single && singleB && isPowerSwitch(singleB.id) && <SwitchPanel e={single} power={power} />}
+      {single && singleB && singleB.kind === 'valve' && <ValvePanel e={single} flows={flows} />}
       {single && singleB && configurable && (
         <MachinePanel e={single} b={singleB} node={flows.nodes.get(single.uid)} />
       )}
@@ -389,6 +390,43 @@ export function fmtHours(h: number): string {
   if (m < 60) return i18n.t('battery.minutes', { m })
   const hh = Math.floor(m / 60)
   return m % 60 ? i18n.t('battery.hoursMinutes', { h: hh, m: m % 60 }) : i18n.t('battery.hours', { h: hh })
+}
+
+/** Válvula: caudal máximo que deja pasar y lo que pasa en este momento. */
+function ValvePanel({ e, flows }: { e: PlacedEntity; flows: ReturnType<typeof computeFlows> }) {
+  const { t } = useTranslation()
+  const update = useEditor((s) => s.updateEntity)
+  const conveyors = useEditor((s) => s.conveyors)
+  const out = conveyors.filter((c) => c.from.uid === e.uid)
+  const passing = out.reduce((a, c) => a + [...(flows.edges.get(c.uid)?.flow.values() ?? [])].reduce((x, y) => x + y, 0), 0)
+  const limited = e.flowLimit !== undefined
+  return (
+    <section className="machine">
+      <h2>{buildingsById.get(e.buildingId)?.name}</h2>
+      <p className="muted small">{t('valve.help')}</p>
+      <label className="switch">
+        <input type="checkbox" checked={limited} onChange={(ev) => update(e.uid, { flowLimit: ev.target.checked ? 300 : undefined })} />
+        {t('valve.limit')}
+      </label>
+      {limited && (
+        <div className="flowline">
+          <input type="range" min={0} max={600} step={5} value={e.flowLimit} onChange={(ev) => update(e.uid, { flowLimit: Number(ev.target.value) })} />
+          <span>
+            <input
+              className="small-input"
+              type="number"
+              min={0}
+              max={600}
+              value={e.flowLimit}
+              onChange={(ev) => update(e.uid, { flowLimit: Math.max(0, Math.min(600, Number(ev.target.value) || 0)) })}
+            />{' '}
+            m³/min
+          </span>
+        </div>
+      )}
+      {out.length > 0 && <p className="muted small">{t('valve.passing', { n: fmt(passing) })}</p>}
+    </section>
+  )
 }
 
 /** Interruptor de energía: encendido o apagado y, si es de prioridad, su grupo de corte. */

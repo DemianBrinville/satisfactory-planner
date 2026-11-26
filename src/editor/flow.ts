@@ -508,6 +508,11 @@ function computeFlowsRaw(
         const total = sumRates(inOffer)
         if (total > b.itemsPerMinute) for (const [i, v] of inOffer) inOffer.set(i, (v * b.itemsPerMinute) / total)
       }
+      // válvula: deja pasar hasta el caudal elegido (sin límite, lo que dé la tubería)
+      if (b.kind === 'valve' && e.flowLimit !== undefined) {
+        const total = sumRates(inOffer)
+        if (total > e.flowLimit) for (const [i, v] of inOffer) inOffer.set(i, total > 0 ? (v * e.flowLimit) / total : 0)
+      }
       for (const [item, amount] of inOffer) {
         const r = waterFill(amount, outs, item, demand)
         for (const c of outs) nOffer.get(c.uid)!.set(item, r.get(c.uid)!)

@@ -726,5 +726,10 @@
     "groupN": "Group {{n}}",
     "groupHelp": "When power runs short, undefined switches cut first, then groups 8 to 1. Put in group 1 whatever cannot stop, like what makes fuel for the generators.",
     "gameNote": "In the game switches are placed off; here they start on so the grid stays joined while you plan."
+  },
+  "valve": {
+    "help": "Limits the pipe flow rate. It has an input and an output: fluid goes from the input to the output.",
+    "limit": "Limit the flow rate",
+    "passing": "{{n}} m³/min flow through."
   }
 }

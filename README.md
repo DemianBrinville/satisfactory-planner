@@ -82,6 +82,7 @@ Ideas propuestas, pendientes de decidir: calculadora que elige las recetas ópti
 - **Amplificador de energía alienígena:** genera 500 MW y aumenta un 10 % la generación base de su red (los otros generadores, él mismo y la red del mundo si está enganchada); con 5 matrices de energía alienígena por minuto, 30 %. Los aumentos se suman entre amplificadores (fórmula de la wiki, datos del juego). Las matrices llegan por cinta (se cuenta lo que llega) o se marca a mano que las recibe.
 - **Acumulador de energía (batería):** guarda 100 MWh, se carga con lo que sobra en su red hasta 100 MW cada uno y entrega sin límite (datos del juego). Su panel dice cuánto guarda la red, en cuánto se llena o cuánto aguanta si falta generación. La línea de cada red avisa cuando, en el pico de las máquinas de potencia variable, el consumo supera la generación: sin baterías la red se corta; con baterías, lo cubren.
 - **Interruptores de energía:** se encienden y se apagan; apagados, las redes de sus dos lados quedan separadas y cada una se calcula con su propia generación. Los de prioridad tienen grupo de corte (sin grupo, 1 a 8): si una red no alcanza, se cortan solos los sin grupo y después del 8 al 1, hasta que alcance (como en el juego). En el plano llevan una luz: verde encendido, amarilla apagado, roja cortado solo.
+- **Válvula:** limita el caudal que pasa de su entrada a su salida (0 a 600 m³/min, o sin límite); el cálculo de flujos lo respeta y el panel muestra lo que pasa.
 
 ## Pendientes
 

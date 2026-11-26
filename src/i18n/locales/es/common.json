@@ -726,5 +726,10 @@
     "groupN": "Grupo {{n}}",
     "groupHelp": "Cuando falta energía se cortan primero los que no tienen grupo y después del grupo 8 al 1. Pon en el grupo 1 lo que no puede pararse, como lo que fabrica el combustible de los generadores.",
     "gameNote": "En el juego los interruptores se colocan apagados; acá empiezan encendidos para que la red quede unida mientras planeas."
+  },
+  "valve": {
+    "help": "Limita el caudal de la tubería. Tiene sentido de entrada y salida: el fluido pasa de la entrada a la salida.",
+    "limit": "Limitar el caudal",
+    "passing": "Pasan {{n}} m³/min."
   }
 }
