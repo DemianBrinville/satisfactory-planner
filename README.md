@@ -49,11 +49,23 @@ Los iconos de ítems y edificios son propiedad de Coffee Stain Studios y se toma
 - El esquema está en `supabase/migrations/`: tablas `plans` y `user_progress`, con RLS para que cada usuario vea solo lo suyo.
 - El login es por enlace mágico (email). La URL del proyecto y la clave publicable son públicas por diseño y están como valores por defecto en `src/cloud/supabase.ts`. Se pueden sobreescribir con las variables `VITE_SUPABASE_*` (ver `.env.example`).
 
+## Plan de implementación (acordado el 26-nov-2026)
+
+1. ~~**Iconos:** todos los de la wiki (incluidas las variantes de arquitectura), vista ampliada al pasar el mouse e iconos dentro del plano (el producto sobre cada máquina).~~ Hecho.
+2. **Hipertubos completos:** trazado como tuberías (entrada, tramos, soportes, uniones en cruz y T, pases por cimientos y paredes), costo por metro y largo máximo.
+3. **Rutas de vehículos con camino real:** dibujar el recorrido con puntos de paso, distancia y tiempo desde el dibujo, caminos de vehículo visibles en el plano y combustible por viaje.
+4. **Calculadora lista para construir:** energía (postes y cables), subproductos al AWESOME Sink o a un depósito y menos cruces de líneas.
+5. **Validación del plano:** choques de cintas con máquinas, pendiente máxima de 35° y panel de problemas con clic para ir al lugar.
+6. **Trenes:** señales, horarios y estaciones de varios andenes.
+7. **Planos reutilizables:** bloques guardados para pegar en cualquier plano.
+8. **Mapa real como fondo:** elegir una sección del mapa, orientarla con cualquier ángulo antes de aplicar la cuadrícula, y ver los yacimientos reales (ubicación y pureza) para ubicar cada taladro en su nodo.
+
+Ideas propuestas, pendientes de decidir: calculadora que elige las recetas óptimas, energía automática en el armado, panel de problemas, anotaciones y regla, exportar imagen, exportar a Blueprint del juego (`.sbp`) e importar la partida (`.sav`).
+
 ## Pendientes
 
 - **i18n:** toda la interfaz está en claves con español e inglés (~445 claves). Falta revisar el inglés con jugadores nativos y sumar más idiomas (los nombres del juego ya existen en los `Docs/*.json` de cada idioma).
 
-- Iconos propios dentro del plano (sobre cada máquina, el producto de su receta).
 - Calculadora: ubicar cada taladro sobre su yacimiento real (requiere el mapa de yacimientos) y evitar cruces de líneas.
 - Mapa de yacimientos reales (ubicación y pureza de los nodos).
 - Detección de choques de cintas con máquinas y pendiente máxima de 35°.

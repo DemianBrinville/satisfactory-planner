@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import AuthModal, { RecoveryModal } from './components/AuthModal'
 import CalculatorModal from './components/CalculatorModal'
 import CommunityModal from './components/CommunityModal'
+import IconZoom from './components/IconZoom'
 import Palette from './components/Palette'
 import PlannerCanvas from './components/PlannerCanvas'
 import ProgressModal from './components/ProgressModal'
@@ -108,6 +109,7 @@ function App() {
       {calcOpen && <CalculatorModal onClose={() => setCalcOpen(false)} />}
       <AuthModal />
       <RecoveryModal />
+      <IconZoom />
     </div>
   )
 }

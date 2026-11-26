@@ -13,6 +13,7 @@ import iconManifest from '../data/icon-manifest.json'
 const OFFICIAL = new Set<string>(iconManifest as string[])
 export const hasOfficialIcon = (id: string) => OFFICIAL.has(id)
 const officialSrc = (id: string) => `${import.meta.env.BASE_URL}icons/${id}.png`
+export const officialIconSrc = officialSrc
 
 // ---------------------------------------------------------------- colores de material
 const MATERIAL: [RegExp, string][] = [
@@ -368,7 +369,19 @@ function itemShape(shape: Shape, c: string, inner?: string): ReactNode {
 /** Icono de un ítem del juego (id tal como viene en los datos, p. ej. Desc_IronPlate_C). */
 export function ItemIcon({ item, size = 18, title }: { item: string; size?: number; title?: string }) {
   if (OFFICIAL.has(item))
-    return <img className="game-icon official" src={officialSrc(item)} width={size} height={size} alt={title ?? ''} title={title} loading="lazy" draggable={false} />
+    return (
+      <img
+        className="game-icon official"
+        src={officialSrc(item)}
+        width={size}
+        height={size}
+        alt={title ?? ''}
+        loading="lazy"
+        draggable={false}
+        data-zoom={officialSrc(item)}
+        data-zoom-label={title ?? game.items[item]?.name ?? ''}
+      />
+    )
   const key = item.replace(/^Desc_|^BP_|_C$/g, '')
   const form = game.items[item]?.form
   const shape = shapeOf(key, form)
@@ -479,7 +492,16 @@ export function BuildingIcon({ id, size = 22 }: { id: string; size?: number }) {
   if (OFFICIAL.has(id))
     return (
       <span className="building-icon official" style={{ width: size, height: size }} aria-hidden>
-        <img src={officialSrc(id)} width={size} height={size} alt="" loading="lazy" draggable={false} />
+        <img
+          src={officialSrc(id)}
+          width={size}
+          height={size}
+          alt=""
+          loading="lazy"
+          draggable={false}
+          data-zoom={officialSrc(id)}
+          data-zoom-label={buildingsById.get(id)?.name ?? ''}
+        />
       </span>
     )
   const b = buildingsById.get(id)

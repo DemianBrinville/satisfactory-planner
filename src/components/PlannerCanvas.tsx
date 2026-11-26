@@ -2,9 +2,10 @@ import { fmtPct } from '../i18n/format'
 import i18n from '../i18n'
 import { locale } from '../i18n/format'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { Circle, Group, Layer, Line, Rect, Shape, Stage, Text } from 'react-konva'
+import { Circle, Group, Image as KImage, Layer, Line, Rect, Shape, Stage, Text } from 'react-konva'
 import type Konva from 'konva'
-import { buildingsById, itemName, type Building } from '../data/gameData'
+import { buildingsById, itemName, recipesById, type Building } from '../data/gameData'
+import { hasOfficialIcon, officialIconSrc } from './GameIcons'
 import { MAX_SEGMENT, conveyorCost, endInfo, pathLength, route, usedPorts, type EndInfo } from '../editor/conveyors'
 import { computeFlows, type EdgeFlow, type FlowResult } from '../editor/flow'
 import {
@@ -1311,10 +1312,12 @@ const EntityShape = memo(function EntityShape({
           fontStyle="bold"
         />
       )}
+      {/* icono de lo que produce: producto de la receta o recurso del taladro/extractor */}
+      {!ghost && !faded && scale >= 2 && <ProductIcon e={e} r={r} w={w} h={h} labeled={showLabels && w * scale > 40} />}
       {showLabels && !isFoundation && w * scale > 40 && (
         <Text
           x={r.x0}
-          y={r.y0 + h / 2 - Math.min(1.1, w / 7) / 2}
+          y={r.y0 + h / 2 - Math.min(1.1, w / 7) / 2 + (productOf(e) ? Math.min(w, h) * 0.22 : 0)}
           width={w}
           align="center"
           text={b.name}
@@ -1621,4 +1624,39 @@ function areaAnchors(area: { a: Vec; b: Vec }, buildingId: string | null, rot: R
   const out: Vec[] = []
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) out.push({ x: area.a.x + dx * i, y: area.a.y + dy * j })
   return out
+}
+
+/** Lo que produce una entidad: el producto principal de su receta o el recurso que extrae. */
+function productOf(e: PlacedEntity): string | null {
+  const item = e.recipeId ? recipesById.get(e.recipeId)?.products[0]?.item : e.resource
+  return item && hasOfficialIcon(item) ? item : null
+}
+
+/** Imágenes ya cargadas para el lienzo (se comparten entre todas las máquinas). */
+const iconImages = new Map<string, HTMLImageElement>()
+function useIconImage(src: string | null) {
+  const [img, setImg] = useState<HTMLImageElement | null>(() => (src ? iconImages.get(src) ?? null : null))
+  useEffect(() => {
+    if (!src) return setImg(null)
+    const cached = iconImages.get(src)
+    if (cached?.complete) return setImg(cached)
+    const el = cached ?? new window.Image()
+    iconImages.set(src, el)
+    const done = () => setImg(el)
+    el.addEventListener('load', done)
+    if (!cached) el.src = src
+    return () => el.removeEventListener('load', done)
+  }, [src])
+  return img
+}
+
+/** Icono del producto en el centro de la máquina (arriba del nombre cuando se muestra). */
+function ProductIcon({ e, r, w, h, labeled }: { e: PlacedEntity; r: { x0: number; y0: number }; w: number; h: number; labeled: boolean }) {
+  const item = productOf(e)
+  const img = useIconImage(item ? officialIconSrc(item) : null)
+  if (!item || !img) return null
+  const size = Math.min(w, h) * (labeled ? 0.42 : 0.6)
+  const cx = r.x0 + w / 2
+  const cy = r.y0 + h / 2 - (labeled ? size * 0.35 : 0)
+  return <KImage image={img} x={cx - size / 2} y={cy - size / 2} width={size} height={size} listening={false} />
 }
