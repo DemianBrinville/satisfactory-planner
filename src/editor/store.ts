@@ -181,7 +181,7 @@ interface EditorState extends PlanDoc {
   redo: () => void
   load: (doc: PlanDoc) => void
   /** agrega un bloque completo (máquinas, cintas, tuberías) en un solo paso de deshacer */
-  addDoc: (doc: { entities: PlacedEntity[]; conveyors: Conveyor[] }) => void
+  addDoc: (doc: { entities: PlacedEntity[]; conveyors: Conveyor[]; wires?: Wire[] }) => void
   /** agrega un grupo de máquinas ya configuradas (calculadora) y las deja seleccionadas */
   addLayout: (items: { buildingId: string; recipeId: string; clock: number; floor: number; rect: { x0: number; y0: number } }[]) => void
   startWire: () => void
@@ -551,7 +551,11 @@ export const useEditor = create<EditorState>((set, get) => {
     load: (doc) =>
       set({ entities: doc.entities ?? [], conveyors: doc.conveyors ?? [], wires: doc.wires ?? [], rails: doc.rails ?? [], routes: doc.routes ?? [], power: { ...DEFAULT_POWER, ...doc.power }, floorHeight: doc.floorHeight ?? DEFAULT_FLOOR_HEIGHT, past: [], future: [], selection: [] }),
     addDoc: (doc) => {
-      commit({ entities: [...get().entities, ...doc.entities], conveyors: [...get().conveyors, ...doc.conveyors] })
+      commit({
+        entities: [...get().entities, ...doc.entities],
+        conveyors: [...get().conveyors, ...doc.conveyors],
+        ...(doc.wires?.length ? { wires: [...(get().wires ?? []), ...doc.wires] } : {}),
+      })
       set({ selection: [...doc.entities.map((e) => e.uid), ...doc.conveyors.map((c) => c.uid)] })
     },
     addLayout: (items) => {

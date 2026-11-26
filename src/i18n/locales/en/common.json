@@ -365,7 +365,12 @@
     "minersWater": "Water Extractors",
     "minersOil": "Oil Extractors (normal)",
     "minersWell": "Resource Well Extractors (normal)",
-    "minersOre": "Miners Mk.1 on a normal node"
+    "minersOre": "Miners Mk.1 on a normal node",
+    "byproductsMode": "By-products",
+    "byproductsSink": "AWESOME Sink",
+    "byproductsStorage": "Storage",
+    "byproductsLoose": "Loose",
+    "powerPoles": "Power poles and wires"
   },
   "build": {
     "beltShort": "{{item}}: {{rate}}/min exceeds the fastest belt available; consider splitting it into two lines.",
@@ -374,7 +379,16 @@
     "byproduct": "Byproduct: {{item}} ({{rate}}/min) exits to the right; store it, use it or send it to the AWESOME Sink so the machine does not stop.",
     "looseBelt": "{{item}}: comes in through a loose pole at the bottom; connect whatever brings it there.",
     "loosePipe": "{{item}}: comes in through a loose support at the bottom; connect whatever brings it there.",
-    "skippedFluids": "{{n}} fluid output(s) with no port to connect."
+    "skippedFluids": "{{n}} fluid output(s) with no port to connect.",
+    "crossings_one": "1 line crossing remains: in the game you get past it by lifting one line over the other or using another floor.",
+    "crossings_other": "{{count}} line crossings remain: in the game you get past them by lifting one line over the other or using another floor.",
+    "byproductSink": "By-product: {{item}} ({{rate}}/min) goes to the AWESOME Sink, which turns it into coupon points.",
+    "byproductStorage": "By-product: {{item}} ({{rate}}/min) goes to a {{place}}, which fills up in {{time}}; then the machine stops.",
+    "byproductFluidTank": "By-product: {{item}} ({{rate}}/min) is a fluid and cannot go into the AWESOME Sink: it goes to a {{place}}, which fills up in {{time}}. To get rid of it, package it and send the packages to the Sink.",
+    "minutes": "{{n}} min",
+    "hours": "{{n}} h",
+    "power": "Power: {{poles}} poles ({{pole}}) and {{wires}} wires. The first pole is connected to the world grid.",
+    "powerFar": "Some power line is longer than 100 m: check the wires marked in red."
   },
   "progress": {
     "title": "My progress",

@@ -5,7 +5,8 @@ import { pathLength } from './conveyors'
 import { MINER_RESOURCES } from './flow'
 import { portsOf, toWorld, worldRect, type Rotation, type Vec } from './geometry'
 import { isBuildingIdAvailable } from './progress'
-import { BELT_POLE, PIPE_SUPPORT, newUid, type Conveyor, type End, type PlacedEntity } from './store'
+import { connectionsOf, wirePoint, WIRE_MAX } from './power'
+import { BELT_POLE, PIPE_SUPPORT, newUid, type Conveyor, type End, type PlacedEntity, type Wire } from './store'
 
 /**
  * Arma la fábrica que propone la calculadora como se construye en el juego, con "manifolds":
@@ -75,7 +76,127 @@ function markFor(kind: Kind, rate: number): { id: string; enough: boolean } {
 export interface ChainBuild {
   entities: PlacedEntity[]
   conveyors: Conveyor[]
+  wires: Wire[]
   notes: string[]
+  /** cruces de líneas en el mismo piso que quedaron (en el juego se salvan con una elevadora o por otro piso) */
+  crossings: number
+}
+
+/** Qué hacer con los subproductos que nadie usa: AWESOME Sink, depósito o dejarlos sueltos. */
+export type ByproductMode = 'sink' | 'storage' | 'loose'
+export interface BuildOptions {
+  byproducts?: ByproductMode
+  /** colocar postes y cables de energía */
+  power?: boolean
+}
+
+interface BusRequest {
+  side: 'right' | 'left'
+  lo: number
+  hi: number
+}
+
+const SINK = 'Build_ResourceSink_C'
+const CONTAINERS = ['Build_StorageContainerMk2_C', 'Build_StorageContainerMk1_C']
+const TANKS = ['Build_IndustrialTank_C', 'Build_PipeStorageTank_C']
+const POLES = ['Build_PowerPoleMk3_C', 'Build_PowerPoleMk2_C', 'Build_PowerPoleMk1_C']
+/** Capacidad de los tanques (m³, wiki). */
+const TANK_M3: Record<string, number> = { Build_IndustrialTank_C: 2400, Build_PipeStorageTank_C: 400 }
+const STACK: Record<string, number> = { ONE: 1, SMALL: 50, MEDIUM: 100, BIG: 200, HUGE: 500 }
+
+/** El mejor edificio desbloqueado de una lista (o el primero que exista si no hay progreso cargado). */
+function bestOf(list: string[]): string {
+  const ok = list.filter((id) => buildingsById.has(id))
+  return ok.find((id) => isBuildingIdAvailable(id)) ?? ok[ok.length - 1]
+}
+
+/**
+ * Cruces entre tramos distintos: segmentos que se cortan en un punto interior de los dos
+ * (los que solo se tocan en un extremo, como en uniones y divisores, no cuentan).
+ */
+export function countCrossings(conveyors: Conveyor[]): number {
+  // cuadrícula de 16 m: solo se comparan los tramos que comparten celda, y cada cruce se cuenta en la
+  // celda donde cae el punto de cruce (así no se cuenta dos veces)
+  const CELL = 16
+  const segs: { a: Vec; b: Vec; c: number }[] = []
+  const grid = new Map<string, number[]>()
+  conveyors.forEach((cv, c) => {
+    for (let i = 1; i < cv.points.length; i++) {
+      const a = cv.points[i - 1]
+      const b = cv.points[i]
+      if (Math.hypot(b.x - a.x, b.y - a.y) < 1e-6) continue
+      const k = segs.push({ a, b, c }) - 1
+      for (let gx = Math.floor(Math.min(a.x, b.x) / CELL); gx <= Math.floor(Math.max(a.x, b.x) / CELL); gx++)
+        for (let gy = Math.floor(Math.min(a.y, b.y) / CELL); gy <= Math.floor(Math.max(a.y, b.y) / CELL); gy++) {
+          const key = `${gx},${gy}`
+          const list = grid.get(key)
+          if (list) list.push(k)
+          else grid.set(key, [k])
+        }
+    }
+  })
+  const cross = (o: Vec, p: Vec, q: Vec) => (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x)
+  const E = 1e-6
+  let n = 0
+  for (const [key, list] of grid) {
+    const [gx, gy] = key.split(',').map(Number)
+    for (let i = 0; i < list.length; i++)
+      for (let j = i + 1; j < list.length; j++) {
+        const s1 = segs[list[i]]
+        const s2 = segs[list[j]]
+        if (s1.c === s2.c) continue
+        const d1 = cross(s2.a, s2.b, s1.a)
+        const d2 = cross(s2.a, s2.b, s1.b)
+        if (!((d1 > E && d2 < -E) || (d1 < -E && d2 > E))) continue
+        const d3 = cross(s1.a, s1.b, s2.a)
+        const d4 = cross(s1.a, s1.b, s2.b)
+        if (!((d3 > E && d4 < -E) || (d3 < -E && d4 > E))) continue
+        const t = d3 / (d3 - d4)
+        const px = s2.a.x + (s2.b.x - s2.a.x) * t
+        const py = s2.a.y + (s2.b.y - s2.a.y) * t
+        if (Math.floor(px / CELL) === gx && Math.floor(py / CELL) === gy) n++
+      }
+  }
+  return n
+}
+
+/**
+ * Orden de las troncales: las de recorrido más corto, más cerca del bloque. Así una troncal larga
+ * no queda "adentro" de una corta y sus tramos horizontales no la cruzan.
+ */
+function planLanes(requests: BusRequest[]): number[] {
+  const plan: number[] = []
+  for (const side of ['right', 'left'] as const) {
+    const idx = requests.map((r, i) => ({ r, i })).filter((x) => x.r.side === side)
+    idx.sort((a, b) => a.r.hi - a.r.lo - (b.r.hi - b.r.lo) || a.r.lo - b.r.lo)
+    const lanes: [number, number][][] = []
+    for (const { r, i } of idx) {
+      let k = 0
+      while (lanes[k]?.some(([a, b]) => a < r.hi && r.lo < b)) k++
+      ;(lanes[k] ??= []).push([r.lo, r.hi])
+      plan[i] = k
+    }
+  }
+  return plan
+}
+
+/**
+ * Arma el bloque dos veces: en el orden natural y con las troncales ordenadas para cruzarse menos,
+ * y se queda con el que tiene menos cruces.
+ */
+export function buildChain(
+  steps: Step[],
+  raw: Map<string, number>,
+  floor: number,
+  origin: Vec,
+  split: 'even' | 'full',
+  opts: BuildOptions = {},
+): ChainBuild {
+  const first = buildOnce(steps, raw, floor, origin, split, opts, null)
+  const second = buildOnce(steps, raw, floor, origin, split, opts, planLanes(first.requests))
+  const best = second.crossings <= first.crossings ? second : first
+  if (best.crossings > 0) best.notes.push(i18n.t('build.crossings', { count: best.crossings }))
+  return { entities: best.entities, conveyors: best.conveyors, wires: best.wires, notes: best.notes, crossings: best.crossings }
 }
 
 interface Machine {
@@ -83,16 +204,23 @@ interface Machine {
   step: Step
 }
 
-export function buildChain(
+function buildOnce(
   steps: Step[],
   raw: Map<string, number>,
   floor: number,
   origin: Vec,
   split: 'even' | 'full',
-): ChainBuild {
+  opts: BuildOptions,
+  plan: number[] | null,
+): ChainBuild & { requests: BusRequest[] } {
+  const byMode: ByproductMode = opts.byproducts ?? 'sink'
   const entities: PlacedEntity[] = []
   const conveyors: Conveyor[] = []
+  const wires: Wire[] = []
   const notes: string[] = []
+  const requests: BusRequest[] = []
+  /** filas de estructuras con consumo eléctrico, para tender los postes */
+  const powerRows: PlacedEntity[][] = []
   const byUid = new Map<string, PlacedEntity>()
   const add = (e: PlacedEntity) => {
     entities.push(e)
@@ -116,7 +244,14 @@ export function buildChain(
   }
 
   /** carriles encima de cada fila: uno por producto de cada paso (principal y subproductos) */
-  const slotsOf = (row: Step[]) => row.flatMap((st) => st.recipe.products.map((p) => ({ step: st, item: p.item })))
+  // (en el orden de sus puertos de salida: primero las cintas y después las tuberías, como en portsOf;
+  // así la salida de más a la izquierda va al carril de más afuera y las bajadas no se cruzan)
+  const slotsOf = (row: Step[]) =>
+    row.flatMap((st) =>
+      [...st.recipe.products]
+        .sort((a, b) => Number(kindOf(a.item) === 'pipe') - Number(kindOf(b.item) === 'pipe'))
+        .map((p) => ({ step: st, item: p.item })),
+    )
   const machinesByStep = new Map<Step, Machine[]>()
   const rowTop: number[] = []
   const rowBottom: number[] = []
@@ -155,6 +290,7 @@ export function buildChain(
       machinesByStep.set(s, list)
       x += 2
     }
+    powerRows.push(row.flatMap((s) => (machinesByStep.get(s) ?? []).map((m) => m.e)))
     rowBottom[r] = bottom
     const K = consumedIn(row).length
     const P = rows[r + 1] ? slotsOf(rows[r + 1]).length : 0
@@ -201,6 +337,7 @@ export function buildChain(
       x += 4
       rawUnits.set(g.item, list)
     })
+    powerRows.push(rawGroups.flatMap((g) => (rawUnits.get(g.item) ?? []).map((u) => u.e)).filter((e) => (buildingsById.get(e.buildingId)?.powerMW ?? 0) > 0))
     if (rawGroups.length)
       notes.push(i18n.t('build.miners'))
   }
@@ -214,18 +351,27 @@ export function buildChain(
     return rowTop[s.depth] - 4 - LANE * (slots.length - 1 - i)
   }
   // carril de cada ingrediente debajo de la fila que lo consume
-  const consumerLaneY = (r: number, item: string) => rowBottom[r] + 4 + LANE * consumedIn(rows[r]).indexOf(item)
+  // (el orden de los carriles se decide más abajo, cuando se sabe por qué costado entra cada línea)
+  const laneOrder = new Map<number, string[]>()
+  const consumerLaneY = (r: number, item: string) => rowBottom[r] + 4 + LANE * (laneOrder.get(r) ?? consumedIn(rows[r])).indexOf(item)
 
   // ---------- troncales a los costados ----------
   // cada carril vertical se reutiliza cuando los tramos no se pisan, así las troncales quedan pegadas al bloque
   const BUS_GAP = 3
   const lanes: Record<'right' | 'left', [number, number][][]> = { right: [], left: [] }
+  const usedLanes = { right: 0, left: 0 }
   const busLane = (side: 'right' | 'left', ya: number, yb: number) => {
     const lo = Math.min(ya, yb) - 2.5
     const hi = Math.max(ya, yb) + 2.5
+    const k = requests.length
+    requests.push({ side, lo, hi })
     let i = 0
-    while (lanes[side][i]?.some(([a, b]) => a < hi && lo < b)) i++
-    ;(lanes[side][i] ??= []).push([lo, hi])
+    if (plan) i = plan[k] ?? 0
+    else {
+      while (lanes[side][i]?.some(([a, b]) => a < hi && lo < b)) i++
+      ;(lanes[side][i] ??= []).push([lo, hi])
+    }
+    usedLanes[side] = Math.max(usedLanes[side], i + 1)
     return side === 'right' ? maxX + 4 + BUS_GAP * i : minX - 4 - BUS_GAP * i
   }
 
@@ -380,6 +526,35 @@ export function buildChain(
     }
   }
 
+  // ---------- orden de los carriles de ingredientes debajo de cada fila ----------
+  // Cada línea entra por una troncal lateral y recorre la fila hasta su primera máquina. La que más recorre
+  // va más afuera: así pasa por debajo de las bajadas de las demás en vez de cruzarlas.
+  const rowsConsuming = (item: string) =>
+    rows
+      .map((row, r) => ({ row, r }))
+      .filter(({ row }) => row.some((s) => s.recipe.ingredients.some((x) => x.item === item)))
+      .sort((a, b) => b.r - a.r)
+      .map(({ r }) => r)
+  rows.forEach((row, r) => {
+    const travel = (item: string) => {
+      const gi = rowsConsuming(item).indexOf(r)
+      const rtl = gi % 2 === 0
+      const xs: number[] = []
+      for (const s of row) {
+        if (!s.recipe.ingredients.some((x) => x.item === item)) continue
+        for (const m of machinesByStep.get(s) ?? []) {
+          const pi = inPortOf(m, item)
+          if (pi !== undefined) xs.push(portPos(m.e, pi).x)
+        }
+      }
+      if (!xs.length) return 0
+      return rtl ? maxX - Math.max(...xs) : Math.min(...xs) - minX
+    }
+    const items = consumedIn(row)
+    const t = new Map(items.map((i) => [i, travel(i)]))
+    laneOrder.set(r, [...items].sort((a, b) => t.get(a)! - t.get(b)!))
+  })
+
   // ---------- flujos: cada ítem va de quien lo produce a cada fila que lo consume ----------
   const flows: { item: string; rate: number; producer: Step | null; byproduct?: boolean }[] = [
     ...steps.map((s) => ({ item: s.item, rate: s.rate, producer: s as Step | null })),
@@ -392,6 +567,8 @@ export function buildChain(
     ...[...raw].map(([item, rate]) => ({ item, rate, producer: null })),
   ]
   let skippedFluids = 0
+  /** subproductos sin consumidor: se llevan al final, cuando ya se sabe hasta dónde llegan las troncales */
+  const loose: { item: string; rate: number; kind: Kind; mark: string; cur: { end: End; pos: Vec; via: Vec[] } }[] = []
   for (const f of flows) {
     const kind = kindOf(f.item)
     const { id: mark, enough } = markFor(kind, f.rate)
@@ -417,6 +594,10 @@ export function buildChain(
     }
 
     if (!consumerRows.length) {
+      if (f.byproduct && cur && byMode !== 'loose') {
+        loose.push({ item: f.item, rate: f.rate, kind, mark, cur })
+        continue
+      }
       if (f.byproduct)
         notes.push(i18n.t('build.byproduct', { item: game.items[f.item]?.name, rate: Math.round(f.rate * 10) / 10 }))
       // producto final o subproducto: un tramo corto hacia la derecha hasta un poste/soporte (ahí sigue tu fábrica)
@@ -446,8 +627,123 @@ export function buildChain(
     })
   }
   if (skippedFluids) notes.push(i18n.t('build.skippedFluids', { n: skippedFluids }))
+
+  // ---------- subproductos: al AWESOME Sink o a un depósito, en una columna a la derecha ----------
+  // Cada uno baja por su propia columna; el de más arriba va por la de más afuera y a su destino más alto,
+  // así ninguna línea cruza a otra. Los destinos tienen la entrada mirando a la izquierda.
+  const sinkUnits: PlacedEntity[] = []
+  if (loose.length) {
+    const xRight = maxX + 4 + BUS_GAP * usedLanes.right + 4
+    const lineY = (l: (typeof loose)[number]) => [l.cur.pos, ...l.cur.via].pop()!.y
+    loose.sort((a, b) => lineY(a) - lineY(b))
+    const n = loose.length
+    const xDest = xRight + BUS_GAP * (n - 1) + 4
+    let destTop = lineY(loose[0]) - 2
+    loose.forEach((l, i) => {
+      const fluid = l.kind === 'pipe'
+      const id = fluid ? bestOf(TANKS) : byMode === 'sink' ? SINK : bestOf(CONTAINERS)
+      const b = buildingsById.get(id)!
+      const port = portsOf(b).findIndex((p) => p.dir === 'in' && p.kind === l.kind)
+      const r0 = worldRect(b, { x: 0, y: 0 }, 90)
+      const local = toWorld(b, { x: 0, y: 0 }, 90, portsOf(b)[port].pos)
+      // entrada a la altura de la línea si cabe; si no, debajo del destino anterior
+      const inY = Math.max(lineY(l), destTop + (local.y - r0.y0))
+      const e = add({ uid: newUid(), buildingId: id, x: Math.round(xDest - local.x), y: Math.round(inY - local.y), rot: 90, floor })
+      const inPos = portPos(e, port)
+      destTop = worldRect(b, e, 90).y1 + 2
+      const col = xRight + BUS_GAP * (n - 1 - i)
+      const start = [l.cur.pos, ...l.cur.via]
+      const hy = start[start.length - 1].y
+      addPath([...start, { x: col, y: hy }, { x: col, y: inPos.y }, inPos], l.cur.end, { uid: e.uid, port }, l.kind, l.mark)
+      maxX = Math.max(maxX, worldRect(b, e, 90).x1)
+      const name = game.items[l.item]?.name
+      const rate = Math.round(l.rate * 10) / 10
+      if (id === SINK) {
+        sinkUnits.push(e)
+        notes.push(i18n.t('build.byproductSink', { item: name, rate }))
+      } else {
+        // un depósito se llena: se avisa cuánto tarda
+        const cap = fluid
+          ? TANK_M3[id] ?? 400
+          : (b.inventorySlots ?? 24) * (STACK[game.items[l.item]?.stackSize ?? 'MEDIUM'] ?? 100)
+        const minutes = cap / Math.max(l.rate, 1e-6)
+        notes.push(
+          i18n.t(fluid && byMode === 'sink' ? 'build.byproductFluidTank' : 'build.byproductStorage', {
+            item: name,
+            rate,
+            place: b.name,
+            time: minutes >= 120 ? i18n.t('build.hours', { n: Math.round(minutes / 6) / 10 }) : i18n.t('build.minutes', { n: Math.round(minutes) }),
+          }),
+        )
+      }
+    })
+  }
+
+  // ---------- energía: postes entre las máquinas de cada fila, encadenados ----------
+  if (opts.power) {
+    const poleId = bestOf(POLES)
+    const pb = buildingsById.get(poleId)!
+    // cada poste usa hasta 3 conexiones para encadenarse (anterior, siguiente y otra fila): el resto, para máquinas
+    const perPole = Math.max(1, connectionsOf(pb) - 3)
+    const rect = (e: PlacedEntity) => worldRect(buildingsById.get(e.buildingId)!, e, e.rot)
+    const link = (a: PlacedEntity, b: PlacedEntity) => wires.push({ uid: newUid(), from: a.uid, to: b.uid })
+    const pole = (x: number, y: number) => add({ uid: newUid(), buildingId: poleId, x: Math.round(x * 2) / 2, y: Math.round(y * 2) / 2, rot: 0, floor })
+    /** une dos postes; si quedan a más de 100 m, con postes intermedios en línea recta */
+    const chain = (a: PlacedEntity, b: PlacedEntity) => {
+      const d = Math.hypot(b.x - a.x, b.y - a.y)
+      const parts = Math.ceil(d / (WIRE_MAX - 5))
+      let prev = a
+      for (let k = 1; k < parts; k++) {
+        const mid = pole(a.x + ((b.x - a.x) * k) / parts, a.y + ((b.y - a.y) * k) / parts)
+        link(prev, mid)
+        prev = mid
+      }
+      link(prev, b)
+    }
+    const rowHeads: PlacedEntity[] = []
+    let lastPole: PlacedEntity | null = null
+    let poles = 0
+    const before = entities.length
+    for (const row of [...powerRows, sinkUnits]) {
+      const list = [...row].sort((a, b) => rect(a).x0 - rect(b).x0)
+      if (!list.length) continue
+      let prev: PlacedEntity | null = null
+      for (let i = 0; i < list.length; i += perPole) {
+        const group = list.slice(i, i + perPole)
+        // el poste va en el hueco a la derecha de la máquina del medio del grupo (o debajo de los destinos)
+        const mi = i + Math.floor((group.length - 1) / 2)
+        const mid = list[mi]
+        const r = rect(mid)
+        const next = list[mi + 1]
+        const p =
+          row === sinkUnits
+            ? pole(r.x0 - 2, (r.y0 + r.y1) / 2)
+            : pole(next ? (r.x1 + rect(next).x0) / 2 : r.x1 + 1.5, (r.y0 + r.y1) / 2)
+        for (const m of group) link(p, m)
+        if (prev) chain(prev, p)
+        else rowHeads.push(p)
+        prev = p
+        lastPole = p
+      }
+    }
+    void lastPole
+    for (let i = 1; i < rowHeads.length; i++) chain(rowHeads[i - 1], rowHeads[i])
+    if (rowHeads[0]) rowHeads[0].worldLink = true
+    poles = entities.length - before
+    // las líneas no pueden pasar de 100 m: si alguna máquina queda lejos, se avisa
+    const far = wires.some((w) => {
+      const a = byUid.get(w.from)!
+      const b = byUid.get(w.to)!
+      const pa = wirePoint(a)
+      const pb2 = wirePoint(b)
+      return Math.hypot(pa.x - pb2.x, pa.y - pb2.y) > WIRE_MAX
+    })
+    if (poles) notes.push(i18n.t('build.power', { poles, wires: wires.length, pole: pb.name }))
+    if (far) notes.push(i18n.t('build.powerFar'))
+  }
+
   void RAW_ITEMS
-  return { entities, conveyors, notes }
+  return { entities, conveyors, wires, notes, requests, crossings: countCrossings(conveyors) }
 }
 
 /** Largo total de cinta/tubería (para el resumen). */

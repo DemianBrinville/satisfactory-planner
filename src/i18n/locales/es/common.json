@@ -365,7 +365,12 @@
     "minersWater": "Extractores de agua",
     "minersOil": "Extractores de petróleo (normal)",
     "minersWell": "Extractores de pozo (normal)",
-    "minersOre": "Taladros Mk.1 en yacimiento normal"
+    "minersOre": "Taladros Mk.1 en yacimiento normal",
+    "byproductsMode": "Subproductos",
+    "byproductsSink": "AWESOME Sink",
+    "byproductsStorage": "Depósito",
+    "byproductsLoose": "Sueltos",
+    "powerPoles": "Postes y cables de energía"
   },
   "build": {
     "beltShort": "{{item}}: {{rate}}/min supera la cinta más rápida disponible; conviene dividirlo en dos líneas.",
@@ -374,7 +379,16 @@
     "byproduct": "Subproducto: {{item}} ({{rate}}/min) sale por la derecha; hay que almacenarlo, usarlo o mandarlo al AWESOME Sink para que la máquina no se frene.",
     "looseBelt": "{{item}}: entra por un poste suelto abajo; ahí conectas lo que lo trae.",
     "loosePipe": "{{item}}: entra por un soporte suelto abajo; ahí conectas lo que lo trae.",
-    "skippedFluids": "{{n}} salida(s) de fluido sin puerto para conectar."
+    "skippedFluids": "{{n}} salida(s) de fluido sin puerto para conectar.",
+    "crossings_one": "Queda 1 cruce de líneas: en el juego se salva pasando una por encima con una elevadora o por otro piso.",
+    "crossings_other": "Quedan {{count}} cruces de líneas: en el juego se salvan pasando una por encima con una elevadora o por otro piso.",
+    "byproductSink": "Subproducto: {{item}} ({{rate}}/min) va al AWESOME Sink, que lo convierte en puntos de cupones.",
+    "byproductStorage": "Subproducto: {{item}} ({{rate}}/min) va a un {{place}}, que se llena en {{time}}; después la máquina se frena.",
+    "byproductFluidTank": "Subproducto: {{item}} ({{rate}}/min) es un fluido y no entra al AWESOME Sink: va a un {{place}}, que se llena en {{time}}. Para eliminarlo, envásalo y manda los envases al Sink.",
+    "minutes": "{{n}} min",
+    "hours": "{{n}} h",
+    "power": "Energía: {{poles}} postes ({{pole}}) y {{wires}} cables. El primer poste queda conectado a la red del mundo.",
+    "powerFar": "Alguna línea eléctrica supera los 100 m: revisa los cables marcados en rojo."
   },
   "progress": {
     "title": "Mi progreso",

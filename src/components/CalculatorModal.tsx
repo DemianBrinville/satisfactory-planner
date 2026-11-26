@@ -4,7 +4,7 @@ import { LayoutGrid, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { buildingsById, game, itemName, type Recipe } from '../data/gameData'
 import { layoutChain, machineSplit, minersFor, producibleItems, recipesProducing, solveChain } from '../editor/calculator'
-import { buildChain, extractorFor, totalLength } from '../editor/chainBuilder'
+import { buildChain, extractorFor, totalLength, type ByproductMode } from '../editor/chainBuilder'
 import { entityRect, useEditor } from '../editor/store'
 import { useAvailability } from '../editor/progress'
 import Modal from './Modal'
@@ -54,6 +54,8 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
   }, [result])
 
   const [wire, setWire] = useState(true)
+  const [withPower, setWithPower] = useState(true)
+  const [byMode, setByMode] = useState<ByproductMode>('sink')
   /** Origen del bloque: a la derecha de lo que ya hay en el piso. */
   const origin = () => {
     const st = useEditor.getState()
@@ -67,9 +69,9 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
   const build = useMemo(() => {
     if (!result || !wire || !result.steps.length) return null
     const o = origin()
-    return buildChain(result.steps, result.raw, useEditor.getState().floor, { x: o.x, y: o.y }, split)
+    return buildChain(result.steps, result.raw, useEditor.getState().floor, { x: o.x, y: o.y }, split, { power: withPower, byproducts: byMode })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result, wire, split])
+  }, [result, wire, split, withPower, byMode])
 
   const place = () => {
     if (!result) return
@@ -250,6 +252,26 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
               ))}
             </section>
           </div>
+          {wire && (
+            <div className="calc-options">
+              <label className="switch">
+                <input type="checkbox" checked={withPower} onChange={(e) => setWithPower(e.target.checked)} />
+                {t('calc.powerPoles')}
+              </label>
+              {result.byproducts.size > 0 && (
+                <span className="muted small">{t('calc.byproductsMode')}</span>
+              )}
+              {result.byproducts.size > 0 && (
+                <div className="segmented small">
+                  {(['sink', 'storage', 'loose'] as const).map((m) => (
+                    <button key={m} className={byMode === m ? 'active' : ''} onClick={() => setByMode(m)}>
+                      {t(m === 'sink' ? 'calc.byproductsSink' : m === 'storage' ? 'calc.byproductsStorage' : 'calc.byproductsLoose')}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {build && (
             <div className="calc-wire">
               <p className="muted small">
