@@ -97,6 +97,8 @@ export interface BuildOptions {
   byproducts?: ByproductMode
   /** colocar postes y cables de energía */
   power?: boolean
+  /** materias primas que ya se extraen en yacimientos reales: entran por un poste suelto, sin fila de taladros */
+  skipRaw?: Set<string>
 }
 
 interface BusRequest {
@@ -341,7 +343,7 @@ function buildOnce(
   // ---------- extracción: una fila de taladros/extractores al pie del bloque ----------
   // (en el juego van sobre los yacimientos; acá quedan juntos para ver cantidad, reloj y conexiones)
   const rawGroups = [...raw]
-    .filter(([item, rate]) => extractorFor(item, rate))
+    .filter(([item, rate]) => extractorFor(item, rate) && !opts.skipRaw?.has(item))
     .map(([item, rate]) => ({ item, rate, id: extractorFor(item, rate)! }))
   const rawLanes = rawGroups.length
   const rawTop = y + 6 + LANE * Math.max(0, rawLanes - 1)

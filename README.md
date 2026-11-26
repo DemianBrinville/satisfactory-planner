@@ -85,12 +85,15 @@ Ideas propuestas, pendientes de decidir: calculadora que elige las recetas ópti
 - **Válvula:** limita el caudal que pasa de su entrada a su salida (0 a 600 m³/min, o sin límite); el cálculo de flujos lo respeta y el panel muestra lo que pasa.
 - **Diseñador de planos (Mk.1, Mk.2 y Mk.3):** plataforma de 40, 48 y 56 m con su zona de construcción de 32, 40 y 48 m de lado y de alto, marcada en el plano; se construye encima como sobre un cimiento. El panel cuenta lo que hay adentro, avisa lo que se sale (también en Problemas) y guarda lo de adentro como bloque. El Mk.3 faltaba en los datos porque su descriptor no coincide en mayúsculas con el edificio.
 - **Monitor de rendimiento de la cinta:** al colocarlo se acopla a la cinta más cercana (alineado con el tramo); encima muestra las piezas por minuto que mide y, al pasar el mouse, el detalle por ítem y la capacidad de la cinta.
+- **Calculadora con el mapa real:** con el plano ubicado en el mapa, los taladros y extractores de petróleo van sobre los yacimientos libres más cercanos al bloque (valorando la pureza), con la marca más barata que alcanza en cada uno; la materia prima entra al bloque por un poste suelto y las notas dicen dónde quedó cada extractor.
+- **Selección:** al arrastrar el recuadro hasta el borde la vista se mueve sola; Shift suma, Ctrl quita y Ctrl+A selecciona todo el piso.
+- **Locomotoras:** su consumo (110 MW cada una, lo máximo al acelerar) se suma a la red de sus estaciones y al total del plano.
 
 ## Pendientes
 
 - **i18n:** toda la interfaz está en claves con español e inglés (~445 claves). Falta revisar el inglés con jugadores nativos y sumar más idiomas (los nombres del juego ya existen en los `Docs/*.json` de cada idioma).
 
-- Calculadora: ubicar cada taladro sobre su yacimiento real (ya están los datos del mapa) y evitar cruces de líneas.
+- Calculadora: evitar los cruces de líneas que quedan.
 - Detección de choques de cintas con máquinas y pendiente máxima de 35°.
 - Subproductos que bloquean (residuos nucleares, fluidos de refinería).
 - Puntos del AWESOME Sink y cupones por minuto.

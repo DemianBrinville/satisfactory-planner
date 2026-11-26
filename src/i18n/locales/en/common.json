@@ -379,7 +379,9 @@
     "byproductsSink": "AWESOME Sink",
     "byproductsStorage": "Storage",
     "byproductsLoose": "Loose",
-    "powerPoles": "Power poles and wires"
+    "powerPoles": "Power poles and wires",
+    "onNodes": "Miners on real nodes",
+    "onNodesHint": "With the plan placed on the map: each miner and oil extractor goes on the nearest free node, with the cheapest tier for its purity. The raw material enters the block through a loose pole, so you can run the belt."
   },
   "build": {
     "beltShort": "{{item}}: {{rate}}/min exceeds the fastest belt available; consider splitting it into two lines.",
@@ -397,7 +399,10 @@
     "minutes": "{{n}} min",
     "hours": "{{n}} h",
     "power": "Power: {{poles}} poles ({{pole}}) and {{wires}} wires. The first pole is connected to the world grid.",
-    "powerFar": "Some power line is longer than 100 m: check the wires marked in red."
+    "powerFar": "Some power line is longer than 100 m: check the wires marked in red.",
+    "onNodes_one": "{{item}}: {{list}} on a real node, {{m}} m from the block. Run its belt or pipe to the block input.",
+    "onNodes_other": "{{item}}: {{list}} on real nodes; the farthest {{m}} m from the block. Run their belts or pipes to the block input.",
+    "nodesShort": "{{item}}: the free nodes on the map are not enough, {{rate}}/min missing."
   },
   "progress": {
     "title": "My progress",

@@ -379,7 +379,9 @@
     "byproductsSink": "AWESOME Sink",
     "byproductsStorage": "Depósito",
     "byproductsLoose": "Sueltos",
-    "powerPoles": "Postes y cables de energía"
+    "powerPoles": "Postes y cables de energía",
+    "onNodes": "Taladros en yacimientos reales",
+    "onNodesHint": "Con el plano ubicado en el mapa: cada taladro y extractor de petróleo va sobre el yacimiento libre más cercano, con la marca más barata que alcanza según su pureza. La materia prima entra al bloque por un poste suelto, para que tiendas la cinta."
   },
   "build": {
     "beltShort": "{{item}}: {{rate}}/min supera la cinta más rápida disponible; conviene dividirlo en dos líneas.",
@@ -397,7 +399,10 @@
     "minutes": "{{n}} min",
     "hours": "{{n}} h",
     "power": "Energía: {{poles}} postes ({{pole}}) y {{wires}} cables. El primer poste queda conectado a la red del mundo.",
-    "powerFar": "Alguna línea eléctrica supera los 100 m: revisa los cables marcados en rojo."
+    "powerFar": "Alguna línea eléctrica supera los 100 m: revisa los cables marcados en rojo.",
+    "onNodes_one": "{{item}}: {{list}} sobre un yacimiento real, a {{m}} m del bloque. Lleva su cinta o tubería hasta la entrada del bloque.",
+    "onNodes_other": "{{item}}: {{list}} sobre yacimientos reales; el más lejano, a {{m}} m del bloque. Lleva sus cintas o tuberías hasta la entrada del bloque.",
+    "nodesShort": "{{item}}: no alcanzan los yacimientos libres del mapa, faltan {{rate}}/min."
   },
   "progress": {
     "title": "Mi progreso",

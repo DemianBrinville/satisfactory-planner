@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react'
 import { buildingsById, game, itemName, type Recipe } from '../data/gameData'
 import { layoutChain, machineSplit, minersFor, producibleItems, recipesProducing, solveChain } from '../editor/calculator'
 import { buildChain, extractorFor, totalLength, type ByproductMode } from '../editor/chainBuilder'
+import { minersOnNodes } from '../editor/nodeMiners'
 import { entityRect, useEditor } from '../editor/store'
 import { useAvailability } from '../editor/progress'
 import Modal from './Modal'
@@ -56,6 +57,8 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
   const [wire, setWire] = useState(true)
   const [withPower, setWithPower] = useState(true)
   const [byMode, setByMode] = useState<ByproductMode>('sink')
+  const map = useEditor((s) => s.map)
+  const [onNodes, setOnNodes] = useState(true)
   /** Origen del bloque: a la derecha de lo que ya hay en el piso. */
   const origin = () => {
     const st = useEditor.getState()
@@ -69,9 +72,13 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
   const build = useMemo(() => {
     if (!result || !wire || !result.steps.length) return null
     const o = origin()
-    return buildChain(result.steps, result.raw, useEditor.getState().floor, { x: o.x, y: o.y }, split, { power: withPower, byproducts: byMode })
+    const st = useEditor.getState()
+    // con el mapa real: taladros sobre los yacimientos más cercanos al bloque, y la materia prima entra por un poste
+    const nodes = map && onNodes ? minersOnNodes(result.raw, map, st.floor, { x: o.x, y: o.y }, st.entities) : null
+    const b = buildChain(result.steps, result.raw, st.floor, { x: o.x, y: o.y }, split, { power: withPower, byproducts: byMode, skipRaw: nodes?.handled })
+    return nodes ? { ...b, entities: [...b.entities, ...nodes.entities], notes: [...nodes.notes, ...b.notes] } : b
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result, wire, split, withPower, byMode])
+  }, [result, wire, split, withPower, byMode, map, onNodes])
 
   const place = () => {
     if (!result) return
@@ -258,6 +265,12 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
                 <input type="checkbox" checked={withPower} onChange={(e) => setWithPower(e.target.checked)} />
                 {t('calc.powerPoles')}
               </label>
+              {map && (
+                <label className="switch" title={t('calc.onNodesHint')}>
+                  <input type="checkbox" checked={onNodes} onChange={(e) => setOnNodes(e.target.checked)} />
+                  {t('calc.onNodes')}
+                </label>
+              )}
               {result.byproducts.size > 0 && (
                 <span className="muted small">{t('calc.byproductsMode')}</span>
               )}
