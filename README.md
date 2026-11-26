@@ -39,7 +39,7 @@ Los iconos de ítems y edificios son propiedad de Coffee Stain Studios y se toma
 
 ### Idiomas (i18n)
 
-- i18next + react-i18next. Los textos de la interfaz están en `src/i18n/locales/<idioma>/common.json` y se piden por clave (`t('topbar.calculator')`); las claves están tipadas, así que una clave inexistente no compila.
+- i18next + react-i18next. Toda la interfaz está traducida al español y al inglés; los textos que se arman fuera de React (notas de la calculadora, errores de la nube) usan `i18n.t` y se recalculan al cambiar de idioma porque la app se vuelve a montar. Los textos de la interfaz están en `src/i18n/locales/<idioma>/common.json` y se piden por clave (`t('topbar.calculator')`); las claves están tipadas, así que una clave inexistente no compila.
 - El idioma se detecta del navegador y se guarda en `localStorage`; si el navegador pide uno no soportado se usa inglés.
 - Los nombres del juego (ítems, edificios, recetas, hitos) salen de los archivos oficiales del juego en cada idioma, no de las traducciones.
 - Para sumar un idioma: crear su `common.json`, agregarlo a `SUPPORTED` y `resources` en `src/i18n/index.ts` y generar sus nombres con `extract-names.mjs`.
@@ -51,7 +51,7 @@ Los iconos de ítems y edificios son propiedad de Coffee Stain Studios y se toma
 
 ## Pendientes
 
-- **i18n (importante: la mayoría juega en inglés):** migrar a claves el resto de los textos de la interfaz (paleta, panel lateral, calculadora, progreso, comunidad, cuenta, menús, tooltips y avisos), las subcategorías de la paleta y los mensajes de error; traducirlos al inglés y revisar el inglés con terminología del juego. Ya están en claves la barra superior, las categorías y los paneles.
+- **i18n:** toda la interfaz está en claves con español e inglés (~445 claves). Falta revisar el inglés con jugadores nativos y sumar más idiomas (los nombres del juego ya existen en los `Docs/*.json` de cada idioma).
 
 - Iconos propios dentro del plano (sobre cada máquina, el producto de su receta).
 - Calculadora: ubicar cada taladro sobre su yacimiento real (requiere el mapa de yacimientos) y evitar cruces de líneas.

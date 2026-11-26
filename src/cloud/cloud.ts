@@ -1,3 +1,4 @@
+import i18n from '../i18n'
 import type { User } from '@supabase/supabase-js'
 import { create } from 'zustand'
 import { useProgress } from '../editor/progress'
@@ -73,12 +74,11 @@ const returnUrl = () => window.location.origin + window.location.pathname
 
 /** Mensajes de Supabase Auth en español. */
 function authError(msg: string): string {
-  if (/Invalid login credentials/i.test(msg))
-    return 'Email o contraseña incorrectos. Si creaste la cuenta con el enlace por email, todavía no tiene contraseña: usa "Olvidé mi contraseña" para crearla.'
-  if (/Email not confirmed/i.test(msg)) return 'Todavía no confirmaste el email: revisa tu correo.'
-  if (/already registered|already been registered/i.test(msg)) return 'Ya existe una cuenta con ese email: inicia sesión.'
-  if (/at least 6|Password should/i.test(msg)) return 'La contraseña debe tener al menos 6 caracteres.'
-  if (/rate limit|too many/i.test(msg)) return 'Demasiados intentos seguidos: espera unos minutos.'
+  if (/Invalid login credentials/i.test(msg)) return i18n.t('cloud.badLogin')
+  if (/Email not confirmed/i.test(msg)) return i18n.t('cloud.notConfirmed')
+  if (/already registered|already been registered/i.test(msg)) return i18n.t('cloud.exists')
+  if (/at least 6|Password should/i.test(msg)) return i18n.t('cloud.shortPassword')
+  if (/rate limit|too many/i.test(msg)) return i18n.t('cloud.rateLimit')
   return msg
 }
 const docOf = (): PlanDoc => {
@@ -91,7 +91,7 @@ export const useCloud = create<CloudState>((set, get) => ({
   user: null,
   plans: [],
   currentId: null,
-  currentName: 'Borrador local',
+  currentName: '',
   saveState: 'local',
   error: null,
   recovering: false,
@@ -111,7 +111,7 @@ export const useCloud = create<CloudState>((set, get) => ({
       .select('id,username,display_name,bio')
       .single()
     if (error) {
-      set({ error: /duplicate|unique/i.test(error.message) ? 'Ese nombre de usuario ya está en uso.' : /check/i.test(error.message) ? 'El nombre de usuario debe tener de 3 a 24 letras, números, punto, guion o guion bajo.' : error.message })
+      set({ error: /duplicate|unique/i.test(error.message) ? i18n.t('cloud.usernameTaken') : /check/i.test(error.message) ? i18n.t('cloud.usernameFormat') : error.message })
       return false
     }
     set({ profile: data })
@@ -150,13 +150,13 @@ export const useCloud = create<CloudState>((set, get) => ({
   viewPublic: async (plan) => {
     const { data, error } = await supabase.from('plans').select('data').eq('id', plan.id).single()
     if (error || !data) {
-      set({ error: error?.message ?? 'No se pudo abrir el plano' })
+      set({ error: error?.message ?? i18n.t('cloud.openFailed') })
       return
     }
     suppressSave = true
     useEditor.getState().load(data.data as PlanDoc)
     suppressSave = false
-    const author = plan.author?.display_name || (plan.author?.username ? '@' + plan.author.username : 'otro jugador')
+    const author = plan.author?.display_name || (plan.author?.username ? '@' + plan.author.username : i18n.t('cloud.otherPlayer'))
     set({ viewing: { id: plan.id, name: plan.name, author }, currentId: null, currentName: plan.name, saveState: 'local' })
   },
 
@@ -174,7 +174,7 @@ export const useCloud = create<CloudState>((set, get) => ({
       .select('id')
       .single()
     if (error || !data) {
-      set({ error: error?.message ?? 'No se pudo copiar' })
+      set({ error: error?.message ?? i18n.t('cloud.copyFailed') })
       return
     }
     set({ viewing: null })
@@ -189,7 +189,7 @@ export const useCloud = create<CloudState>((set, get) => ({
     suppressSave = true
     useEditor.getState().load({ entities: [], conveyors: [] })
     suppressSave = false
-    set({ currentName: 'Borrador local' })
+    set({ currentName: '' })
   },
 
   signIn: async (email, password) => {
@@ -206,7 +206,7 @@ export const useCloud = create<CloudState>((set, get) => ({
     set({ error: null })
     // vuelve a la misma página; lo dibujado sin sesión queda en el navegador y se guarda al entrar
     const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: returnUrl() } })
-    if (error) set({ error: /provider is not enabled|Unsupported provider/i.test(error.message) ? 'El inicio con Google todavía no está activado.' : error.message })
+    if (error) set({ error: /provider is not enabled|Unsupported provider/i.test(error.message) ? i18n.t('cloud.googleDisabled') : error.message })
   },
 
   signUp: async (email, password) => {
@@ -247,7 +247,7 @@ export const useCloud = create<CloudState>((set, get) => ({
     suppressSave = true
     useEditor.getState().load({ entities: [], conveyors: [] })
     suppressSave = false
-    set({ user: null, profile: null, viewing: null, plans: [], currentId: null, currentName: 'Borrador local', saveState: 'local' })
+    set({ user: null, profile: null, viewing: null, plans: [], currentId: null, currentName: '', saveState: 'local' })
   },
 
   refreshPlans: async () => {
@@ -265,7 +265,7 @@ export const useCloud = create<CloudState>((set, get) => ({
   openPlan: async (id) => {
     const { data, error } = await supabase.from('plans').select('id,name,data').eq('id', id).single()
     if (error || !data) {
-      set({ error: error?.message ?? 'No se encontró el plano' })
+      set({ error: error?.message ?? i18n.t('cloud.notFound') })
       return
     }
     suppressSave = true
@@ -279,7 +279,7 @@ export const useCloud = create<CloudState>((set, get) => ({
     const doc: PlanDoc = fromCurrent ? docOf() : { entities: [], conveyors: [] }
     const { data, error } = await supabase.from('plans').insert({ name, data: doc }).select('id,name').single()
     if (error || !data) {
-      set({ error: error?.message ?? 'No se pudo crear el plano' })
+      set({ error: error?.message ?? i18n.t('cloud.createFailed') })
       return
     }
     await get().refreshPlans()
@@ -303,7 +303,7 @@ export const useCloud = create<CloudState>((set, get) => ({
     }
     if (get().currentId === id) {
       localStorage.removeItem(CURRENT_KEY)
-      set({ currentId: null, currentName: 'Borrador local', saveState: 'local' })
+      set({ currentId: null, currentName: '', saveState: 'local' })
     }
     get().refreshPlans()
   },
@@ -381,7 +381,7 @@ async function onLogin(user: User) {
     await useCloud.getState().openPlan(last)
   } else if (hasLocalWork || !plans.length) {
     // lo que dibujó antes de entrar no se pierde: pasa a ser un plano de su cuenta
-    await useCloud.getState().newPlan(plans.length ? 'Plano sin guardar' : 'Mi primera fábrica', true)
+    await useCloud.getState().newPlan(plans.length ? i18n.t('cloud.unsaved') : i18n.t('cloud.firstFactory'), true)
   } else {
     await useCloud.getState().openPlan(plans[0].id)
   }

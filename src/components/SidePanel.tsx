@@ -1,8 +1,12 @@
+import { fmtPct } from '../i18n/format'
+import i18n from '../i18n'
+import { Trans, useTranslation } from 'react-i18next'
+import { locale } from '../i18n/format'
 import { useMemo, useState } from 'react'
 import { buildingsById, game, itemName, recipesById, type Building, type Recipe } from '../data/gameData'
 import { summarize } from '../editor/costs'
 import { conveyorCost, pathLength } from '../editor/conveyors'
-import { PURITY_NAME, computeFlows, extractionRate, extractorResources, recipesFor, type NodeFlow } from '../editor/flow'
+import { computeFlows, extractionRate, extractorResources, recipesFor, type NodeFlow } from '../editor/flow'
 import { useAvailability } from '../editor/progress'
 import { PriorityMergerPanel, RoutePanel, SplitterPanel, StoragePanel } from './LogisticsPanels'
 import { vehicleForStation } from '../editor/transport'
@@ -15,10 +19,11 @@ import { useEditor, type PlacedEntity, type Purity } from '../editor/store'
 import { NONE } from '../editor/store'
 import { ItemLabel } from './GameIcons'
 
-const fmt = (n: number) => n.toLocaleString('es', { maximumFractionDigits: 2 })
-const pct = (clock: number) => `${Math.round(clock * 10000) / 100} %`
+const fmt = (n: number) => n.toLocaleString(locale(), { maximumFractionDigits: 2 })
+const pct = (clock: number) => fmtPct(clock)
 
 export default function SidePanel() {
+  const { t } = useTranslation()
   const { entities, conveyors, selection, placingId, placingRot, tool, conveyorId, floorHeight } = useEditor()
   const wires = useEditor((s) => s.wires) ?? NONE
   const rails = useEditor((s) => s.rails) ?? NONE
@@ -55,9 +60,9 @@ export default function SidePanel() {
     <aside className="side">
       {placing && (
         <section>
-          <h2>Construyendo: {placing.name}</h2>
+          <h2>{t('side.building', { name: placing.name })}</h2>
           <p className="muted">
-            Rotación {placingRot}° · <kbd>R</kbd> girar · clic derecho o <kbd>Esc</kbd> para salir
+            <Trans i18nKey="side.buildingHelp" values={{ rot: placingRot }} components={{ kbd: <kbd /> }} />
           </p>
           {placing.description && <p className="desc">{placing.description}</p>}
           <Cost items={placing.cost} />
@@ -65,19 +70,19 @@ export default function SidePanel() {
       )}
       {conv && (
         <section>
-          <h2>Trazando: {conv.name}</h2>
+          <h2>{t('side.drawing', { name: conv.name })}</h2>
           <p className="muted">
-            Capacidad {conv.itemsPerMinute ? `${conv.itemsPerMinute}/min` : `${conv.flowPerMinute} m³/min`}. Clic en un puerto (o en el suelo, que
-            crea un {conv.kind === 'pipe' ? 'soporte' : 'poste'}) para empezar y otro clic para terminar. Si terminas en el suelo, el trazado sigue
-            desde ahí. Máximo 56 m por tramo.
+            {t(conv.kind === 'pipe' ? 'side.drawingHelpPipe' : 'side.drawingHelpBelt', {
+              cap: conv.itemsPerMinute ? `${conv.itemsPerMinute}/min` : `${conv.flowPerMinute} m³/min`,
+            })}
           </p>
         </section>
       )}
       {tool === 'paste' && (
         <section>
-          <h2>Colocando copia</h2>
+          <h2>{t('side.pasting')}</h2>
           <p className="muted">
-            Clic para colocar · <kbd>R</kbd> girar · <kbd>Esc</kbd> salir
+            <Trans i18nKey="side.pastingHelp" components={{ kbd: <kbd /> }} />
           </p>
         </section>
       )}
@@ -88,9 +93,9 @@ export default function SidePanel() {
       {single && singleB && vehicleForStation(singleB.id) && (
         <section>
           <button onClick={() => useEditor.getState().startRoute(vehicleForStation(singleB.id)!, single.uid)}>
-            Crear ruta desde esta estación
+            {t('side.createRoute')}
           </button>
-          <p className="muted">Después haz clic en la estación de destino.</p>
+          <p className="muted">{t('side.createRouteHint')}</p>
         </section>
       )}
       {single && singleB && /StorageContainer|PipeStorageTank|IndustrialTank/.test(singleB.id) && (
@@ -108,7 +113,7 @@ export default function SidePanel() {
 
       {hasSelection ? (
         <section>
-          <h2>Selección ({selEntities.length + selConveyors.length + selWires.length})</h2>
+          <h2>{t('side.selection', { n: selEntities.length + selConveyors.length + selWires.length })}</h2>
           {single && singleB && <GridLine e={single} b={singleB} power={power} />}
           {single && singleB && canLinkWorld(singleB) && !power.infinite && (
             <label className="switch">
@@ -117,33 +122,32 @@ export default function SidePanel() {
                 checked={!!single.worldLink}
                 onChange={(ev) => useEditor.getState().updateEntity(single.uid, { worldLink: ev.target.checked })}
               />
-              Conectado a la red de mi mundo
+              {t('side.worldLink')}
             </label>
           )}
           <Counts summary={summary} />
-          <h3>Materiales</h3>
+          <h3>{t('side.materials')}</h3>
           <Cost items={summary.materials} />
           <Power s={summary} />
           <p className="muted">
-            <kbd>R</kbd> girar · <kbd>Supr</kbd> borrar · <kbd>Ctrl+X</kbd> mover · <kbd>Ctrl+C</kbd>/<kbd>Ctrl+V</kbd> copiar · clic derecho:
-            opciones
+            <Trans i18nKey="side.selectionHelp" components={{ kbd: <kbd /> }} />
           </p>
         </section>
       ) : (
         tool === 'select' && (
           <section>
-            <h2>Plano completo</h2>
+            <h2>{t('side.wholePlan')}</h2>
             <p className="muted">
-              {entities.length} estructuras · {conveyors.length} tramos. Arrastra sobre el plano para seleccionar un área y ver sus materiales.
+              {t('side.wholePlanSummary', { structures: entities.length, segments: conveyors.length })}
             </p>
             <Counts summary={total} />
             {power.grids.length > 0 && (
               <>
-                <h3>Redes eléctricas</h3>
+                <h3>{t('side.grids')}</h3>
                 {power.grids.map((g) => (
                   <div key={g.id} className={'flowline' + (g.consumption > g.generation + 1e-6 ? ' bad' : '')}>
                     <span>
-                      Red {g.id} ({g.members.length})
+                      {t('side.grid', { id: g.id, n: g.members.length })}
                     </span>
                     <span>
                       {fmt(g.consumption)} / {fmt(g.generation)} MW
@@ -152,7 +156,7 @@ export default function SidePanel() {
                 ))}
               </>
             )}
-            <h3>Materiales</h3>
+            <h3>{t('side.materials')}</h3>
             <Cost items={total.materials} />
             <Power s={total} />
           </section>
@@ -160,17 +164,18 @@ export default function SidePanel() {
       )}
 
       <section className="help">
-        <h3>Controles</h3>
+        <h3>{t('side.controls')}</h3>
         <p>
-          Rueda: zoom · Botón central o <kbd>Espacio</kbd>+arrastrar: mover vista · <kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd>: deshacer/rehacer ·{' '}
-          <kbd>Shift</kbd>+clic: sumar a la selección · clic derecho: opciones
+          <Trans i18nKey="side.controlsView" components={{ kbd: <kbd /> }} />
         </p>
         <p>
-          Cimientos: arrastrar rellena un área · clic en el extremo suelto de una cinta o tubería: seguirla
+          {t('side.controlsBuild')}
         </p>
         <p>
-          Cintas: <span className="ok">verde</span> justo, <span className="warn">amarillo</span> sobra material, <span className="bad">rojo</span>{' '}
-          falta material.
+          <Trans
+            i18nKey="side.controlsColors"
+            components={{ ok: <span className="ok" />, warn: <span className="warn" />, bad: <span className="bad" /> }}
+          />
         </p>
       </section>
     </aside>
@@ -200,13 +205,14 @@ function Power({ s }: { s: ReturnType<typeof summarize> }) {
   if (s.powerMW <= 0 && s.powerGenMW <= 0) return null
   return (
     <p className="muted">
-      Consumo {fmt(s.powerMW)} MW{s.powerGenMW > 0 && ` · Genera ${fmt(s.powerGenMW)} MW`}
+      {i18n.t('side.powerUse', { mw: fmt(s.powerMW) })}
+      {s.powerGenMW > 0 && i18n.t('side.powerGen', { mw: fmt(s.powerGenMW) })}
     </p>
   )
 }
 
 function Cost({ items }: { items: { item: string; amount: number }[] }) {
-  if (!items.length) return <p className="muted">Sin materiales.</p>
+  if (!items.length) return <p className="muted">{i18n.t('side.noMaterials')}</p>
   return (
     <ul className="cost">
       {items.map((c) => (
@@ -222,6 +228,7 @@ function Cost({ items }: { items: { item: string; amount: number }[] }) {
 // ---------------- configuración de máquinas ----------------
 
 function MachinePanel({ e, b, node }: { e: PlacedEntity; b: Building; node?: NodeFlow }) {
+  const { t } = useTranslation()
   const update = useEditor((s) => s.updateEntity)
   const clock = e.clock ?? 1
   const recipe = e.recipeId ? recipesById.get(e.recipeId) : undefined
@@ -242,11 +249,11 @@ function MachinePanel({ e, b, node }: { e: PlacedEntity; b: Building; node?: Nod
 
       {b.kind === 'machine' && (
         <>
-          <h3>Receta</h3>
+          <h3>{t('machine.recipe')}</h3>
           {recipe && !picking ? (
             <div className="recipe-current">
               <RecipeCard r={recipe} clock={clock} />
-              <button onClick={() => setPicking(true)}>Cambiar receta</button>
+              <button onClick={() => setPicking(true)}>{t('machine.changeRecipe')}</button>
             </div>
           ) : (
             <RecipePicker
@@ -261,7 +268,7 @@ function MachinePanel({ e, b, node }: { e: PlacedEntity; b: Building; node?: Nod
         </>
       )}
 
-      <h3>Velocidad de reloj</h3>
+      <h3>{t('machine.clock')}</h3>
       <div className="clock">
         <input
           type="number"
@@ -276,13 +283,13 @@ function MachinePanel({ e, b, node }: { e: PlacedEntity; b: Building; node?: Nod
       </div>
       {clock > 1 && (
         <p className="warn">
-          Overclock: necesita {Math.ceil((clock - 1) / 0.5)} fragmento(s) de energía. Úsalo solo si no hay alternativa.
+          {t('machine.overclock', { n: Math.ceil((clock - 1) / 0.5) })}
         </p>
       )}
 
       {(b.somersloopSlots ?? 0) > 0 && (
         <>
-          <h3>Amplificación (somersloops)</h3>
+          <h3>{t('machine.somersloops')}</h3>
           <div className="segmented">
             {Array.from({ length: (b.somersloopSlots ?? 0) + 1 }, (_, n) => (
               <button key={n} className={(e.somersloops ?? 0) === n ? 'active' : ''} onClick={() => update(e.uid, { somersloops: n })}>
@@ -292,8 +299,10 @@ function MachinePanel({ e, b, node }: { e: PlacedEntity; b: Building; node?: Nod
           </div>
           {(e.somersloops ?? 0) > 0 && (
             <p className="muted">
-              Produce +{Math.round(((e.somersloops ?? 0) / (b.somersloopSlots ?? 1)) * 100)} % con las mismas entradas; el consumo eléctrico se
-              multiplica por {fmt(Math.pow(1 + (e.somersloops ?? 0) / (b.somersloopSlots ?? 1), 2))}.
+              {t('machine.somersloopsHelp', {
+                pct: Math.round(((e.somersloops ?? 0) / (b.somersloopSlots ?? 1)) * 100),
+                mult: fmt(Math.pow(1 + (e.somersloops ?? 0) / (b.somersloopSlots ?? 1), 2)),
+              })}
             </p>
           )}
         </>
@@ -301,16 +310,14 @@ function MachinePanel({ e, b, node }: { e: PlacedEntity; b: Building; node?: Nod
 
       {node && (
         <>
-          <h3>Producción: {pct(node.effective)}</h3>
+          <h3>{t('machine.production', { pct: pct(node.effective) })}</h3>
           <Production n={node} />
           <ClockAdviceText a={clockAdvice(node, clock)} onApply={setClock} />
           {!clockAdvice(node, clock) && node.bottleneck && canUnderclock && suggestion !== null && (
             <div className="hint">
-              {node.outputLimited < node.inputLimited
-                ? 'Lo que está conectado después no consume todo lo que produce.'
-                : 'No le llega suficiente material para trabajar al 100 %.'}{' '}
-              Bajando el reloj a <b>{pct(suggestion)}</b> trabaja sin desperdicio.
-              <button onClick={() => setClock(suggestion)}>Aplicar {pct(suggestion)}</button>
+              {node.outputLimited < node.inputLimited ? t('machine.outputSlack') : t('machine.inputShort')}{' '}
+              <Trans i18nKey="machine.underclockHint" values={{ pct: pct(suggestion) }} components={{ b: <b /> }} />
+              <button onClick={() => setClock(suggestion)}>{t('common.apply', { pct: pct(suggestion) })}</button>
             </div>
           )}
         </>
@@ -320,13 +327,14 @@ function MachinePanel({ e, b, node }: { e: PlacedEntity; b: Building; node?: Nod
 }
 
 function ExtractorConfig({ e, b }: { e: PlacedEntity; b: Building }) {
+  const { t } = useTranslation()
   const update = useEditor((s) => s.updateEntity)
   const resources = extractorResources(b)
   const resource = e.resource ?? resources[0]
   const purityApplies = !/WaterPump/.test(b.id)
   return (
     <>
-      <h3>Yacimiento</h3>
+      <h3>{t('machine.node')}</h3>
       {resources.length > 1 && (
         <select value={resource} onChange={(ev) => update(e.uid, { resource: ev.target.value })}>
           {resources.map((r) => (
@@ -341,29 +349,34 @@ function ExtractorConfig({ e, b }: { e: PlacedEntity; b: Building }) {
         <div className="segmented">
           {(['impure', 'normal', 'pure'] as Purity[]).map((p) => (
             <button key={p} className={(e.purity ?? 'normal') === p ? 'active' : ''} onClick={() => update(e.uid, { purity: p })}>
-              {PURITY_NAME[p]}
+              {t(`purity.${p}`)}
             </button>
           ))}
         </div>
       )}
       <p className="muted">
-        Produce <b>{fmt(extractionRate(e, b))}</b> {game.items[resource]?.form === 'solid' ? '/min' : 'm³/min'}
+        <Trans
+          i18nKey="machine.produces"
+          values={{ n: fmt(extractionRate(e, b)), unit: game.items[resource]?.form === 'solid' ? '/min' : 'm³/min' }}
+          components={{ b: <b /> }}
+        />
       </p>
     </>
   )
 }
 
 function GeneratorConfig({ e, b }: { e: PlacedEntity; b: Building & { fuels?: { fuel: string }[] } }) {
+  const { t } = useTranslation()
   const update = useEditor((s) => s.updateEntity)
   const fuels = (b as { fuels?: { fuel: string }[] }).fuels?.map((f) => f.fuel).filter((f) => game.items[f]) ?? []
-  if (!fuels.length) return <p className="muted">Genera {b.powerGenMW} MW.</p>
+  if (!fuels.length) return <p className="muted">{t('machine.generates', { mw: b.powerGenMW })}</p>
   const fuel = e.resource ?? ''
   const energy = fuel ? game.items[fuel]?.energyMJ ?? 0 : 0
   return (
     <>
-      <h3>Combustible</h3>
+      <h3>{t('machine.fuel')}</h3>
       <select value={fuel} onChange={(ev) => update(e.uid, { resource: ev.target.value || undefined })}>
-        <option value="">— elegir —</option>
+        <option value="">{t('machine.choose')}</option>
         {fuels.map((f) => (
           <option key={f} value={f}>
             {itemName(f)}
@@ -372,7 +385,7 @@ function GeneratorConfig({ e, b }: { e: PlacedEntity; b: Building & { fuels?: { 
       </select>
       {energy > 0 && (
         <p className="muted">
-          Consume {fmt(((b.powerGenMW * 60) / energy) * (e.clock ?? 1))}/min para generar {fmt(b.powerGenMW * (e.clock ?? 1))} MW.
+          {t('machine.fuelUse', { n: fmt(((b.powerGenMW * 60) / energy) * (e.clock ?? 1)), mw: fmt(b.powerGenMW * (e.clock ?? 1)) })}
         </p>
       )}
     </>
@@ -380,6 +393,7 @@ function GeneratorConfig({ e, b }: { e: PlacedEntity; b: Building & { fuels?: { 
 }
 
 function RecipePicker({ buildingId, current, onPick }: { buildingId: string; current?: string; onPick: (id: string) => void }) {
+  const { t } = useTranslation()
   const [q, setQ] = useState('')
   const [showAll, setShowAll] = useState(false)
   const avail = useAvailability()
@@ -395,12 +409,12 @@ function RecipePicker({ buildingId, current, onPick }: { buildingId: string; cur
   }, [buildingId, q, showAll, avail.enabled, avail.recipe])
   return (
     <div className="recipe-picker">
-      <input className="search" placeholder="Buscar receta…" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+      <input className="search" placeholder={t('machine.searchRecipe')} value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
       {avail.enabled && (
         <p className="hidden-note">
-          {hidden > 0 && `${hidden} receta(s) ocultas por tu progreso. `}
+          {hidden > 0 && t('machine.hiddenRecipes', { n: hidden })}
           <label>
-            <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> mostrar todas
+            <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> {t('machine.showAll')}
           </label>
         </p>
       )}
@@ -421,7 +435,7 @@ function RecipeCard({ r, clock }: { r: Recipe; clock: number }) {
     <div className="recipe-card">
       <div className="recipe-name">
         {r.name}
-        {r.alternate && <span className="tag">Alternativa</span>}
+        {r.alternate && <span className="tag">{i18n.t('machine.alternate')}</span>}
       </div>
       <div className="recipe-io">
         <div>
@@ -440,7 +454,7 @@ function RecipeCard({ r, clock }: { r: Recipe; clock: number }) {
           ))}
         </div>
       </div>
-      <div className="muted small">por minuto · ciclo de {fmt(r.duration)} s</div>
+      <div className="muted small">{i18n.t('machine.perMinute', { s: fmt(r.duration) })}</div>
     </div>
   )
 }

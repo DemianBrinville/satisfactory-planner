@@ -129,7 +129,7 @@ function PlanTitle() {
             setEditing(true)
           }}
         >
-          {c.currentName}
+          {c.currentName || t('cloud.localDraft')}
         </button>
       )}
       <span className={'save-state ' + state} title={c.error ?? undefined}>

@@ -1,3 +1,4 @@
+import i18n from '../i18n'
 import { buildingsById, game } from '../data/gameData'
 import { machineSplit, RAW_ITEMS, type Step } from './calculator'
 import { pathLength } from './conveyors'
@@ -201,9 +202,7 @@ export function buildChain(
       rawUnits.set(g.item, list)
     })
     if (rawGroups.length)
-      notes.push(
-        'Taladros y extractores calculados para yacimientos normales al reloj justo; en el juego van sobre cada yacimiento: si el tuyo es puro o impuro, cambia la pureza en el taladro y la app recalcula.',
-      )
+      notes.push(i18n.t('build.miners'))
   }
   const rawLaneY = (item: string) => rawTop - 4 - LANE * (rawLanes - 1 - rawGroups.findIndex((g) => g.item === item))
   const lowest = Math.max(y, rawBottom)
@@ -397,9 +396,7 @@ export function buildChain(
     const kind = kindOf(f.item)
     const { id: mark, enough } = markFor(kind, f.rate)
     if (!enough)
-      notes.push(
-        `${game.items[f.item]?.name}: ${Math.round(f.rate)}/min supera la ${kind === 'belt' ? 'cinta' : 'tubería'} más rápida disponible; conviene dividirlo en dos líneas.`,
-      )
+      notes.push(i18n.t(kind === 'belt' ? 'build.beltShort' : 'build.pipeShort', { item: game.items[f.item]?.name, rate: Math.round(f.rate) }))
     const consumerRows = f.byproduct
       ? []
       : rows.map((row, r) => ({ row, r })).filter(({ row }) => row.some((s) => s.recipe.ingredients.some((x) => x.item === f.item)))
@@ -421,7 +418,7 @@ export function buildChain(
 
     if (!consumerRows.length) {
       if (f.byproduct)
-        notes.push(`Subproducto: ${game.items[f.item]?.name} (${Math.round(f.rate * 10) / 10}/min) sale por la derecha; hay que almacenarlo, usarlo o mandarlo al AWESOME Sink para que la máquina no se frene.`)
+        notes.push(i18n.t('build.byproduct', { item: game.items[f.item]?.name, rate: Math.round(f.rate * 10) / 10 }))
       // producto final o subproducto: un tramo corto hacia la derecha hasta un poste/soporte (ahí sigue tu fábrica)
       if (cur) {
         const lastPt = [cur.pos, ...cur.via].pop()!
@@ -438,7 +435,7 @@ export function buildChain(
         // materia prima: entra desde un poste/soporte suelto debajo del bloque (ahí conectas los taladros)
         const busX = busLane(side, lowest + 6, d.entryPos.y)
         addPath([{ x: busX, y: lowest + 6 }, { x: busX, y: d.entryPos.y }, d.entryPos, ...d.tail], { x: busX, y: lowest + 6 }, d.entry, kind, mark)
-        if (game.items[f.item]) notes.push(`${game.items[f.item]?.name}: entra por un ${kind === 'pipe' ? 'soporte' : 'poste'} suelto abajo; ahí conectas lo que lo trae.`)
+        if (game.items[f.item]) notes.push(i18n.t(kind === 'pipe' ? 'build.loosePipe' : 'build.looseBelt', { item: game.items[f.item]?.name }))
       } else {
         const start = [cur.pos, ...cur.via]
         const hy = start[start.length - 1].y
@@ -448,7 +445,7 @@ export function buildChain(
       cur = d.exit && d.exitPos ? { end: d.exit, pos: d.exitPos, via: [] } : null
     })
   }
-  if (skippedFluids) notes.push(`${skippedFluids} salida(s) de fluido sin puerto para conectar.`)
+  if (skippedFluids) notes.push(i18n.t('build.skippedFluids', { n: skippedFluids }))
   void RAW_ITEMS
   return { entities, conveyors, notes }
 }

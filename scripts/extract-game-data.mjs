@@ -256,6 +256,7 @@ for (const c of classes) {
     description: (c.mDescription ?? '').replace(/\r?\n/g, '\n'),
     category: CATEGORY[sub][0],
     subcategory: CATEGORY[sub][1],
+    subcategoryId: sub,
     priority: num(desc.mMenuPriority),
     kind,
     footprint: size && {

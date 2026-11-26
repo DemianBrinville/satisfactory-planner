@@ -1,8 +1,21 @@
+import { useTranslation } from 'react-i18next'
 import { useMemo, useState } from 'react'
 import { buildingsById, game, itemName, recipesById, type Schematic } from '../data/gameData'
 import { ALT_SCHEMATICS, HUB_SCHEMATICS, MAM_SCHEMATICS, PHASE_TIERS, SHOP_SCHEMATICS, maxTierForPhase, useProgress } from '../editor/progress'
 
 type Tab = 'hub' | 'mam' | 'alt' | 'shop'
+
+/** Árboles del M.A.M.: el dato viene en español (extractor), la clave de traducción es el id del juego. */
+const MAM_KEY: Record<string, string> = {
+  Cuarzo: 'Quartz',
+  Caterio: 'Caterium',
+  'Babosas de energía': 'PowerSlugs',
+  'Organismos alienígenas': 'AlienOrganisms',
+  Azufre: 'Sulfur',
+  Micelios: 'Mycelia',
+  Nutrientes: 'Nutrients',
+  'Tecnología alienígena': 'AlienTech',
+}
 
 const buildingByRecipe = new Map(game.buildings.map((b) => [b.buildRecipe, b]))
 
@@ -15,6 +28,7 @@ function unlocksText(s: Schematic) {
 }
 
 export default function ProgressModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   const p = useProgress()
   const [tab, setTab] = useState<Tab>('hub')
   const unlocked = new Set(p.unlocked)
@@ -23,24 +37,17 @@ export default function ProgressModal({ onClose }: { onClose: () => void }) {
     <div className="modal-backdrop" onMouseDown={onClose}>
       <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
         <header>
-          <h2>Mi progreso</h2>
+          <h2>{t('progress.title')}</h2>
           <label className="switch">
             <input type="checkbox" checked={p.enabled} onChange={(e) => p.setEnabled(e.target.checked)} />
-            Filtrar la paleta y las recetas según lo desbloqueado
+            {t('progress.filter')}
           </label>
-          <button onClick={onClose}>Cerrar</button>
+          <button onClick={onClose}>{t('common.close')}</button>
         </header>
         <nav className="tabs">
-          {(
-            [
-              ['hub', 'HUB y fases'],
-              ['mam', 'M.A.M.'],
-              ['alt', 'Recetas alternativas'],
-              ['shop', 'Tienda FLIPANTE'],
-            ] as [Tab, string][]
-          ).map(([id, name]) => (
+          {(['hub', 'mam', 'alt', 'shop'] as Tab[]).map((id) => (
             <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>
-              {name}
+              {t(`progress.tabs.${id}`)}
             </button>
           ))}
         </nav>
@@ -70,25 +77,26 @@ function Check({ s, unlocked, disabled }: { s: Schematic; unlocked: Set<string>;
 }
 
 function HubTab({ unlocked }: { unlocked: Set<string> }) {
+  const { t } = useTranslation()
   const { phase, setPhase, setMany } = useProgress()
   const maxTier = maxTierForPhase(phase)
   const allowedUpTo = HUB_SCHEMATICS.filter((s) => s.tier <= maxTier).map((s) => s.id)
   return (
     <>
       <div className="phase-row">
-        <span>Fase del Ascensor espacial en la que estás:</span>
+        <span>{t('progress.phaseQuestion')}</span>
         {[1, 2, 3, 4, 5].map((n) => (
           <button key={n} className={phase === n ? 'active' : ''} onClick={() => setPhase(n)}>
-            Fase {n}
+            {t('progress.phase', { n })}
           </button>
         ))}
-        <button onClick={() => setMany(allowedUpTo, true)}>Marcar todos los hitos disponibles</button>
+        <button onClick={() => setMany(allowedUpTo, true)}>{t('progress.markAvailable')}</button>
       </div>
       {[1, 2, 3, 4, 5].map((ph) => (
         <section key={ph} className={ph > phase ? 'locked' : ''}>
           <h3>
-            Fase {ph}
-            {ph > phase && ' · bloqueada'}
+            {t('progress.phase', { n: ph })}
+            {ph > phase && t('progress.locked')}
           </h3>
           {PHASE_TIERS[ph].map((tier) => {
             const list = HUB_SCHEMATICS.filter((s) => s.tier === tier)
@@ -97,9 +105,9 @@ function HubTab({ unlocked }: { unlocked: Set<string> }) {
             return (
               <div key={tier} className="tier">
                 <div className="tier-head">
-                  <b>{tier === 0 ? 'Nivel 0 · Mejoras del HUB' : `Nivel ${tier}`}</b>
+                  <b>{tier === 0 ? t('progress.tier0') : t('progress.tier', { n: tier })}</b>
                   <button disabled={ph > phase} onClick={() => setMany(list.map((s) => s.id), !all)}>
-                    {all ? 'Desmarcar nivel' : 'Marcar nivel'}
+                    {all ? t('progress.unmarkTier') : t('progress.markTier')}
                   </button>
                 </div>
                 <div className="checks">
@@ -117,11 +125,12 @@ function HubTab({ unlocked }: { unlocked: Set<string> }) {
 }
 
 function MamTab({ unlocked }: { unlocked: Set<string> }) {
+  const { t } = useTranslation()
   const setMany = useProgress((x) => x.setMany)
   const trees = useMemo(() => {
     const m = new Map<string, Schematic[]>()
     for (const s of MAM_SCHEMATICS) {
-      const k = s.mamTree ?? 'Otros'
+      const k = s.mamTree ?? ''
       if (!m.has(k)) m.set(k, [])
       m.get(k)!.push(s)
     }
@@ -134,8 +143,8 @@ function MamTab({ unlocked }: { unlocked: Set<string> }) {
         return (
           <section key={tree} className="tier">
             <div className="tier-head">
-              <b>{tree}</b>
-              <button onClick={() => setMany(list.map((s) => s.id), !all)}>{all ? 'Desmarcar árbol' : 'Marcar árbol'}</button>
+              <b>{tree ? t(`mamTrees.${MAM_KEY[tree] ?? 'Quartz'}` as 'mamTrees.Quartz', { defaultValue: tree }) : t('progress.other')}</b>
+              <button onClick={() => setMany(list.map((s) => s.id), !all)}>{all ? t('progress.unmarkTree') : t('progress.markTree')}</button>
             </div>
             <div className="checks">
               {list.map((s) => (
@@ -150,6 +159,7 @@ function MamTab({ unlocked }: { unlocked: Set<string> }) {
 }
 
 function ListTab({ list, unlocked, kind }: { list: Schematic[]; unlocked: Set<string>; kind: 'alt' | 'shop' }) {
+  const { t } = useTranslation()
   const [q, setQ] = useState('')
   const setMany = useProgress((x) => x.setMany)
   const filtered = useMemo(() => {
@@ -162,15 +172,15 @@ function ListTab({ list, unlocked, kind }: { list: Schematic[]; unlocked: Set<st
   return (
     <>
       <div className="phase-row">
-        <input className="search" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="search" placeholder={t('progress.search')} value={q} onChange={(e) => setQ(e.target.value)} />
         <span className="muted">
-          {count} de {list.length} marcadas
+          {t('progress.marked', { n: count, total: list.length })}
         </span>
-        <button onClick={() => setMany(filtered.map((s) => s.id), true)}>Marcar visibles</button>
-        <button onClick={() => setMany(filtered.map((s) => s.id), false)}>Desmarcar visibles</button>
+        <button onClick={() => setMany(filtered.map((s) => s.id), true)}>{t('progress.markVisible')}</button>
+        <button onClick={() => setMany(filtered.map((s) => s.id), false)}>{t('progress.unmarkVisible')}</button>
       </div>
       {kind === 'alt' && (
-        <p className="muted">Las recetas alternativas se obtienen analizando discos duros en el M.A.M. Marca las que ya elegiste.</p>
+        <p className="muted">{t('progress.altHelp')}</p>
       )}
       <div className="checks wide">
         {filtered.map((s) => (

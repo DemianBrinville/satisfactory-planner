@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { locale } from '../i18n/format'
 import { ChevronDown, FilePlus2, FolderOpen, Globe, Lock, LogIn, LogOut, Pencil, Trash2, User, UserPlus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useCloud, type PlanMeta } from '../cloud/cloud'
@@ -5,6 +7,7 @@ import Modal from './Modal'
 
 /** Menú de cuenta: entrar/registrarse, o perfil, planos y salir. */
 export default function AccountMenu() {
+  const { t } = useTranslation()
   const c = useCloud()
   const [open, setOpen] = useState(false)
   const [modal, setModal] = useState<'plans' | 'profile' | null>(null)
@@ -22,16 +25,16 @@ export default function AccountMenu() {
       <div className="tb-group">
         <button className="tb-btn" onClick={() => c.openAuth('login')}>
           <LogIn size={16} />
-          <span>Iniciar sesión</span>
+          <span>{t('account.signIn')}</span>
         </button>
         <button className="tb-btn primary" onClick={() => c.openAuth('signup')}>
           <UserPlus size={16} />
-          <span>Crear cuenta</span>
+          <span>{t('account.signUp')}</span>
         </button>
       </div>
     )
 
-  const name = c.profile?.display_name || c.profile?.username || c.user.email || 'Mi cuenta'
+  const name = c.profile?.display_name || c.profile?.username || c.user.email || t('account.myAccount')
   return (
     <div className="account-menu" ref={ref}>
       <button className="tb-btn" onClick={() => setOpen(!open)}>
@@ -46,13 +49,13 @@ export default function AccountMenu() {
             {c.profile?.username && <small>@{c.profile.username}</small>}
           </div>
           <button onClick={() => (setModal('plans'), setOpen(false))}>
-            <FolderOpen size={16} /> Mis planos
+            <FolderOpen size={16} /> {t('account.myPlans')}
           </button>
           <button onClick={() => (setModal('profile'), setOpen(false))}>
-            <User size={16} /> Mi perfil
+            <User size={16} /> {t('account.myProfile')}
           </button>
           <button className="danger" onClick={() => (c.signOut(), setOpen(false))}>
-            <LogOut size={16} /> Cerrar sesión
+            <LogOut size={16} /> {t('account.signOut')}
           </button>
         </div>
       )}
@@ -63,25 +66,26 @@ export default function AccountMenu() {
 }
 
 function PlansModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   const c = useCloud()
   const [newName, setNewName] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [sharing, setSharing] = useState<PlanMeta | null>(null)
 
   return (
-    <Modal title="Mis planos" onClose={onClose} width={620}>
+    <Modal title={t('account.myPlans')} onClose={onClose} width={620}>
       <form
         className="row-form"
         onSubmit={async (e) => {
           e.preventDefault()
-          await c.newPlan(newName.trim() || 'Plano sin nombre')
+          await c.newPlan(newName.trim() || t('account.untitled'))
           setNewName('')
           onClose()
         }}
       >
-        <input placeholder="Nombre del plano nuevo" value={newName} onChange={(e) => setNewName(e.target.value)} />
+        <input placeholder={t('account.newPlanName')} value={newName} onChange={(e) => setNewName(e.target.value)} />
         <button type="submit" className="btn primary">
-          <FilePlus2 size={16} /> Crear
+          <FilePlus2 size={16} /> {t('account.create')}
         </button>
       </form>
       <ul className="plan-list">
@@ -96,13 +100,13 @@ function PlansModal({ onClose }: { onClose: () => void }) {
             >
               <b>{p.name}</b>
               <small>
-                {new Date(p.updated_at).toLocaleString('es')}
-                {p.is_public && ' · compartido con la comunidad'}
+                {new Date(p.updated_at).toLocaleString(locale())}
+                {p.is_public && t('account.sharedSuffix')}
               </small>
             </button>
             <button
               className={'icon-btn' + (p.is_public ? ' on' : '')}
-              title={p.is_public ? 'Compartido: clic para dejarlo privado' : 'Privado: clic para compartirlo con la comunidad'}
+              title={p.is_public ? t('account.publicTitle') : t('account.privateTitle')}
               onClick={() => (p.is_public ? c.setPlanPublic(p.id, false) : setSharing(p))}
             >
               {p.is_public ? <Globe size={16} /> : <Lock size={16} />}
@@ -110,14 +114,14 @@ function PlansModal({ onClose }: { onClose: () => void }) {
             {confirmDelete === p.id ? (
               <>
                 <button className="btn danger sm" onClick={() => c.deletePlan(p.id)}>
-                  Borrar
+                  {t('account.delete')}
                 </button>
                 <button className="btn sm" onClick={() => setConfirmDelete(null)}>
-                  No
+                  {t('account.no')}
                 </button>
               </>
             ) : (
-              <button className="icon-btn" onClick={() => setConfirmDelete(p.id)} title="Eliminar plano">
+              <button className="icon-btn" onClick={() => setConfirmDelete(p.id)} title={t('account.deletePlan')}>
                 <Trash2 size={16} />
               </button>
             )}
@@ -131,21 +135,21 @@ function PlansModal({ onClose }: { onClose: () => void }) {
 }
 
 function ShareModal({ plan, onClose }: { plan: PlanMeta; onClose: () => void }) {
+  const { t } = useTranslation()
   const c = useCloud()
   const [desc, setDesc] = useState(plan.description ?? '')
   return (
-    <Modal title={`Compartir "${plan.name}"`} onClose={onClose} width={460}>
+    <Modal title={t('account.shareTitle', { name: plan.name })} onClose={onClose} width={460}>
       <p className="muted">
-        Cualquiera podrá ver el plano en Comunidad y guardarse una copia. Tus cambios posteriores también se verán. Puedes volver a dejarlo privado
-        cuando quieras.
+        {t('account.shareHelp')}
       </p>
       <label className="field">
-        <span>Descripción (opcional)</span>
-        <textarea maxLength={500} rows={4} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Qué produce, cuántas máquinas, qué hace falta desbloquear…" />
+        <span>{t('account.description')}</span>
+        <textarea maxLength={500} rows={4} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={t('account.descriptionPlaceholder')} />
       </label>
       <div className="modal-actions">
         <button className="btn" onClick={onClose}>
-          Cancelar
+          {t('account.cancel')}
         </button>
         <button
           className="btn primary"
@@ -154,7 +158,7 @@ function ShareModal({ plan, onClose }: { plan: PlanMeta; onClose: () => void }) 
             onClose()
           }}
         >
-          <Globe size={16} /> Compartir
+          <Globe size={16} /> {t('account.share')}
         </button>
       </div>
     </Modal>
@@ -162,14 +166,15 @@ function ShareModal({ plan, onClose }: { plan: PlanMeta; onClose: () => void }) 
 }
 
 function ProfileModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   const c = useCloud()
   const [username, setUsername] = useState(c.profile?.username ?? '')
   const [displayName, setDisplayName] = useState(c.profile?.display_name ?? '')
   const [bio, setBio] = useState(c.profile?.bio ?? '')
   const [saved, setSaved] = useState(false)
   return (
-    <Modal title="Mi perfil" onClose={onClose} width={460}>
-      <p className="muted">Así te ven los demás jugadores en los planos que compartes.</p>
+    <Modal title={t('account.myProfile')} onClose={onClose} width={460}>
+      <p className="muted">{t('account.profileHelp')}</p>
       <form
         className="stack"
         onSubmit={async (e) => {
@@ -178,29 +183,29 @@ function ProfileModal({ onClose }: { onClose: () => void }) {
         }}
       >
         <label className="field">
-          <span>Nombre de usuario</span>
+          <span>{t('account.username')}</span>
           <div className="input-icon">
             <span className="prefix">@</span>
             <input required minLength={3} maxLength={24} pattern="[A-Za-z0-9_.\-]+" value={username} onChange={(e) => setUsername(e.target.value)} />
           </div>
         </label>
         <label className="field">
-          <span>Nombre visible</span>
+          <span>{t('account.displayName')}</span>
           <input maxLength={60} value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
         </label>
         <label className="field">
-          <span>Sobre ti</span>
+          <span>{t('account.bio')}</span>
           <textarea maxLength={280} rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
         </label>
-        <p className="muted small">Email: {c.user?.email}</p>
+        <p className="muted small">{t('account.email', { email: c.user?.email })}</p>
         {c.error && <p className="bad">{c.error}</p>}
-        {saved && !c.error && <p className="ok">Perfil guardado.</p>}
+        {saved && !c.error && <p className="ok">{t('account.profileSaved')}</p>}
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onClose}>
-            Cerrar
+            {t('common.close')}
           </button>
           <button type="submit" className="btn primary">
-            <Pencil size={16} /> Guardar
+            <Pencil size={16} /> {t('account.save')}
           </button>
         </div>
       </form>

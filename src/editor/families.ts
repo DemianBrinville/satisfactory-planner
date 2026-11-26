@@ -2,28 +2,27 @@ import { buildingsById } from '../data/gameData'
 
 /**
  * Familias de variantes: la tecla E pasa a la siguiente (como el "Cambio rápido" del juego)
- * y los atajos numéricos eligen la familia.
+ * y los atajos numéricos eligen la familia. El nombre visible de cada una está en las
+ * traducciones (families.<clave>).
  */
-export const FAMILIES: Record<string, { name: string; ids: string[] }> = {
+export const FAMILIES: Record<string, { ids: string[] }> = {
   belt: {
-    name: 'Cinta transportadora',
     ids: [1, 2, 3, 4, 5, 6].map((n) => `Build_ConveyorBeltMk${n}_C`),
   },
-  pipe: { name: 'Tubería', ids: ['Build_Pipeline_C', 'Build_PipelineMK2_C'] },
-  pipeClean: { name: 'Tubería limpia', ids: ['Build_Pipeline_NoIndicator_C', 'Build_PipelineMK2_NoIndicator_C'] },
-  lift: { name: 'Cinta elevadora', ids: [1, 2, 3, 4, 5, 6].map((n) => `Build_ConveyorLiftMk${n}_C`) },
+  pipe: { ids: ['Build_Pipeline_C', 'Build_PipelineMK2_C'] },
+  pipeClean: { ids: ['Build_Pipeline_NoIndicator_C', 'Build_PipelineMK2_NoIndicator_C'] },
+  lift: { ids: [1, 2, 3, 4, 5, 6].map((n) => `Build_ConveyorLiftMk${n}_C`) },
   splitter: {
-    name: 'Divisor',
     ids: ['Build_ConveyorAttachmentSplitter_C', 'Build_ConveyorAttachmentSplitterSmart_C', 'Build_ConveyorAttachmentSplitterProgrammable_C'],
   },
-  merger: { name: 'Unión', ids: ['Build_ConveyorAttachmentMerger_C', 'Build_ConveyorAttachmentMergerPriority_C'] },
-  foundation: { name: 'Cimiento', ids: ['Build_Foundation_8x1_01_C', 'Build_Foundation_8x2_01_C', 'Build_Foundation_8x4_01_C'] },
-  beltPole: { name: 'Poste de cinta', ids: ['Build_ConveyorPole_C', 'Build_ConveyorPoleStackable_C'] },
-  pipeSupport: { name: 'Soporte de tubería', ids: ['Build_PipelineSupport_C', 'Build_PipeSupportStackable_C'] },
-  pump: { name: 'Bomba', ids: ['Build_PipelinePump_C', 'Build_PipelinePumpMk2_C'] },
-  pipeJunction: { name: 'Unión de tuberías', ids: ['Build_PipelineJunction_Cross_C', 'Build_PipelineJunction_T_C'] },
-  miner: { name: 'Taladro', ids: ['Build_MinerMk1_C', 'Build_MinerMk2_C', 'Build_MinerMk3_C'] },
-  powerPole: { name: 'Poste de electricidad', ids: ['Build_PowerPoleMk1_C', 'Build_PowerPoleMk2_C', 'Build_PowerPoleMk3_C'] },
+  merger: { ids: ['Build_ConveyorAttachmentMerger_C', 'Build_ConveyorAttachmentMergerPriority_C'] },
+  foundation: { ids: ['Build_Foundation_8x1_01_C', 'Build_Foundation_8x2_01_C', 'Build_Foundation_8x4_01_C'] },
+  beltPole: { ids: ['Build_ConveyorPole_C', 'Build_ConveyorPoleStackable_C'] },
+  pipeSupport: { ids: ['Build_PipelineSupport_C', 'Build_PipeSupportStackable_C'] },
+  pump: { ids: ['Build_PipelinePump_C', 'Build_PipelinePumpMk2_C'] },
+  pipeJunction: { ids: ['Build_PipelineJunction_Cross_C', 'Build_PipelineJunction_T_C'] },
+  miner: { ids: ['Build_MinerMk1_C', 'Build_MinerMk2_C', 'Build_MinerMk3_C'] },
+  powerPole: { ids: ['Build_PowerPoleMk1_C', 'Build_PowerPoleMk2_C', 'Build_PowerPoleMk3_C'] },
 }
 for (const f of Object.values(FAMILIES)) f.ids = f.ids.filter((id) => buildingsById.has(id))
 

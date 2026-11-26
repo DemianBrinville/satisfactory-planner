@@ -47,6 +47,8 @@ export interface Building {
   description: string
   category: CategoryId
   subcategory: string
+  /** id de la subcategoría del juego (SC_…), para traducirla */
+  subcategoryId?: string
   priority: number
   kind: BuildingKind
   footprint: Footprint | null

@@ -1,3 +1,6 @@
+import { fmtPct } from '../i18n/format'
+import i18n from '../i18n'
+import { locale } from '../i18n/format'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Circle, Group, Layer, Line, Rect, Shape, Stage, Text } from 'react-konva'
 import type Konva from 'konva'
@@ -498,7 +501,7 @@ export default function PlannerCanvas() {
     const sameEnd = draft.from.end && target.end && draft.from.end.uid === target.end.uid && draft.from.end.port === target.end.port
     const dirOk = draft.reversed ? target.dir !== 'in' : target.dir !== 'out'
     const ok = len > 0.4 && len <= MAX_SEGMENT && !sameEnd && dirOk
-    return { pts, len, ok, reason: len > MAX_SEGMENT ? `Supera ${MAX_SEGMENT} m: agrega un poste` : !dirOk ? 'Ese puerto tiene el mismo sentido' : '' }
+    return { pts, len, ok, reason: len > MAX_SEGMENT ? i18n.t('canvas.tooLong', { max: MAX_SEGMENT }) : !dirOk ? i18n.t('canvas.sameDirection') : '' }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, target?.info.pos.x, target?.info.pos.y, target?.end?.uid, target?.end?.port, conveyorMode])
 
@@ -969,13 +972,13 @@ export default function PlannerCanvas() {
       )}
       {areaGhost && (
         <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
-          <b>{areaGhost.filter((g) => g.ok).length} cimientos</b>
-          {areaGhost.some((g) => !g.ok) && <div className="muted">{areaGhost.filter((g) => !g.ok).length} lugares ocupados se saltean</div>}
+          <b>{i18n.t('canvas.foundations', { n: areaGhost.filter((g) => g.ok).length })}</b>
+          {areaGhost.some((g) => !g.ok) && <div className="muted">{i18n.t('canvas.occupied', { n: areaGhost.filter((g) => !g.ok).length })}</div>}
         </div>
       )}
       {endHover && (
         <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
-          <b>Clic para seguir {buildingsById.get(endHover.conv.buildingId)?.kind === 'pipe' ? 'la tubería' : 'la cinta'}</b>
+          <b>{i18n.t(buildingsById.get(endHover.conv.buildingId)?.kind === 'pipe' ? 'canvas.continuePipe' : 'canvas.continueBelt')}</b>
         </div>
       )}
       {hover?.conv && <ConveyorTooltip c={hover.conv} flow={flows.edges.get(hover.conv.uid)} head={headIssues.get(hover.conv.uid)} at={screen} />}
@@ -983,7 +986,7 @@ export default function PlannerCanvas() {
       {hover?.route && <RouteTooltip r={hover.route} entities={entities} flows={flows} floorHeight={s.floorHeight} at={screen} />}
       {hover?.rail && (
         <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
-          <b>Vía de tren</b>
+          <b>{i18n.t('canvas.rail')}</b>
           <div className="muted">
             {pathLength(hover.rail.points).toFixed(1)} m ·{' '}
             {railCost(pathLength(hover.rail.points))
@@ -994,15 +997,15 @@ export default function PlannerCanvas() {
       )}
       {railPreview && (
         <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
-          <b>{railPreview.len.toFixed(1)} m</b> (de {RAIL_MIN} a {RAIL_MAX} m por tramo)
+          <b>{railPreview.len.toFixed(1)} m</b> {i18n.t('canvas.railRange', { min: RAIL_MIN, max: RAIL_MAX })}
           <div className="muted">{railCost(railPreview.len).map((c) => `${c.amount} ${itemName(c.item)}`).join(', ')}</div>
-          {!railPreview.ok && <div className="bad">Largo fuera de rango: un tramo de vía mide entre 12 y 100 m.</div>}
+          {!railPreview.ok && <div className="bad">{i18n.t('canvas.railOutOfRange')}</div>}
         </div>
       )}
       {tool === 'route' && (
         <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
-          <b>Ruta de {VEHICLES[s.routeKind].name.toLowerCase()}</b>
-          <div className="muted">{s.routeFrom ? 'Clic en la estación de destino' : 'Clic en la estación de origen'}</div>
+          <b>{i18n.t(`route.title.${s.routeKind}`)}</b>
+          <div className="muted">{s.routeFrom ? i18n.t('canvas.routeDest') : i18n.t('canvas.routeOrigin')}</div>
         </div>
       )}
       {hover?.wire && <WireTooltip w={hover.wire} entities={entities} floorHeight={s.floorHeight} at={screen} />}
@@ -1011,7 +1014,7 @@ export default function PlannerCanvas() {
           {(() => {
             const t = powerTarget(mouse)
             const a = wireFrom ? entById.get(wireFrom) : null
-            if (!t) return <span className="muted">{wireFrom ? 'Clic en otra estructura con conexión eléctrica' : 'Clic en un poste, generador o máquina'}</span>
+            if (!t) return <span className="muted">{wireFrom ? i18n.t('canvas.wireNext') : i18n.t('canvas.wireStart')}</span>
             const b = buildingsById.get(t.buildingId)!
             const free = freeConnections(t)
             const len = a ? wireLength(a, t, s.floorHeight) : 0
@@ -1019,7 +1022,7 @@ export default function PlannerCanvas() {
               <>
                 <b>{b.name}</b>
                 <div className={free > 0 ? 'muted' : 'bad'}>
-                  Conexiones libres: {free} de {connectionsOf(b)}
+                  {i18n.t('canvas.freeConnections', { free, total: connectionsOf(b) })}
                 </div>
                 {a && a.uid !== t.uid && (
                   <div className={len > wireMax(a, t) ? 'bad' : 'muted'}>
@@ -1035,21 +1038,24 @@ export default function PlannerCanvas() {
       <Hotbar />
 
       <div className="coords">
-        x {mouse.x.toFixed(1)} m · y {mouse.y.toFixed(1)} m · cimiento ({Math.floor(mouse.x / FOUNDATION)},{' '}
-        {Math.floor(mouse.y / FOUNDATION)})
-        {tool === 'conveyor' &&
-          ` · modo ${conveyorMode === 'curve' ? 'curvo' : 'recto'} (R cambia) · clic: empezar/terminar tramo · clic derecho: cortar trazado`}
-        {tool === 'paste' && ' · clic: pegar · R: girar · Esc: salir'}
-        {tool === 'wire' && ' · clic: conectar estructuras · clic derecho: cortar'}
-        {tool === 'rail' && ' · clic: empezar/terminar tramo de vía (se engancha a otras vías y andenes) · clic derecho: cortar'}
-        {tool === 'route' && ' · clic: estación de origen y luego de destino'}
+        {i18n.t('canvas.coords', {
+          x: mouse.x.toFixed(1),
+          y: mouse.y.toFixed(1),
+          fx: Math.floor(mouse.x / FOUNDATION),
+          fy: Math.floor(mouse.y / FOUNDATION),
+        })}
+        {tool === 'conveyor' && i18n.t(conveyorMode === 'curve' ? 'canvas.hintConveyorCurve' : 'canvas.hintConveyorStraight')}
+        {tool === 'paste' && i18n.t('canvas.hintPaste')}
+        {tool === 'wire' && i18n.t('canvas.hintWire')}
+        {tool === 'rail' && i18n.t('canvas.hintRail')}
+        {tool === 'route' && i18n.t('canvas.hintRoute')}
       </div>
     </div>
   )
 }
 
 const layerRank = (e: PlacedEntity) => (buildingsById.get(e.buildingId)?.kind === 'foundation' ? 0 : 1)
-const fmt = (n: number) => n.toLocaleString('es', { maximumFractionDigits: 1 })
+const fmt = (n: number) => n.toLocaleString(locale(), { maximumFractionDigits: 1 })
 
 function Grid({ view, w, h }: { view: { scale: number; offsetX: number; offsetY: number }; w: number; h: number }) {
   return (
@@ -1391,15 +1397,14 @@ function ConveyorTooltip({ c, flow, head, at }: { c: Conveyor; flow?: EdgeFlow; 
     <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
       <b>{b?.name}</b>
       <div className="muted">
-        {len.toFixed(1)} m · capacidad {fmt(flow?.capacity ?? 0)} {unit} · uso {flow?.capacity ? Math.round((totalFlow / flow.capacity) * 100) : 0} %
+        {i18n.t('canvas.convInfo', { len: len.toFixed(1), cap: fmt(flow?.capacity ?? 0), unit, use: flow?.capacity ? Math.round((totalFlow / flow.capacity) * 100) : 0 })}
       </div>
       {head && (
         <div className="bad">
-          <TriangleAlert size={13} /> Falta altura de bombeo: el líquido tiene que subir hasta {fmt(head.needed)} m y solo alcanza {fmt(head.reach)} m. Agrega una bomba antes de
-          subir.
+          <TriangleAlert size={13} /> {i18n.t('canvas.headLift', { needed: fmt(head.needed), reach: fmt(head.reach) })}
         </div>
       )}
-      {items.length === 0 && <div className="muted">Sin material: conecta una salida con receta o un taladro.</div>}
+      {items.length === 0 && <div className="muted">{i18n.t('canvas.noMaterial')}</div>}
       {items.map((i) => {
         const o = flow!.offer.get(i) ?? 0
         const d = flow!.demand.get(i) ?? 0
@@ -1411,19 +1416,19 @@ function ConveyorTooltip({ c, flow, head, at }: { c: Conveyor; flow?: EdgeFlow; 
               <ItemIcon item={i} size={14} /> <b>{itemName(i)}</b>: {fmt(f)} {unit}
             </div>
             <div className="muted">
-              llega {fmt(o)} · ideal para la receta final {fmt(d)}
-              {diff > 0.05 && <span className="warn"> · sobran {fmt(diff)}</span>}
-              {diff < -0.05 && <span className="bad"> · faltan {fmt(-diff)}</span>}
+              {i18n.t('canvas.arrivesIdeal', { o: fmt(o), d: fmt(d) })}
+              {diff > 0.05 && <span className="warn">{i18n.t('canvas.surplus', { n: fmt(diff) })}</span>}
+              {diff < -0.05 && <span className="bad">{i18n.t('canvas.shortage', { n: fmt(-diff) })}</span>}
             </div>
             {flow?.local && flow.local.has(i) && Math.abs((flow.local.get(i) ?? 0) - d) > 0.05 && (
               <div className="muted">
-                lo que viene después pide {fmt(flow.local.get(i) ?? 0)} a su reloj
-                {(flow.local.get(i) ?? 0) - o > 0.05 && <span className="warn"> · le faltan {fmt((flow.local.get(i) ?? 0) - o)}</span>}
-                {o - (flow.local.get(i) ?? 0) > 0.05 && <span className="warn"> · le sobran {fmt(o - (flow.local.get(i) ?? 0))}</span>}
+                {i18n.t('canvas.localAsks', { n: fmt(flow.local.get(i) ?? 0) })}
+                {(flow.local.get(i) ?? 0) - o > 0.05 && <span className="warn">{i18n.t('canvas.localShort', { n: fmt((flow.local.get(i) ?? 0) - o) })}</span>}
+                {o - (flow.local.get(i) ?? 0) > 0.05 && <span className="warn">{i18n.t('canvas.localSurplus', { n: fmt(o - (flow.local.get(i) ?? 0)) })}</span>}
               </div>
             )}
             {d > (flow?.capacity ?? Infinity) + 0.05 && (
-              <div className="bad">El ideal supera la capacidad de esta {unit === '/min' ? 'cinta' : 'tubería'} ({fmt(flow!.capacity)}): usa una de mayor marca.</div>
+              <div className="bad">{i18n.t(unit === '/min' ? 'canvas.idealOverBelt' : 'canvas.idealOverPipe', { cap: fmt(flow!.capacity) })}</div>
             )}
           </div>
         )
@@ -1460,18 +1465,18 @@ function RouteTooltip({
   return (
     <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
       <b>
-        Ruta de {VEHICLES[r.kind].name.toLowerCase()}
-        {r.kind === 'train' && ` · ${r.count ?? 1} vagón(es)`}
+        {i18n.t(`route.title.${r.kind}`)}
+        {r.kind === 'train' && i18n.t('canvas.wagons', { n: r.count ?? 1 })}
       </b>
       <div className="muted">
-        {fmt(dist)} m por trayecto · ida y vuelta {fmt(t)} s
+        {i18n.t('canvas.routeInfo', { dist: fmt(dist), t: fmt(t) })}
       </div>
       {items.length === 0 && (
-        <div className="muted">Capacidad: {fmt(routeThroughput(r, null, entities, floorHeight))}/min (ítems de pila 100)</div>
+        <div className="muted">{i18n.t('canvas.routeGeneric', { n: fmt(routeThroughput(r, null, entities, floorHeight)) })}</div>
       )}
       {items.map((i) => (
         <div key={i}>
-          <b>{itemName(i)}</b>: {fmt(f!.flow.get(i) ?? 0)} de {fmt(routeThroughput(r, i, entities, floorHeight))}/min
+          <b>{itemName(i)}</b>: {i18n.t('canvas.routeItem', { f: fmt(f!.flow.get(i) ?? 0), cap: fmt(routeThroughput(r, i, entities, floorHeight)) })}
         </div>
       ))}
     </div>
@@ -1529,7 +1534,7 @@ function WireTooltip({ w, entities, floorHeight, at }: { w: { from: string; to: 
   const len = wireLength(a, b, floorHeight)
   return (
     <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
-      <b>Línea eléctrica</b>
+      <b>{i18n.t('canvas.powerLine')}</b>
       <div className="muted">
         {buildingsById.get(a.buildingId)?.name} ↔ {buildingsById.get(b.buildingId)?.name}
       </div>
@@ -1546,21 +1551,22 @@ export function GridLine({ e, b, power }: { e: PlacedEntity; b: Building; power:
   if (power.infinite)
     return b.powerMW > 0 ? (
       <div className="muted">
-        <Zap size={13} /> Energía infinita · consume {fmt(consumptionMW(e, b))} MW
+        <Zap size={13} /> {i18n.t('canvas.infinite', { mw: fmt(consumptionMW(e, b)) })}
       </div>
     ) : null
   const gid = power.gridOf.get(e.uid)
   if (!gid)
     return (
       <div className={b.powerMW > 0 ? 'bad' : 'muted'}>
-        <ZapOff size={13} /> Sin conectar a la red
+        <ZapOff size={13} /> {i18n.t('canvas.unpowered')}
       </div>
     )
   const g = power.grids.find((x) => x.id === gid)!
   const over = g.consumption > g.generation + 1e-6
   return (
     <div className={over ? 'bad' : 'muted'}>
-      <Zap size={13} /> Red {g.id}: consume {fmt(g.consumption)} MW de {fmt(g.generation)} MW{over && ' · ¡sobrecargada!'}
+      <Zap size={13} /> {i18n.t('canvas.grid', { id: g.id, use: fmt(g.consumption), gen: fmt(g.generation) })}
+      {over && i18n.t('canvas.overloaded')}
     </div>
   )
 }
@@ -1572,7 +1578,7 @@ function EntityTooltip({ e, flows, power, at }: { e: PlacedEntity; flows: FlowRe
   return (
     <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
       <b>{b.name}</b>
-      {e.clock !== undefined && e.clock !== 1 && <span className="muted"> · reloj {Math.round(e.clock * 1000) / 10} %</span>}
+      {e.clock !== undefined && e.clock !== 1 && <span className="muted">{i18n.t('canvas.clock', { pct: fmtPct(e.clock, 1) })}</span>}
       <GridLine e={e} b={b} power={power} />
       {n ? (
         <>
@@ -1580,7 +1586,7 @@ function EntityTooltip({ e, flows, power, at }: { e: PlacedEntity; flows: FlowRe
           <ClockAdviceText a={clockAdvice(n, e.clock ?? 1)} />
         </>
       ) : (
-        b.kind === 'machine' && <div className="muted">{e.recipeId ? 'Sin cintas conectadas' : 'Selecciona la máquina para elegir receta'}</div>
+        b.kind === 'machine' && <div className="muted">{e.recipeId ? i18n.t('canvas.noBelts') : i18n.t('canvas.pickRecipe')}</div>
       )}
     </div>
   )

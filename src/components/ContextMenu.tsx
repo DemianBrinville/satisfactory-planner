@@ -1,3 +1,5 @@
+import { fmtPct } from '../i18n/format'
+import { useTranslation } from 'react-i18next'
 import { CircleArrowDown, CircleArrowUp, Copy, CopyPlus, Gauge, Move, RotateCw, Trash2 } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { computeFlows } from '../editor/flow'
@@ -15,6 +17,7 @@ export interface MenuState {
 
 /** Menú de clic derecho sobre una estructura o cinta. */
 export default function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }) {
+  const { t } = useTranslation()
   const st = useEditor()
   const count = st.selection.length
   const entity = st.entities.find((e) => e.uid === menu.uid)
@@ -26,7 +29,7 @@ export default function ContextMenu({ menu, onClose }: { menu: MenuState; onClos
     return clockAdvice(f.nodes.get(entity.uid), entity.clock ?? 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entity?.uid, count])
-  const pctTxt = (v: number) => `${Math.round(v * 10000) / 100} %`
+  const pctTxt = (v: number) => fmtPct(v)
   const setClock = (v: number) => entity && st.updateEntity(entity.uid, { clock: Math.min(2.5, Math.max(0.01, Math.round(v * 10000) / 10000)) })
 
   useEffect(() => {
@@ -48,14 +51,14 @@ export default function ContextMenu({ menu, onClose }: { menu: MenuState; onClos
         <button className={advice.kind === 'under' ? 'accent-blue' : 'accent-orange'} onClick={run(() => setClock(advice.target))}>
           <span>
             {advice.kind === 'under' ? <CircleArrowDown size={15} /> : <CircleArrowUp size={15} />}
-            {advice.kind === 'under' ? 'Bajar' : 'Subir'} reloj al {pctTxt(advice.target)}
+            {t(advice.kind === 'under' ? 'menu.clockDown' : 'menu.clockUp', { pct: pctTxt(advice.target) })}
           </span>
         </button>
       )}
       {entity && (entity.clock ?? 1) !== 1 && (
         <button onClick={run(() => setClock(1))}>
           <span>
-            <Gauge size={15} /> Reloj al 100 %
+            <Gauge size={15} /> {t('menu.clock100')}
           </span>
         </button>
       )}
@@ -63,34 +66,39 @@ export default function ContextMenu({ menu, onClose }: { menu: MenuState; onClos
         <>
           <button onClick={run(st.rotateSelection)}>
             <span>
-              <RotateCw size={15} /> Girar{label}
+              <RotateCw size={15} /> {t('menu.rotate')}
+              {label}
             </span>
             <kbd>R</kbd>
           </button>
           <button onClick={run(st.cutSelection)}>
             <span>
-              <Move size={15} /> Mover{label}
+              <Move size={15} /> {t('menu.move')}
+              {label}
             </span>
             <kbd>Ctrl+X</kbd>
           </button>
           <button onClick={run(st.copySelection)}>
             <span>
-              <Copy size={15} /> Copiar{label}
+              <Copy size={15} /> {t('menu.copy')}
+              {label}
             </span>
             <kbd>Ctrl+C</kbd>
           </button>
           <button onClick={run(() => { st.copySelection(); st.startPaste() })}>
             <span>
-              <CopyPlus size={15} /> Duplicar{label}
+              <CopyPlus size={15} /> {t('menu.duplicate')}
+              {label}
             </span>
           </button>
         </>
       )}
       <button className="danger" onClick={run(st.deleteSelection)}>
         <span>
-          <Trash2 size={15} /> Eliminar{label}
+          <Trash2 size={15} /> {t('menu.delete')}
+          {label}
         </span>
-        <kbd>Supr</kbd>
+        <kbd>{t('menu.deleteKey')}</kbd>
       </button>
     </div>
   )

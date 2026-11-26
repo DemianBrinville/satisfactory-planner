@@ -1,3 +1,4 @@
+import i18n from '../i18n'
 import { buildingsById, game, type Recipe } from '../data/gameData'
 import { MINER_RESOURCES } from './flow'
 
@@ -152,10 +153,10 @@ export function machineSplit(exact: number) {
 
 /** Taladros necesarios para una materia prima en yacimientos normales. */
 export function minersFor(item: string, rate: number) {
-  if (item === 'Desc_Water_C') return { label: 'Extractores de agua', base: 120, count: rate / 120 }
-  if (item === 'Desc_LiquidOil_C') return { label: 'Extractores de petróleo (normal)', base: 120, count: rate / 120 }
-  if (item === 'Desc_NitrogenGas_C') return { label: 'Extractores de pozo (normal)', base: 60, count: rate / 60 }
-  return { label: 'Taladros Mk.1 en yacimiento normal', base: 60, count: rate / 60 }
+  if (item === 'Desc_Water_C') return { label: i18n.t('calc.minersWater'), base: 120, count: rate / 120 }
+  if (item === 'Desc_LiquidOil_C') return { label: i18n.t('calc.minersOil'), base: 120, count: rate / 120 }
+  if (item === 'Desc_NitrogenGas_C') return { label: i18n.t('calc.minersWell'), base: 60, count: rate / 60 }
+  return { label: i18n.t('calc.minersOre'), base: 60, count: rate / 60 }
 }
 
 /**

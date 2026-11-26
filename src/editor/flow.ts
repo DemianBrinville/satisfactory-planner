@@ -57,12 +57,6 @@ export const FILTER_ANY = '*any'
 export const FILTER_NONE = '*none'
 export const FILTER_UNDEFINED = '*undefined'
 export const FILTER_OVERFLOW = '*overflow'
-export const FILTER_NAMES: Record<string, string> = {
-  [FILTER_ANY]: 'Cualquiera',
-  [FILTER_NONE]: 'Ninguno',
-  [FILTER_UNDEFINED]: 'Cualquier no definido',
-  [FILTER_OVERFLOW]: 'Excedente',
-}
 
 /** Aumento de producción por somersloops: 0 a 1 (= +100 % con todas las ranuras llenas). */
 export function somersloopBoost(e: PlacedEntity, b: Building): number {
@@ -72,7 +66,6 @@ export function somersloopBoost(e: PlacedEntity, b: Building): number {
 }
 
 export const PURITY_MULT: Record<Purity, number> = { impure: 0.5, normal: 1, pure: 2 }
-export const PURITY_NAME: Record<Purity, string> = { impure: 'Impuro', normal: 'Normal', pure: 'Puro' }
 
 const isFluid = (item: string) => {
   const f = game.items[item]?.form

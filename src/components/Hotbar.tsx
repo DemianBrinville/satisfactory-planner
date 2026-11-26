@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { buildingsById } from '../data/gameData'
 import { FAMILIES, HOTKEYS } from '../editor/families'
 import { isBuildingIdAvailable, useProgress } from '../editor/progress'
@@ -6,6 +7,7 @@ import { BuildingIcon } from './GameIcons'
 
 /** Barra rápida como la del juego: número → familia; E cambia la variante. */
 export default function Hotbar() {
+  const { t } = useTranslation()
   const { lastByFamily, selectFamily, conveyorId, placingId } = useEditor()
   useProgress() // re-render cuando cambia el progreso
   const active = conveyorId ?? placingId
@@ -22,16 +24,16 @@ export default function Hotbar() {
             className={'slot' + (id && id === active ? ' active' : '')}
             disabled={!b}
             onClick={() => selectFamily(family)}
-            title={b ? `${b.name} · E: siguiente variante` : `${f.name}: no disponible con tu progreso`}
+            title={b ? t('hotbar.slotTitle', { name: b.name }) : t('hotbar.unavailable', { name: t(`families.${family}` as 'families.belt') })}
           >
             <kbd>{key}</kbd>
             {b && <BuildingIcon id={b.id} size={20} />}
-            <span>{b ? short(b.name) : f.name}</span>
+            <span>{b ? short(b.name) : t(`families.${family}` as 'families.belt')}</span>
           </button>
         )
       })}
       <span className="hint">
-        <kbd>E</kbd> variante
+        <kbd>E</kbd> {t('hotbar.variant')}
       </span>
     </div>
   )
@@ -47,3 +49,12 @@ const short = (n: string) =>
     .replace('Soporte de tubería', 'Soporte')
     .replace('Bomba de tubería', 'Bomba')
     .replace('Cinta elevadora', 'Elevadora')
+    .replace('Conveyor Belt', 'Belt')
+    .replace('Conveyor Splitter', 'Splitter')
+    .replace('Conveyor Merger', 'Merger')
+    .replace('Conveyor Pole', 'Pole')
+    .replace('Conveyor Lift', 'Lift')
+    .replace('Pipeline Support', 'Support')
+    .replace('Pipeline Pump', 'Pump')
+    .replace('Pipeline Junction Cross', 'Junction')
+    .replace('Pipeline Mk', 'Pipe Mk')

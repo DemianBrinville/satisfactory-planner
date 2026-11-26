@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, KeyRound, Lock, Mail } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useCloud } from '../cloud/cloud'
@@ -25,6 +26,7 @@ function PasswordInput({
   placeholder: string
   autoComplete: string
 }) {
+  const { t } = useTranslation()
   const [show, setShow] = useState(false)
   return (
     <div className="input-icon">
@@ -38,7 +40,7 @@ function PasswordInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
-      <button type="button" className="trail" onClick={() => setShow(!show)} title={show ? 'Ocultar' : 'Mostrar'} tabIndex={-1}>
+      <button type="button" className="trail" onClick={() => setShow(!show)} title={show ? t('auth.hide') : t('auth.show')} tabIndex={-1}>
         {show ? <EyeOff size={16} /> : <Eye size={16} />}
       </button>
     </div>
@@ -47,6 +49,7 @@ function PasswordInput({
 
 /** Inicio de sesión, registro y recuperación de contraseña. */
 export default function AuthModal() {
+  const { t } = useTranslation()
   const c = useCloud()
   const mode = c.authOpen
   const [email, setEmail] = useState('')
@@ -67,107 +70,108 @@ export default function AuthModal() {
     e.preventDefault()
     setMessage(null)
     setLocalError(null)
-    if (mode === 'signup' && password !== confirm) return setLocalError('Las contraseñas no coinciden.')
+    if (mode === 'signup' && password !== confirm) return setLocalError(t('auth.mismatch'))
     setBusy(true)
     if (mode === 'login') await c.signIn(email.trim(), password)
     else if (mode === 'signup') {
       const r = await c.signUp(email.trim(), password)
-      if (r === 'confirm') setMessage(`Te enviamos un correo a ${email.trim()} para confirmar la cuenta. Ábrelo y después inicia sesión aquí.`)
+      if (r === 'confirm') setMessage(t('auth.confirmSent', { email: email.trim() }))
     } else if (await c.resetPassword(email.trim())) {
-      setMessage('Te enviamos un enlace para elegir una contraseña nueva. Ábrelo en este navegador.')
+      setMessage(t('auth.resetSent'))
     }
     setBusy(false)
   }
 
-  const title = mode === 'login' ? 'Iniciar sesión' : mode === 'signup' ? 'Crear cuenta' : 'Recuperar contraseña'
+  const title = mode === 'login' ? t('auth.titleLogin') : mode === 'signup' ? t('auth.titleSignup') : t('auth.titleReset')
   return (
     <Modal title={title} onClose={() => c.openAuth(null)} width={400}>
       {mode !== 'reset' && (
         <>
           <button className="btn google" onClick={() => c.signInWithGoogle()}>
-            <GoogleIcon /> Continuar con Google
+            <GoogleIcon /> {t('auth.google')}
           </button>
           <div className="divider">
-            <span>o con tu email</span>
+            <span>{t('auth.orEmail')}</span>
           </div>
         </>
       )}
       <form className="stack" onSubmit={submit}>
         <div className="input-icon">
           <Mail size={16} className="lead" />
-          <input type="email" required placeholder="Email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+          <input type="email" required placeholder={t('auth.email')} autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
         </div>
         {mode !== 'reset' && (
           <PasswordInput
             value={password}
             onChange={setPassword}
-            placeholder={mode === 'signup' ? 'Contraseña (mínimo 6 caracteres)' : 'Contraseña'}
+            placeholder={mode === 'signup' ? t('auth.passwordNew') : t('auth.password')}
             autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
           />
         )}
-        {mode === 'signup' && <PasswordInput value={confirm} onChange={setConfirm} placeholder="Repite la contraseña" autoComplete="new-password" />}
+        {mode === 'signup' && <PasswordInput value={confirm} onChange={setConfirm} placeholder={t('auth.repeat')} autoComplete="new-password" />}
         {mode === 'login' && (
           <button type="button" className="link right" onClick={() => switchTo('reset')}>
-            ¿Olvidaste tu contraseña?
+            {t('auth.forgot')}
           </button>
         )}
         {(localError || c.error) && <p className="bad">{localError || c.error}</p>}
         {message && <p className="ok">{message}</p>}
         <button type="submit" className="btn primary block" disabled={busy}>
-          {mode === 'login' ? 'Entrar' : mode === 'signup' ? 'Crear cuenta' : 'Enviar enlace'}
+          {mode === 'login' ? t('auth.submitLogin') : mode === 'signup' ? t('auth.submitSignup') : t('auth.submitReset')}
         </button>
       </form>
       <p className="muted small center">
         {mode === 'login' && (
           <>
-            ¿No tienes cuenta?{' '}
+            {t('auth.noAccount')}{' '}
             <button className="link" onClick={() => switchTo('signup')}>
-              Crear una
+              {t('auth.createOne')}
             </button>
           </>
         )}
         {mode === 'signup' && (
           <>
-            ¿Ya tienes cuenta?{' '}
+            {t('auth.haveAccount')}{' '}
             <button className="link" onClick={() => switchTo('login')}>
-              Inicia sesión
+              {t('auth.signInLink')}
             </button>
           </>
         )}
         {mode === 'reset' && (
           <button className="link" onClick={() => switchTo('login')}>
-            Volver a iniciar sesión
+            {t('auth.backToLogin')}
           </button>
         )}
       </p>
-      <p className="muted small center">Lo que tengas dibujado se guarda en tu cuenta al entrar.</p>
+      <p className="muted small center">{t('auth.keepsDrawing')}</p>
     </Modal>
   )
 }
 
 /** Al volver del enlace de recuperación: elegir la contraseña nueva. */
 export function RecoveryModal() {
+  const { t } = useTranslation()
   const c = useCloud()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [err, setErr] = useState<string | null>(null)
   if (!c.recovering) return null
   return (
-    <Modal title="Elige tu contraseña nueva" width={400}>
+    <Modal title={t('auth.newPasswordTitle')} width={400}>
       <form
         className="stack"
         onSubmit={async (e) => {
           e.preventDefault()
-          if (password !== confirm) return setErr('Las contraseñas no coinciden.')
+          if (password !== confirm) return setErr(t('auth.mismatch'))
           setErr(null)
           await c.updatePassword(password)
         }}
       >
-        <PasswordInput value={password} onChange={setPassword} placeholder="Contraseña nueva" autoComplete="new-password" />
-        <PasswordInput value={confirm} onChange={setConfirm} placeholder="Repite la contraseña" autoComplete="new-password" />
+        <PasswordInput value={password} onChange={setPassword} placeholder={t('auth.newPassword')} autoComplete="new-password" />
+        <PasswordInput value={confirm} onChange={setConfirm} placeholder={t('auth.repeat')} autoComplete="new-password" />
         {(err || c.error) && <p className="bad">{err || c.error}</p>}
         <button type="submit" className="btn primary block">
-          <KeyRound size={16} /> Guardar contraseña
+          <KeyRound size={16} /> {t('auth.savePassword')}
         </button>
       </form>
     </Modal>

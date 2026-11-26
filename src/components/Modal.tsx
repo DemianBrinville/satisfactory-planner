@@ -1,3 +1,4 @@
+import i18n from '../i18n'
 import { X } from 'lucide-react'
 import { useEffect, type ReactNode } from 'react'
 
@@ -24,7 +25,7 @@ export default function Modal({
         <div className="dialog-head">
           <h2>{title}</h2>
           {onClose && (
-            <button className="icon-btn" onClick={onClose} title="Cerrar">
+            <button className="icon-btn" onClick={onClose} title={i18n.t('common.close')}>
               <X size={18} />
             </button>
           )}

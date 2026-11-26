@@ -1,31 +1,42 @@
+import i18n from '../i18n'
+import { Trans, useTranslation } from 'react-i18next'
+import { locale } from '../i18n/format'
 import { useMemo, useState } from 'react'
 import { buildingsById, game, itemName, type Building } from '../data/gameData'
-import { FILTER_ANY, FILTER_NAMES, FILTER_NONE, FILTER_OVERFLOW, FILTER_UNDEFINED, type EdgeFlow } from '../editor/flow'
+import { FILTER_ANY, FILTER_NONE, FILTER_OVERFLOW, FILTER_UNDEFINED, type EdgeFlow } from '../editor/flow'
 import { VEHICLES, roundTrip, routeDistance, routeThroughput, type Route, type VehicleKind } from '../editor/transport'
 import { useEditor, type PlacedEntity } from '../editor/store'
 
 /** Salidas de un divisor por número de puerto (ver portsOf): 1 centro, 2 izquierda, 3 derecha. */
-const SPLITTER_OUTS: [number, string][] = [
-  [2, 'Izquierda'],
-  [1, 'Centro'],
-  [3, 'Derecha'],
+const SPLITTER_OUTS: [number, 'left' | 'center' | 'right'][] = [
+  [2, 'left'],
+  [1, 'center'],
+  [3, 'right'],
 ]
 /** Entradas de un fusionador por número de puerto: 1 centro, 2 izquierda, 3 derecha. */
-const MERGER_INS: [number, string][] = [
-  [2, 'Izquierda'],
-  [1, 'Centro'],
-  [3, 'Derecha'],
+const MERGER_INS: [number, 'left' | 'center' | 'right'][] = [
+  [2, 'left'],
+  [1, 'center'],
+  [3, 'right'],
 ]
 
 const SPECIAL = [FILTER_ANY, FILTER_NONE, FILTER_UNDEFINED, FILTER_OVERFLOW]
-const solidItems = Object.entries(game.items)
+const FILTER_KEYS: Record<string, 'filters.any' | 'filters.none' | 'filters.undefined' | 'filters.overflow'> = {
+  [FILTER_ANY]: 'filters.any',
+  [FILTER_NONE]: 'filters.none',
+  [FILTER_UNDEFINED]: 'filters.undefined',
+  [FILTER_OVERFLOW]: 'filters.overflow',
+}
+const solidItems = () =>
+  Object.entries(game.items)
   .filter(([, i]) => i.form === 'solid')
   .map(([id, i]) => ({ id, name: i.name }))
   .sort((a, b) => a.name.localeCompare(b.name))
 
-const label = (f: string) => FILTER_NAMES[f] ?? itemName(f)
+const label = (f: string) => (FILTER_KEYS[f] ? i18n.t(FILTER_KEYS[f]) : itemName(f))
 
 export function SplitterPanel({ e, b }: { e: PlacedEntity; b: Building }) {
+  const { t } = useTranslation()
   const update = useEditor((s) => s.updateEntity)
   const programmable = /Programmable/.test(b.id)
   const filters = e.filters ?? {}
@@ -35,14 +46,13 @@ export function SplitterPanel({ e, b }: { e: PlacedEntity; b: Building }) {
     <section className="machine">
       <h2>{b.name}</h2>
       <p className="muted">
-        Cada salida deja pasar lo que indica su filtro. <b>Cualquier no definido</b> toma los ítems que ninguna otra salida nombra y{' '}
-        <b>Excedente</b> recibe lo que no cabe en las demás.
+        <Trans i18nKey="splitter.help" components={{ b: <b /> }} />
       </p>
       {SPLITTER_OUTS.map(([port, name]) => {
         const list = filters[port] ?? [FILTER_ANY]
         return (
           <div key={port} className="filter-row">
-            <h3>{name}</h3>
+            <h3>{t(`sides.${name}`)}</h3>
             {programmable ? (
               <MultiFilter list={list} onChange={(l) => setFilters(port, l)} />
             ) : (
@@ -63,8 +73,8 @@ function FilterSelect({ value, onChange }: { value: string; onChange: (v: string
           {label(f)}
         </option>
       ))}
-      <optgroup label="Ítems">
-        {solidItems.map((i) => (
+      <optgroup label={i18n.t('common.items')}>
+        {solidItems().map((i) => (
           <option key={i.id} value={i.id}>
             {i.name}
           </option>
@@ -76,13 +86,13 @@ function FilterSelect({ value, onChange }: { value: string; onChange: (v: string
 
 function MultiFilter({ list, onChange }: { list: string[]; onChange: (l: string[]) => void }) {
   const [adding, setAdding] = useState('')
-  const options = useMemo(() => [...SPECIAL, ...solidItems.map((i) => i.id)].filter((f) => !list.includes(f)), [list])
+  const options = useMemo(() => [...SPECIAL, ...solidItems().map((i) => i.id)].filter((f) => !list.includes(f)), [list])
   return (
     <div className="chips">
       {list.map((f) => (
         <span key={f} className="chip">
           {label(f)}
-          <button onClick={() => onChange(list.filter((x) => x !== f))} title="Quitar">
+          <button onClick={() => onChange(list.filter((x) => x !== f))} title={i18n.t('common.remove')}>
             ×
           </button>
         </span>
@@ -94,7 +104,7 @@ function MultiFilter({ list, onChange }: { list: string[]; onChange: (l: string[
           setAdding('')
         }}
       >
-        <option value="">+ agregar filtro</option>
+        <option value="">{i18n.t('filters.add')}</option>
         {options.map((f) => (
           <option key={f} value={f}>
             {label(f)}
@@ -106,19 +116,20 @@ function MultiFilter({ list, onChange }: { list: string[]; onChange: (l: string[
 }
 
 export function PriorityMergerPanel({ e, b }: { e: PlacedEntity; b: Building }) {
+  const { t } = useTranslation()
   const update = useEditor((s) => s.updateEntity)
   const prios = e.priorities ?? {}
   return (
     <section className="machine">
       <h2>{b.name}</h2>
-      <p className="muted">Lo que pide la salida se toma primero de las entradas con prioridad más alta (1).</p>
+      <p className="muted">{t('merger.help')}</p>
       {MERGER_INS.map(([port, name]) => (
         <div key={port} className="flowline">
-          <span>{name}</span>
+          <span>{t(`sides.${name}`)}</span>
           <select value={prios[port] ?? 1} onChange={(ev) => update(e.uid, { priorities: { ...prios, [port]: Number(ev.target.value) } })}>
             {[1, 2, 3].map((n) => (
               <option key={n} value={n}>
-                Prioridad {n}
+                {t('merger.priority', { n })}
               </option>
             ))}
           </select>
@@ -145,16 +156,16 @@ export function StoragePanel({
   outflow: Map<string, number>
 }) {
   void e
+  const { t } = useTranslation()
   const fluidCap = FLUID_CAPACITY[b.id]
   const items = [...new Set([...inflow.keys(), ...outflow.keys()])]
   return (
     <section className="machine">
       <h2>{b.name}</h2>
       <p className="muted">
-        Capacidad: {fluidCap ? `${fluidCap} m³` : `${b.inventorySlots} espacios`}. Funciona como depósito intermedio: absorbe diferencias de ritmo
-        entre lo que entra y lo que sale.
+        {fluidCap ? t('storage.capacityFluid', { n: fluidCap }) : t('storage.capacitySlots', { n: b.inventorySlots })}
       </p>
-      {items.length === 0 && <p className="muted">Conéctale cintas o tuberías para ver cuánto tarda en llenarse.</p>}
+      {items.length === 0 && <p className="muted">{t('storage.connect')}</p>}
       {items.map((i) => {
         const inn = inflow.get(i) ?? 0
         const out = outflow.get(i) ?? 0
@@ -165,12 +176,12 @@ export function StoragePanel({
           <div key={i} className="tt-item">
             <b>{itemName(i)}</b>
             <div className="muted">
-              entra {inn.toFixed(1)} · sale {out.toFixed(1)} por minuto · capacidad {cap.toLocaleString('es')}
+              {t('storage.rates', { inn: inn.toFixed(1), out: out.toFixed(1), cap: cap.toLocaleString(locale()) })}
             </div>
             <div className={net > 0.01 ? 'warn' : net < -0.01 ? 'bad' : 'ok'}>
-              {net > 0.01 && `Se llena en ${fmtTime(minutes)}; después frena lo que entra.`}
-              {net < -0.01 && `Se vacía en ${fmtTime(minutes)} si arranca lleno.`}
-              {Math.abs(net) <= 0.01 && 'Entra lo mismo que sale: el nivel se mantiene.'}
+              {net > 0.01 && t('storage.fills', { time: fmtTime(minutes) })}
+              {net < -0.01 && t('storage.empties', { time: fmtTime(minutes) })}
+              {Math.abs(net) <= 0.01 && t('storage.steady')}
             </div>
           </div>
         )
@@ -183,17 +194,18 @@ const fmtTime = (min: number) => (min >= 120 ? `${(min / 60).toFixed(1)} h` : mi
 
 /** Ruta entre dos estaciones: vehículo, cantidad, distancia y capacidad resultante. */
 export function RoutePanel({ r, entities, floorHeight, flow }: { r: Route; entities: PlacedEntity[]; floorHeight?: number; flow?: EdgeFlow }) {
+  const { t } = useTranslation()
   const { updateRoute } = useEditor()
   const spec = VEHICLES[r.kind]
   const a = entities.find((e) => e.uid === r.from)
   const b = entities.find((e) => e.uid === r.to)
   const options = (Object.keys(VEHICLES) as VehicleKind[]).filter((k) => a && VEHICLES[k].stations.test(a.buildingId))
   const dist = routeDistance(r, entities, floorHeight)
-  const t = roundTrip(r, entities, floorHeight)
+  const trip = roundTrip(r, entities, floorHeight)
   const items = flow ? [...flow.offer.keys()] : []
   return (
     <section className="machine">
-      <h2>Ruta de {spec.name.toLowerCase()}</h2>
+      <h2>{t(`route.title.${r.kind}`)}</h2>
       <p className="muted">
         {a && buildingsById.get(a.buildingId)?.name} → {b && buildingsById.get(b.buildingId)?.name}
       </p>
@@ -201,13 +213,13 @@ export function RoutePanel({ r, entities, floorHeight, flow }: { r: Route; entit
         <div className="segmented">
           {options.map((k) => (
             <button key={k} className={r.kind === k ? 'active' : ''} onClick={() => updateRoute(r.uid, { kind: k })}>
-              {VEHICLES[k].name}
+              {t(`vehicles.${k}`)}
             </button>
           ))}
         </div>
       )}
       <div className="flowline">
-        <span>{r.kind === 'train' ? 'Vagones de carga' : 'Vehículos en la ruta'}</span>
+        <span>{r.kind === 'train' ? t('route.wagons') : t('route.vehicles')}</span>
         <input
           className="small-input"
           type="number"
@@ -217,7 +229,7 @@ export function RoutePanel({ r, entities, floorHeight, flow }: { r: Route; entit
         />
       </div>
       <div className="flowline">
-        <span title="Por defecto: línea recta + 20 % (los drones van en línea recta)">Distancia por trayecto (m)</span>
+        <span title={t('route.distanceHint')}>{t('route.distance')}</span>
         <input
           className="small-input wide"
           type="number"
@@ -228,7 +240,7 @@ export function RoutePanel({ r, entities, floorHeight, flow }: { r: Route; entit
         />
       </div>
       <div className="flowline">
-        <span>Velocidad promedio (km/h)</span>
+        <span>{t('route.speed')}</span>
         <input
           className="small-input"
           type="number"
@@ -239,14 +251,14 @@ export function RoutePanel({ r, entities, floorHeight, flow }: { r: Route; entit
         />
       </div>
       <p className="muted">
-        Ida y vuelta: {t.toFixed(0)} s ({(2 * dist).toFixed(0)} m de viaje + {spec.dock.toFixed(0)} s de carga y descarga). Cada{' '}
-        {r.kind === 'train' ? 'vagón' : 'vehículo'} lleva {spec.slots} espacios{spec.fluid ? ` o ${spec.fluid} m³` : ''}.
+        {t('route.roundTrip', { t: trip.toFixed(0), dist: (2 * dist).toFixed(0), dock: spec.dock.toFixed(0) })}{' '}
+        {t(r.kind === 'train' ? 'route.carriesWagon' : 'route.carriesVehicle', { slots: spec.slots })}
+        {spec.fluid ? t('route.orFluid', { m3: spec.fluid }) : ''}.
       </p>
-      <h3>Capacidad</h3>
+      <h3>{t('route.capacity')}</h3>
       {items.length === 0 && (
         <p className="muted">
-          {routeThroughput(r, null, entities, floorHeight).toFixed(1)}/min para ítems que se apilan de a 100. Conecta cintas a la estación de origen
-          para ver el ítem real.
+          {t('route.genericCapacity', { n: routeThroughput(r, null, entities, floorHeight).toFixed(1) })}
         </p>
       )}
       {items.map((i) => {
@@ -257,7 +269,8 @@ export function RoutePanel({ r, entities, floorHeight, flow }: { r: Route; entit
           <div key={i} className="tt-item">
             <b>{itemName(i)}</b>
             <div className={offered > cap + 0.05 ? 'bad' : 'muted'}>
-              lleva {f.toFixed(1)} de {cap.toFixed(1)}/min{offered > cap + 0.05 && ' · no alcanza: agrega vagones/vehículos'}
+              {t('route.carries', { f: f.toFixed(1), cap: cap.toFixed(1) })}
+              {offered > cap + 0.05 && t('route.short')}
             </div>
           </div>
         )

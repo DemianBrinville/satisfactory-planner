@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { locale } from '../i18n/format'
 import { Zap } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { computeFlows } from '../editor/flow'
@@ -5,10 +7,11 @@ import { computeGrids } from '../editor/power'
 import { DEFAULT_POWER, useEditor } from '../editor/store'
 import { NONE } from '../editor/store'
 
-const fmt = (n: number) => n.toLocaleString('es', { maximumFractionDigits: 1 })
+const fmt = (n: number) => n.toLocaleString(locale(), { maximumFractionDigits: 1 })
 
 /** Botón y panel de energía: energía infinita y datos de la red del mundo del jugador. */
 export default function PowerSettingsButton() {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const { entities, conveyors, routes, wires, floorHeight, setPower } = useEditor()
   const settings = useEditor((s) => s.power) ?? DEFAULT_POWER
@@ -24,26 +27,24 @@ export default function PowerSettingsButton() {
 
   return (
     <div className="power-settings">
-      <button className="tb-btn" onClick={() => setOpen(!open)} title="Energía del plano">
+      <button className="tb-btn" onClick={() => setOpen(!open)} title={t('power.title')}>
         <Zap size={16} />
         <span>
-          {fmt(power.planUse)} MW{settings.infinite && ' · infinita'}
+          {fmt(power.planUse)} MW{settings.infinite && t('power.infiniteSuffix')}
         </span>
       </button>
       {open && (
         <div className="popover left">
           <label className="switch">
             <input type="checkbox" checked={settings.infinite} onChange={(e) => setPower({ infinite: e.target.checked })} />
-            <b>Energía infinita</b>
+            <b>{t('power.infinite')}</b>
           </label>
           <p className="muted small">
-            {settings.infinite
-              ? 'Se da por hecho que hay una red capaz de sostener todo el plano: no hace falta tender cables. Los cables que dibujes se toman como conectados a esa red.'
-              : 'Cada máquina necesita estar conectada con cables a una red con generadores, o a un poste enganchado a la red de tu mundo.'}
+            {settings.infinite ? t('power.infiniteOn') : t('power.infiniteOff')}
           </p>
-          <h3>Red de tu mundo</h3>
+          <h3>{t('power.worldGrid')}</h3>
           <div className="flowline">
-            <span>Generación total</span>
+            <span>{t('power.totalGen')}</span>
             <span>
               <input
                 className="small-input wide"
@@ -57,7 +58,7 @@ export default function PowerSettingsButton() {
             </span>
           </div>
           <div className="flowline">
-            <span>Consumo actual</span>
+            <span>{t('power.currentUse')}</span>
             <span>
               <input
                 className="small-input wide"
@@ -70,30 +71,30 @@ export default function PowerSettingsButton() {
               MW
             </span>
           </div>
-          <p className="muted small">Los ves en el juego en cualquier poste o en el panel de energía. No incluyas lo de este plano.</p>
-          <h3>Balance</h3>
+          <p className="muted small">{t('power.worldHint')}</p>
+          <h3>{t('power.balance')}</h3>
           <div className="flowline">
-            <span>Consumo del plano</span>
+            <span>{t('power.planUse')}</span>
             <b>{fmt(power.planUse)} MW</b>
           </div>
           {power.planGen > 0 && (
             <div className="flowline">
-              <span>Generación del plano</span>
+              <span>{t('power.planGen')}</span>
               <b>{fmt(power.planGen)} MW</b>
             </div>
           )}
           {hasWorld && (
             <div className="flowline">
-              <span>Le sobra a tu mundo</span>
+              <span>{t('power.worldSpare')}</span>
               <b>{fmt(spare)} MW</b>
             </div>
           )}
           <p className={status}>
             {hasWorld
               ? balance >= 0
-                ? `Alcanza: con el plano construido te quedan ${fmt(balance)} MW libres.`
-                : `No alcanza: faltan ${fmt(-balance)} MW. Necesitas más generadores antes de construir esto.`
-              : 'Carga la generación y el consumo de tu mundo para saber si te alcanza.'}
+                ? t('power.enough', { mw: fmt(balance) })
+                : t('power.notEnough', { mw: fmt(-balance) })
+              : t('power.fillWorld')}
           </p>
         </div>
       )}

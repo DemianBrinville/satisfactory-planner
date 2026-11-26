@@ -1,3 +1,4 @@
+import i18n from '../i18n'
 import { useTranslation } from 'react-i18next'
 import { useMemo, useState } from 'react'
 import { CATEGORIES, game, isPathKind, itemName, type Building } from '../data/gameData'
@@ -25,7 +26,7 @@ export default function Palette() {
     const list = game.buildings.filter((b) => (q ? b.name.toLowerCase().includes(q) : b.category === category) && avail.building(b))
     const map = new Map<string, Building[]>()
     for (const b of list) {
-      const key = q ? b.subcategory : b.subcategory
+      const key = b.subcategoryId ?? b.subcategory
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(b)
     }
@@ -50,11 +51,11 @@ export default function Palette() {
         ))}
       </nav>
       <div className="items">
-        <input className="search" placeholder="Buscar por estructura…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input className="search" placeholder={t('palette.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
         {groups.map(([sub, list], gi) => (
           <section key={sub}>
             <h3>
-              {gi + 1}. {sub}
+              {gi + 1}. {t(`subcategories.${sub}` as 'subcategories.SC_Miners', { defaultValue: sub })}
             </h3>
             <div className="grid">
               {list.map((b) => {
@@ -73,7 +74,7 @@ export default function Palette() {
                   <button
                     key={b.id}
                     className={'item' + (active ? ' active' : '')}
-                    title={tooltip(b) + (path ? '\n\nClic en un puerto o en el suelo para empezar y otro clic para terminar el tramo.' : '')}
+                    title={tooltip(b) + (path ? '\n\n' + t('palette.pathHint') : '')}
                     onClick={() => {
                       if (isWire) return startWire()
                       if (b.id === RAIL) return startRail()
@@ -103,11 +104,11 @@ const round = (v: number) => Math.round(v * 10) / 10
 function tooltip(b: Building) {
   const lines = [b.name]
   if (b.description) lines.push('', b.description)
-  if (b.powerMW) lines.push('', `Consumo: ${b.powerMW} MW`)
+  if (b.powerMW) lines.push('', i18n.t('palette.consumption', { mw: b.powerMW }))
   if (b.cost.length)
     lines.push(
       '',
-      'Coste: ' + b.cost.map((c) => `${c.amount} ${itemName(c.item)}`).join(', ') + (isPathKind(b.kind) ? ' (por cada 2 m aprox.)' : ''),
+      i18n.t('palette.cost', { list: b.cost.map((c) => `${c.amount} ${itemName(c.item)}`).join(', ') }) + (isPathKind(b.kind) ? i18n.t('palette.perTwoMeters') : ''),
     )
   return lines.join('\n')
 }

@@ -1,3 +1,5 @@
+import { Trans, useTranslation } from 'react-i18next'
+import { locale } from '../i18n/format'
 import { LayoutGrid, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { buildingsById, game, itemName, type Recipe } from '../data/gameData'
@@ -8,12 +10,13 @@ import { useAvailability } from '../editor/progress'
 import Modal from './Modal'
 import { ItemLabel } from './GameIcons'
 
-const fmt = (n: number, d = 2) => n.toLocaleString('es', { maximumFractionDigits: d })
+const fmt = (n: number, d = 2) => n.toLocaleString(locale(), { maximumFractionDigits: d })
 const pct = (v: number) => `${fmt(v * 100)} %`
 const ALL_ITEMS = producibleItems()
 
 /** Calculadora de objetivo: "quiero X/min de tal producto" → cadena completa de producción. */
 export default function CalculatorModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   const avail = useAvailability()
   const [respectProgress, setRespectProgress] = useState(avail.enabled)
   const [query, setQuery] = useState('')
@@ -77,13 +80,13 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="Calculadora de producción" onClose={onClose} width={900}>
+    <Modal title={t('calc.title')} onClose={onClose} width={900}>
       <div className="calc-head">
         <div className="calc-target">
           <div className="input-icon">
             <Search size={16} className="lead" />
             <input
-              placeholder={target ? itemName(target) : 'Qué quieres producir… (ej: Armazón modular)'}
+              placeholder={target ? itemName(target) : t('calc.searchPlaceholder')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               autoFocus
@@ -116,33 +119,33 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
       <div className="calc-options">
         <label className="switch">
           <input type="checkbox" checked={respectProgress} onChange={(e) => setRespectProgress(e.target.checked)} />
-          Solo recetas desbloqueadas en mi progreso
+          {t('calc.onlyUnlocked')}
         </label>
         <div className="segmented small">
           <button className={split === 'even' ? 'active' : ''} onClick={() => setSplit('even')}>
-            Todas al mismo reloj
+            {t('calc.splitEven')}
           </button>
           <button className={split === 'full' ? 'active' : ''} onClick={() => setSplit('full')}>
-            Al 100 % y una con el resto
+            {t('calc.splitFull')}
           </button>
         </div>
       </div>
 
-      {!target && <p className="muted">Busca un producto, indica cuánto quieres por minuto y te armo la cadena completa hasta las materias primas.</p>}
+      {!target && <p className="muted">{t('calc.intro')}</p>}
 
       {result && target && (
         <>
           <h3>
-            {fmt(rate)} {itemName(target)} por minuto
+            {t('calc.heading', { rate: fmt(rate), item: itemName(target) })}
           </h3>
           <table className="calc-table">
             <thead>
               <tr>
-                <th>Producto</th>
-                <th>Por minuto</th>
-                <th>Receta</th>
-                <th>Máquinas</th>
-                <th title="No fabricarlo aquí: lo traes de otro lado">Traer</th>
+                <th>{t('calc.colProduct')}</th>
+                <th>{t('calc.colPerMin')}</th>
+                <th>{t('calc.colRecipe')}</th>
+                <th>{t('calc.colMachines')}</th>
+                <th title={t('calc.colImportTitle')}>{t('calc.colImport')}</th>
               </tr>
             </thead>
             <tbody>
@@ -162,7 +165,7 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
                           {opts.map((r) => (
                             <option key={r.id} value={r.id}>
                               {r.name}
-                              {r.alternate ? ' (alternativa)' : ''}
+                              {r.alternate ? t('calc.alternateSuffix') : ''}
                             </option>
                           ))}
                         </select>
@@ -172,13 +175,9 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
                     </td>
                     <td>
                       {split === 'even' || sp.rest < 1e-6 ? (
-                        <>
-                          <b>{sp.n}</b> × {machine} al {pct(sp.even)}
-                        </>
+                        <Trans i18nKey="calc.machinesEven" values={{ n: sp.n, machine, pct: pct(sp.even) }} components={{ b: <b /> }} />
                       ) : (
-                        <>
-                          <b>{sp.full}</b> × {machine} al 100 % + 1 al {pct(sp.rest)}
-                        </>
+                        <Trans i18nKey="calc.machinesFull" values={{ n: sp.full, machine, pct: pct(sp.rest) }} components={{ b: <b /> }} />
                       )}
                     </td>
                     <td className="center">
@@ -202,18 +201,18 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
 
           <div className="calc-cols">
             <section>
-              <h3>Materias primas y entradas</h3>
+              <h3>{t('calc.raw')}</h3>
               {[...result.raw].map(([i, v]) => {
                 const exId = extractorFor(i)
                 const ex = exId ? buildingsById.get(exId) : null
-                const m = ex ? { count: v / (ex.extractPerMinute ?? 60), label: `${ex.name}${ex.kind === 'miner' || /OilPump/.test(ex.id) ? ' (normal)' : ''}` } : minersFor(i, v)
+                const m = ex ? { count: v / (ex.extractPerMinute ?? 60), label: `${ex.name}${ex.kind === 'miner' || /OilPump/.test(ex.id) ? t('calc.normalSuffix') : ''}` } : minersFor(i, v)
                 const traido = inputs.has(i) || result.missing.has(i)
                 return (
                   <div key={i} className="flowline">
                     <span>
                       <ItemLabel item={i} name={itemName(i)} />
                       {!traido && game.items[i] && <small className="muted"> · {fmt(m.count)} {m.label}</small>}
-                      {result.missing.has(i) && <small className="warn"> · sin receta disponible</small>}
+                      {result.missing.has(i) && <small className="warn">{t('calc.noRecipe')}</small>}
                     </span>
                     <b>{fmt(v)}/min</b>
                   </div>
@@ -221,8 +220,8 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
               })}
               {result.byproducts.size > 0 && (
                 <>
-                  <h3>Subproductos</h3>
-                  <p className="muted small">Hay que sacarlos (almacenar, usar o mandar al AWESOME Sink) o la máquina se frena.</p>
+                  <h3>{t('calc.byproducts')}</h3>
+                  <p className="muted small">{t('calc.byproductsHelp')}</p>
                   {[...result.byproducts].map(([i, v]) => (
                     <div key={i} className="flowline warn">
                       <ItemLabel item={i} name={itemName(i)} />
@@ -233,16 +232,16 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
               )}
             </section>
             <section>
-              <h3>Total</h3>
+              <h3>{t('calc.total')}</h3>
               <div className="flowline">
-                <span>Máquinas</span>
+                <span>{t('calc.machines')}</span>
                 <b>{totals?.machines}</b>
               </div>
               <div className="flowline">
-                <span>Consumo eléctrico</span>
+                <span>{t('calc.power')}</span>
                 <b>{fmt(totals?.power ?? 0, 1)} MW</b>
               </div>
-              <h3>Para construir las máquinas</h3>
+              <h3>{t('calc.buildCost')}</h3>
               {totals?.cost.map(([i, v]) => (
                 <div key={i} className="flowline">
                   <ItemLabel item={i} name={itemName(i)} />
@@ -254,8 +253,7 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
           {build && (
             <div className="calc-wire">
               <p className="muted small">
-                Con conexiones: {build.conveyors.length} tramos ({Math.round(totalLength(build.conveyors))} m) con uniones, divisores y uniones de
-                tuberías en manifold. Abajo van los taladros y extractores, con la mejor marca que tengas desbloqueada y el reloj justo, y el producto final sale por la derecha. Si dos líneas se cruzan, en el juego una pasa por encima con un poste más alto.
+                {t('calc.wireSummary', { segments: build.conveyors.length, meters: Math.round(totalLength(build.conveyors)) })}
               </p>
               {build.notes.map((n) => (
                 <p key={n} className="warn small">
@@ -267,11 +265,11 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
           <div className="modal-actions">
             <label className="switch">
               <input type="checkbox" checked={wire} onChange={(e) => setWire(e.target.checked)} />
-              Conectar con cintas y tuberías
+              {t('calc.wire')}
             </label>
-            <span className="muted small">Se coloca a la derecha de lo que ya tienes, con recetas y relojes configurados.</span>
+            <span className="muted small">{t('calc.placeHint')}</span>
             <button className="btn primary" onClick={place} disabled={!result.steps.length}>
-              <LayoutGrid size={16} /> Colocar en el plano
+              <LayoutGrid size={16} /> {t('calc.place')}
             </button>
           </div>
         </>
