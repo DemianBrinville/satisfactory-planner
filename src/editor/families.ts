@@ -21,6 +21,9 @@ export const FAMILIES: Record<string, { ids: string[] }> = {
   pipeSupport: { ids: ['Build_PipelineSupport_C', 'Build_PipeSupportStackable_C'] },
   pump: { ids: ['Build_PipelinePump_C', 'Build_PipelinePumpMk2_C'] },
   pipeJunction: { ids: ['Build_PipelineJunction_Cross_C', 'Build_PipelineJunction_T_C'] },
+  hyper: { ids: ['Build_PipeHyper_C'] },
+  hyperSupport: { ids: ['Build_PipeHyperSupport_C', 'Build_HyperPoleStackable_C', 'Build_HyperTubeWallSupport_C'] },
+  hyperJunction: { ids: ['Build_HyperTubeJunction_C', 'Build_HypertubeTJunction_C'] },
   miner: { ids: ['Build_MinerMk1_C', 'Build_MinerMk2_C', 'Build_MinerMk3_C'] },
   powerPole: { ids: ['Build_PowerPoleMk1_C', 'Build_PowerPoleMk2_C', 'Build_PowerPoleMk3_C'] },
 }

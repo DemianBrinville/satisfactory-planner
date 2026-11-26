@@ -52,7 +52,7 @@ Los iconos de ítems y edificios son propiedad de Coffee Stain Studios y se toma
 ## Plan de implementación (acordado el 26-nov-2026)
 
 1. ~~**Iconos:** todos los de la wiki (incluidas las variantes de arquitectura), vista ampliada al pasar el mouse e iconos dentro del plano (el producto sobre cada máquina).~~ Hecho.
-2. **Hipertubos completos:** trazado como tuberías (entrada, tramos, soportes, uniones en cruz y T, pases por cimientos y paredes), costo por metro y largo máximo.
+2. ~~**Hipertubos completos:** trazado como tuberías (entrada, tramos, soportes, uniones en cruz y T, pases por cimientos y paredes), costo por metro y largo máximo.~~ Hecho: tramos de hasta 100 m (wiki), costo por metro (la pieza mide 1 m en los datos del juego), entrada con una conexión atrás, unión de tres vías y ramificación, soportes y agujero de pared como puntos de paso, pase por el suelo entre pisos. No entran en el cálculo de flujos. La posición de las conexiones de las uniones es aproximada (el juego no la da).
 3. **Rutas de vehículos con camino real:** dibujar el recorrido con puntos de paso, distancia y tiempo desde el dibujo, caminos de vehículo visibles en el plano y combustible por viaje.
 4. **Calculadora lista para construir:** energía (postes y cables), subproductos al AWESOME Sink o a un depósito y menos cruces de líneas.
 5. **Validación del plano:** choques de cintas con máquinas, pendiente máxima de 35° y panel de problemas con clic para ir al lugar.

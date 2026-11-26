@@ -176,6 +176,7 @@ function footprint(c) {
 function kindOf(id, c) {
   if (/ConveyorBelt/.test(id)) return 'belt'
   if (/ConveyorLift/.test(id)) return 'lift'
+  if (id === 'Build_PipeHyper_C') return 'hyper'
   if (/^Build_Pipeline(MK2)?(_NoIndicator)?_C$/.test(id)) return 'pipe'
   if (/ConveyorAttachment(Splitter|Merger)/.test(id)) return 'splitter'
   if (/PipelineJunction/.test(id)) return 'pipeJunction'

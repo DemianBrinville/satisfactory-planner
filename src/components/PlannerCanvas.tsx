@@ -6,7 +6,7 @@ import { Circle, Group, Image as KImage, Layer, Line, Rect, Shape, Stage, Text }
 import type Konva from 'konva'
 import { buildingsById, itemName, recipesById, type Building } from '../data/gameData'
 import { hasOfficialIcon, officialIconSrc } from './GameIcons'
-import { MAX_SEGMENT, conveyorCost, endInfo, pathLength, route, usedPorts, type EndInfo } from '../editor/conveyors'
+import { conveyorCost, maxSegmentOf, endInfo, pathLength, route, usedPorts, type EndInfo } from '../editor/conveyors'
 import { computeFlows, type EdgeFlow, type FlowResult } from '../editor/flow'
 import {
   FOUNDATION,
@@ -19,14 +19,16 @@ import {
   snapAnchor,
   toWorld,
   worldRect,
+  type PortKind,
   type Rect as WRect,
   type Rotation,
   type Vec,
 } from '../editor/geometry'
 import {
-  BELT_POLES,
+  HYPER_POLES,
   PIPE_POLES,
   isPole,
+  polesFor,
   onFloor,
   portFloor,
   entityRect,
@@ -83,6 +85,14 @@ const COLORS: Record<string, string> = {
   wall: '#6a6259',
   structure: '#7a7f86',
   lift: '#9a8f50',
+}
+/** Hipertubos: tubo de ~2 m de diámetro, translúcido como en el juego. */
+const HYPER_WIDTH = 1.8
+const HYPER_COLOR = '#e8a048'
+const CONTINUE_KEY: Record<string, 'canvas.continueBelt' | 'canvas.continuePipe' | 'canvas.continueHyper'> = {
+  belt: 'canvas.continueBelt',
+  pipe: 'canvas.continuePipe',
+  hyper: 'canvas.continueHyper',
 }
 const PORT_IN = '#f08a24'
 const PORT_OUT = '#4fe0c0'
@@ -411,13 +421,14 @@ export default function PlannerCanvas() {
 
   // ---------- herramienta de cintas/tuberías ----------
   const convBuilding = conveyorId ? buildingsById.get(conveyorId) : null
-  const convKind = convBuilding?.kind === 'pipe' ? 'pipe' : 'belt'
-  const poleSet = convKind === 'pipe' ? PIPE_POLES : BELT_POLES
+  const convKind: PortKind = convBuilding?.kind === 'pipe' ? 'pipe' : convBuilding?.kind === 'hyper' ? 'hyper' : 'belt'
+  const poleSet = polesFor(convKind)
+  const maxSeg = maxSegmentOf(conveyorId)
   const conveyorMode = s.conveyorMode
 
   /** Puerto libre más cercano (opcionalmente de un tipo) dentro de un radio. */
-  const portAt = (p: Vec, kind?: 'belt' | 'pipe', radius = 1.1): { target: Target; kind: 'belt' | 'pipe' } | null => {
-    let best: { target: Target; kind: 'belt' | 'pipe'; d: number } | null = null
+  const portAt = (p: Vec, kind?: PortKind, radius = 1.1): { target: Target; kind: PortKind } | null => {
+    let best: { target: Target; kind: PortKind; d: number } | null = null
     for (const e of visible) {
       const b = buildingsById.get(e.buildingId)
       if (!b) continue
@@ -429,7 +440,7 @@ export default function PlannerCanvas() {
         const mark = toWorld(b, e, e.rot, { x: port.pos.x + port.normal.x * 0.45, y: port.pos.y + port.normal.y * 0.45 })
         const d = Math.min(Math.hypot(pos.x - p.x, pos.y - p.y), Math.hypot(mark.x - p.x, mark.y - p.y))
         if (d < radius && (!best || d < best.d)) {
-          const dir = b.kind === 'pipeJunction' || port.kind === 'pipe' ? 'any' : port.dir
+          const dir = b.kind === 'pipeJunction' || port.kind !== 'belt' ? 'any' : port.dir
           best = {
             d,
             kind: port.kind,
@@ -476,7 +487,7 @@ export default function PlannerCanvas() {
   /** Extremo suelto de una cinta o tubería (poste o soporte con un solo tramo) cerca del punto. */
   const freeEndAt = (p: Vec) => {
     for (const e of visible) {
-      if (!BELT_POLES.has(e.buildingId) && !PIPE_POLES.has(e.buildingId)) continue
+      if (!isPole(e.buildingId)) continue
       if (Math.hypot(e.x - p.x, e.y - p.y) > 1.2) continue
       const links = poleLinks.get(e.uid) ?? []
       if (links.length !== 1) continue
@@ -501,10 +512,10 @@ export default function PlannerCanvas() {
     const len = pathLength(pts)
     const sameEnd = draft.from.end && target.end && draft.from.end.uid === target.end.uid && draft.from.end.port === target.end.port
     const dirOk = draft.reversed ? target.dir !== 'in' : target.dir !== 'out'
-    const ok = len > 0.4 && len <= MAX_SEGMENT && !sameEnd && dirOk
-    return { pts, len, ok, reason: len > MAX_SEGMENT ? i18n.t('canvas.tooLong', { max: MAX_SEGMENT }) : !dirOk ? i18n.t('canvas.sameDirection') : '' }
+    const ok = len > 0.4 && len <= maxSeg && !sameEnd && dirOk
+    return { pts, len, ok, reason: len > maxSeg ? i18n.t('canvas.tooLong', { max: maxSeg }) : !dirOk ? i18n.t('canvas.sameDirection') : '' }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, target?.info.pos.x, target?.info.pos.y, target?.end?.uid, target?.end?.port, conveyorMode])
+  }, [draft, target?.info.pos.x, target?.info.pos.y, target?.end?.uid, target?.end?.port, conveyorMode, maxSeg])
 
   const conveyorClick = () => {
     if (!target || !conveyorId) return
@@ -626,7 +637,7 @@ export default function PlannerCanvas() {
     // clic sobre un puerto libre: empieza una cinta/tubería desde esa conexión
     const port = portAt(p)
     if (port) {
-      st.selectFamily(port.kind === 'pipe' ? 'pipe' : 'belt')
+      st.selectFamily(port.kind)
       setDraft({ from: port.target, reversed: port.target.dir === 'in' })
       return
     }
@@ -937,8 +948,8 @@ export default function PlannerCanvas() {
           {preview && (
             <Line
               points={preview.pts.flatMap((p) => [p.x, p.y])}
-              stroke={preview.ok ? (convKind === 'pipe' ? 'rgba(90,160,220,0.8)' : 'rgba(200,200,200,0.8)') : 'rgba(230,80,70,0.85)'}
-              strokeWidth={convKind === 'pipe' ? 1 : 1.4}
+              stroke={preview.ok ? (convKind === 'pipe' ? 'rgba(90,160,220,0.8)' : convKind === 'hyper' ? 'rgba(232,160,72,0.7)' : 'rgba(200,200,200,0.8)') : 'rgba(230,80,70,0.85)'}
+              strokeWidth={convKind === 'pipe' ? 1 : convKind === 'hyper' ? HYPER_WIDTH : 1.4}
               lineCap="round"
               lineJoin="round"
             />
@@ -960,7 +971,7 @@ export default function PlannerCanvas() {
 
       {preview && (
         <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
-          <b>{preview.len.toFixed(1)} m</b> / {MAX_SEGMENT} m
+          <b>{preview.len.toFixed(1)} m</b> / {maxSeg} m
           {convBuilding && (
             <div className="muted">
               {conveyorCost({ buildingId: convBuilding.id, points: preview.pts })
@@ -979,7 +990,7 @@ export default function PlannerCanvas() {
       )}
       {endHover && (
         <div className="tooltip" style={{ left: screen.x + 16, top: screen.y + 16 }}>
-          <b>{i18n.t(buildingsById.get(endHover.conv.buildingId)?.kind === 'pipe' ? 'canvas.continuePipe' : 'canvas.continueBelt')}</b>
+          <b>{i18n.t(CONTINUE_KEY[buildingsById.get(endHover.conv.buildingId)?.kind ?? 'belt'] ?? 'canvas.continueBelt')}</b>
         </div>
       )}
       {hover?.conv && <ConveyorTooltip c={hover.conv} flow={flows.edges.get(hover.conv.uid)} head={headIssues.get(hover.conv.uid)} at={screen} />}
@@ -1133,12 +1144,25 @@ const ConveyorShape = memo(function ConveyorShape({
 }) {
   const b = buildingsById.get(c.buildingId)
   const isPipe = b?.kind === 'pipe'
+  const isHyper = b?.kind === 'hyper'
   const pts = offset ? c.points.map((p) => ({ x: p.x + offset.x, y: p.y + offset.y })) : c.points
   const flat = pts.flatMap((p) => [p.x, p.y])
   const status = edgeStatus(flow)
   const tint = STATUS_COLOR[status]
   const len = pathLength(pts)
-  const bad = len > MAX_SEGMENT || headIssue
+  const bad = len > maxSegmentOf(c.buildingId) || headIssue
+  if (isHyper)
+    return (
+      <Group opacity={ghost ? 0.5 : 1}>
+        {(selected || bad) && (
+          <Line points={flat} stroke={bad ? '#e05046' : '#4fe0c0'} strokeWidth={HYPER_WIDTH + 6 / scale} lineCap="round" lineJoin="round" opacity={selected ? 1 : 0.55} />
+        )}
+        {/* pared del tubo y su interior claro */}
+        <Line points={flat} stroke={HYPER_COLOR} strokeWidth={HYPER_WIDTH} lineCap="butt" lineJoin="round" opacity={0.85} />
+        <Line points={flat} stroke="#2a2118" strokeWidth={HYPER_WIDTH * 0.55} lineCap="butt" lineJoin="round" opacity={0.6} />
+        {scale >= 4 && <Line points={flat} stroke={HYPER_COLOR} strokeWidth={0.12} dash={[0.25, 1.75]} lineJoin="round" />}
+      </Group>
+    )
   return (
     <Group opacity={ghost ? 0.5 : 1}>
       {(selected || tint || bad) && (
@@ -1243,7 +1267,7 @@ const EntityShape = memo(function EntityShape({
         offsetY={1}
         rotation={e.angle ?? 0}
         cornerRadius={0.15}
-        fill={ghost ? fill : PIPE_POLES.has(e.buildingId) ? '#4d7fa6' : '#8a8d93'}
+        fill={ghost ? fill : PIPE_POLES.has(e.buildingId) ? '#4d7fa6' : HYPER_POLES.has(e.buildingId) ? HYPER_COLOR : '#8a8d93'}
         stroke={selected ? '#4fe0c0' : '#111'}
         strokeWidth={(selected ? 2.5 : 1) / scale}
         opacity={faded ? 0.18 : 1}
@@ -1355,6 +1379,20 @@ function Ports({ b, e, scale, used, floor }: { b: Building; e: PlacedEntity; sca
         })
         const connected = used?.has(`${e.uid}:${i}`)
         const color = p.dir === 'in' ? PORT_IN : PORT_OUT
+        if (p.kind === 'hyper') {
+          // conexión de hipertubo: anillo del ancho del tubo, sin sentido de entrada o salida
+          return (
+            <Circle
+              key={i}
+              x={at.x}
+              y={at.y}
+              radius={0.9}
+              fill={connected ? HYPER_COLOR : '#241a10'}
+              stroke={HYPER_COLOR}
+              strokeWidth={2 / scale}
+            />
+          )
+        }
         if (p.kind === 'pipe') {
           return (
             <Circle
@@ -1393,6 +1431,18 @@ function Ports({ b, e, scale, used, floor }: { b: Building; e: PlacedEntity; sca
 function ConveyorTooltip({ c, flow, head, at }: { c: Conveyor; flow?: EdgeFlow; head?: HeadIssue; at: Vec }) {
   const b = buildingsById.get(c.buildingId)
   const len = pathLength(c.points)
+  if (b?.kind === 'hyper')
+    return (
+      <div className="tooltip" style={{ left: at.x + 16, top: at.y + 16 }}>
+        <b>{b.name}</b>
+        <div className="muted">{i18n.t('canvas.hyperInfo', { len: len.toFixed(1), max: maxSegmentOf(b.id) })}</div>
+        <div className="muted">
+          {conveyorCost(c)
+            .map((x) => `${x.amount} ${itemName(x.item)}`)
+            .join(', ')}
+        </div>
+      </div>
+    )
   const unit = b?.kind === 'pipe' ? 'm³/min' : '/min'
   const items = flow ? [...new Set([...flow.offer.keys(), ...flow.demand.keys()])] : []
   const totalFlow = flow ? [...flow.flow.values()].reduce((a, v) => a + v, 0) : 0

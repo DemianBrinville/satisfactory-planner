@@ -7,6 +7,11 @@ export type RouteMode = 'curve' | 'straight'
 
 /** Largo máximo de un tramo de cinta o tubería (7 cimientos). */
 export const MAX_SEGMENT = 56
+/** Largo máximo de un tramo de hipertubo antes de necesitar otro soporte (wiki). */
+export const MAX_HYPER_SEGMENT = 100
+/** Largo máximo del tramo según el tipo de trazado. */
+export const maxSegmentOf = (buildingId: string | null | undefined) =>
+  buildingId && buildingsById.get(buildingId)?.kind === 'hyper' ? MAX_HYPER_SEGMENT : MAX_SEGMENT
 /** Tramo recto mínimo al salir/entrar de un puerto antes de girar. */
 const STUB = 1
 
@@ -125,12 +130,16 @@ export function pathLength(points: Vec[]): number {
   return len
 }
 
-/** Costo de un tramo: ~0,5 del material base por metro, redondeado hacia arriba (wiki). */
+/**
+ * Costo de un tramo, redondeado hacia arriba: cintas y tuberías cobran su material base cada 2 m (wiki);
+ * los hipertubos, cada metro (su pieza mide 1 m en los datos del juego, mMeshLength = 100 cm).
+ */
 export function conveyorCost(c: Pick<Conveyor, 'buildingId' | 'points'>): ItemAmount[] {
   const b = buildingsById.get(c.buildingId)
   if (!b) return []
   const len = pathLength(c.points)
-  return b.cost.map((x) => ({ item: x.item, amount: Math.max(1, Math.ceil(x.amount * len * 0.5)) }))
+  const perMeter = b.kind === 'hyper' ? 1 : 0.5
+  return b.cost.map((x) => ({ item: x.item, amount: Math.max(1, Math.ceil(x.amount * len * perMeter)) }))
 }
 
 /** Recalcula el recorrido de una cinta según la posición actual de sus extremos. */

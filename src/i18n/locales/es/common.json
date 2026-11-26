@@ -106,7 +106,10 @@
     "pump": "Bomba",
     "pipeJunction": "Unión de tuberías",
     "miner": "Taladro",
-    "powerPole": "Poste de electricidad"
+    "powerPole": "Poste de electricidad",
+    "hyper": "Hipertubo",
+    "hyperSupport": "Soporte de hipertubo",
+    "hyperJunction": "Unión de hipertubo"
   },
   "hotbar": {
     "variant": "variante",
@@ -125,7 +128,8 @@
     "pathHint": "Clic en un puerto o en el suelo para empezar y otro clic para terminar el tramo.",
     "consumption": "Consumo: {{mw}} MW",
     "cost": "Coste: {{list}}",
-    "perTwoMeters": " (por cada 2 m aprox.)"
+    "perTwoMeters": " (por cada 2 m aprox.)",
+    "perMeter": " (por metro)"
   },
   "subcategories": {
     "SC_Progression": "Progresión",
@@ -283,7 +287,8 @@
     "controlsColors": "Cintas: <ok>verde</ok> justo, <warn>amarillo</warn> sobra material, <bad>rojo</bad> falta material.",
     "powerUse": "Consumo {{mw}} MW",
     "powerGen": " · Genera {{mw}} MW",
-    "noMaterials": "Sin materiales."
+    "noMaterials": "Sin materiales.",
+    "drawingHelpHyper": "Clic en una entrada, una unión o un pase de hipertubo (o en el suelo, que crea un soporte) para empezar y otro clic para terminar. Si terminas en el suelo, el trazado sigue desde ahí. Máximo 100 m por tramo; cuesta su material por cada metro."
   },
   "machine": {
     "recipe": "Receta",
@@ -453,7 +458,7 @@
     "savePassword": "Guardar contraseña"
   },
   "canvas": {
-    "tooLong": "Supera {{max}} m: agrega un poste",
+    "tooLong": "Supera {{max}} m: agrega un poste o soporte",
     "sameDirection": "Ese puerto tiene el mismo sentido",
     "foundations": "{{n}} cimientos",
     "occupied": "{{n}} lugares ocupados se saltean",
@@ -496,7 +501,9 @@
     "overloaded": " · ¡sobrecargada!",
     "clock": " · reloj {{pct}}",
     "noBelts": "Sin cintas conectadas",
-    "pickRecipe": "Selecciona la máquina para elegir receta"
+    "pickRecipe": "Selecciona la máquina para elegir receta",
+    "continueHyper": "Clic para seguir el hipertubo",
+    "hyperInfo": "{{len}} m de {{max}} m por tramo"
   },
   "cloud": {
     "localDraft": "Borrador local",

@@ -62,7 +62,9 @@ export default function Palette() {
                 const path = isPathKind(b.kind)
                 const f = b.footprint
                 const dims = path
-                  ? b.itemsPerMinute
+                  ? b.kind === 'hyper'
+                    ? '≤ 100 m'
+                    : b.itemsPerMinute
                     ? `${b.itemsPerMinute}/min`
                     : `${b.flowPerMinute} m³/min`
                   : f
@@ -108,7 +110,7 @@ function tooltip(b: Building) {
   if (b.cost.length)
     lines.push(
       '',
-      i18n.t('palette.cost', { list: b.cost.map((c) => `${c.amount} ${itemName(c.item)}`).join(', ') }) + (isPathKind(b.kind) ? i18n.t('palette.perTwoMeters') : ''),
+      i18n.t('palette.cost', { list: b.cost.map((c) => `${c.amount} ${itemName(c.item)}`).join(', ') }) + (b.kind === 'hyper' ? i18n.t('palette.perMeter') : isPathKind(b.kind) ? i18n.t('palette.perTwoMeters') : ''),
     )
   return lines.join('\n')
 }

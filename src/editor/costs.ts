@@ -1,6 +1,6 @@
 import { buildingsById, type ItemAmount } from '../data/gameData'
 import { conveyorCost, pathLength } from './conveyors'
-import { isVerticalConnector } from './geometry'
+import { HYPER_PASSTHROUGH, isVerticalConnector } from './geometry'
 import { POWER_LINE, consumptionMW, wireCost, wireLength } from './power'
 import { DEFAULT_FLOOR_HEIGHT, type Conveyor, type PlacedEntity, type Rail, type Wire } from './store'
 import { RAIL, railCost } from './transport'
@@ -19,9 +19,10 @@ export function entityCost(e: PlacedEntity, floorHeight = DEFAULT_FLOOR_HEIGHT):
     return b.cost.map((c) => ({ item: c.item, amount: c.amount * units }))
   }
   if (isVerticalConnector(b.id)) {
-    // pase de tubería por el suelo: el agujero en cada piso atravesado + el tramo vertical de tubería
+    // pase por el suelo: el agujero en cada piso atravesado + el tramo vertical de tubería o hipertubo
     const floors = Math.abs((e.topFloor ?? e.floor + 1) - e.floor)
-    const pipe = conveyorCost({ buildingId: 'Build_Pipeline_C', points: [{ x: 0, y: 0 }, { x: 0, y: connectorHeight(e, floorHeight) }] })
+    const tube = e.buildingId === HYPER_PASSTHROUGH ? 'Build_PipeHyper_C' : 'Build_Pipeline_C'
+    const pipe = conveyorCost({ buildingId: tube, points: [{ x: 0, y: 0 }, { x: 0, y: connectorHeight(e, floorHeight) }] })
     return [...b.cost.map((c) => ({ item: c.item, amount: c.amount * floors })), ...pipe]
   }
   return b.cost

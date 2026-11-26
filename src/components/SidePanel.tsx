@@ -72,9 +72,11 @@ export default function SidePanel() {
         <section>
           <h2>{t('side.drawing', { name: conv.name })}</h2>
           <p className="muted">
-            {t(conv.kind === 'pipe' ? 'side.drawingHelpPipe' : 'side.drawingHelpBelt', {
-              cap: conv.itemsPerMinute ? `${conv.itemsPerMinute}/min` : `${conv.flowPerMinute} m³/min`,
-            })}
+            {conv.kind === 'hyper'
+              ? t('side.drawingHelpHyper')
+              : t(conv.kind === 'pipe' ? 'side.drawingHelpPipe' : 'side.drawingHelpBelt', {
+                  cap: conv.itemsPerMinute ? `${conv.itemsPerMinute}/min` : `${conv.flowPerMinute} m³/min`,
+                })}
           </p>
         </section>
       )}

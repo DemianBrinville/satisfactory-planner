@@ -127,6 +127,8 @@ export function computeFlows(entities: PlacedEntity[], baseConveyors: Conveyor[]
 }
 
 function computeFlowsUncached(entities: PlacedEntity[], baseConveyors: Conveyor[], routes: Route[], floorHeight: number): FlowResult {
+  // los hipertubos llevan jugadores, no carga: no entran en el cálculo de flujos
+  baseConveyors = baseConveyors.filter((c) => buildingsById.get(c.buildingId)?.kind !== 'hyper')
   // oferta ideal (todas las máquinas abastecidas): sirve de referencia para repartir la demanda
   // entre entradas cuando todavía no llega nada (p. ej. una cadena de uniones sin taladros conectados)
   const ideal = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, 'supply')

@@ -25,7 +25,13 @@ export const FOUNDATION = 8
  */
 
 /** Conectores verticales entre pisos: cintas elevadoras y pases de tubería por el suelo. */
-export const isVerticalConnector = (id: string) => /ConveyorLiftMk/.test(id) || id === 'Build_FoundationPassthrough_Pipe_C'
+export const isVerticalConnector = (id: string) =>
+  /ConveyorLiftMk/.test(id) || id === 'Build_FoundationPassthrough_Pipe_C' || id === HYPER_PASSTHROUGH
+
+export const HYPER_PASSTHROUGH = 'Build_FoundationPassthrough_Hypertube_C'
+export const HYPER_ENTRANCE = 'Build_PipeHyperStart_C'
+/** Uniones de hipertubo: la de tres vías y la ramificación. */
+export const HYPER_JUNCTIONS = new Set(['Build_HyperTubeJunction_C', 'Build_HypertubeTJunction_C'])
 
 /** Huella con alternativa para objetos sin cajas de colisión en los datos del juego. */
 export function footprintOf(b: Building): Footprint {
@@ -143,7 +149,7 @@ export const normRect = (a: Vec, b: Vec): Rect => ({
 
 // ---------------- puertos ----------------
 
-export type PortKind = 'belt' | 'pipe'
+export type PortKind = 'belt' | 'pipe' | 'hyper'
 export type PortDir = 'in' | 'out'
 
 export interface PortDef {
@@ -174,7 +180,7 @@ export function portsOf(b: Building, e?: { liftDir?: 'up' | 'down' }): PortDef[]
 
   if (isVerticalConnector(b.id)) {
     // puerto 0 abajo, puerto 1 arriba; en las elevadoras el sentido lo define liftDir
-    const kind: PortKind = b.kind === 'lift' ? 'belt' : 'pipe'
+    const kind: PortKind = b.kind === 'lift' ? 'belt' : b.id === HYPER_PASSTHROUGH ? 'hyper' : 'pipe'
     const up = (e?.liftDir ?? 'up') === 'up'
     return [
       { kind, dir: up ? 'in' : 'out', pos: { x: cx, y: f.maxY }, normal: back, level: 'bottom' },
@@ -189,6 +195,19 @@ export function portsOf(b: Building, e?: { liftDir?: 'up' | 'down' }): PortDef[]
     ports.push({ kind: 'belt', dir: three, pos: { x: cx, y: merger ? f.maxY : f.minY }, normal: merger ? back : front })
     ports.push({ kind: 'belt', dir: three, pos: { x: f.minX, y: cy }, normal: left })
     ports.push({ kind: 'belt', dir: three, pos: { x: f.maxX, y: cy }, normal: right })
+    return ports
+  }
+  // hipertubos: no llevan carga, así que las conexiones no tienen sentido de entrada o salida
+  if (b.id === HYPER_ENTRANCE) {
+    // una sola conexión, en la parte de atrás (el frente es por donde se entra caminando)
+    ports.push({ kind: 'hyper', dir: 'out', pos: { x: cx, y: f.maxY }, normal: back })
+    return ports
+  }
+  if (HYPER_JUNCTIONS.has(b.id)) {
+    // unión de tres vías y ramificación: el camino de lado a lado y la tercera vía hacia el lado largo
+    ports.push({ kind: 'hyper', dir: 'out', pos: { x: f.minX, y: cy }, normal: left })
+    ports.push({ kind: 'hyper', dir: 'out', pos: { x: f.maxX, y: cy }, normal: right })
+    ports.push({ kind: 'hyper', dir: 'out', pos: { x: cx, y: f.maxY }, normal: back })
     return ports
   }
   if (b.kind === 'pipeJunction') {

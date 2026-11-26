@@ -121,7 +121,12 @@ export const PIPE_SUPPORT = 'Build_PipelineSupport_C'
 /** Postes de cinta y soportes de tubería: puntos de paso que giran de a 45°. */
 export const BELT_POLES = new Set([BELT_POLE, 'Build_ConveyorPoleStackable_C', 'Build_ConveyorPoleWall_C', 'Build_ConveyorCeilingAttachment_C'])
 export const PIPE_POLES = new Set([PIPE_SUPPORT, 'Build_PipeSupportStackable_C', 'Build_PipelineSupportWall_C'])
-export const isPole = (buildingId: string) => BELT_POLES.has(buildingId) || PIPE_POLES.has(buildingId)
+export const HYPER_SUPPORT = 'Build_PipeHyperSupport_C'
+/** Soportes de hipertubo (y el agujero de pared, que también es un punto de paso del tubo). */
+export const HYPER_POLES = new Set([HYPER_SUPPORT, 'Build_HyperPoleStackable_C', 'Build_HyperTubeWallSupport_C', 'Build_HyperTubeWallHole_C'])
+export const isPole = (buildingId: string) => BELT_POLES.has(buildingId) || PIPE_POLES.has(buildingId) || HYPER_POLES.has(buildingId)
+/** Poste o soporte que corresponde a cada tipo de trazado. */
+export const polesFor = (kind: string | undefined) => (kind === 'pipe' ? PIPE_POLES : kind === 'hyper' ? HYPER_POLES : BELT_POLES)
 const deg = (v: Vec) => Math.round(((Math.atan2(v.y, v.x) * 180) / Math.PI) * 100) / 100
 
 interface EditorState extends PlanDoc {
@@ -331,7 +336,7 @@ export const useEditor = create<EditorState>((set, get) => {
       const id = last && isBuildingIdAvailable(last) ? last : f.ids.find(isBuildingIdAvailable)
       if (!id) return
       const kind = buildingsById.get(id)?.kind
-      if (kind === 'belt' || kind === 'pipe') get().startConveyor(id)
+      if (kind === 'belt' || kind === 'pipe' || kind === 'hyper') get().startConveyor(id)
       else get().startPlacing(id)
     },
     cycleVariant: (dir = 1) => {
@@ -424,7 +429,8 @@ export const useEditor = create<EditorState>((set, get) => {
 
     addConveyor: ({ buildingId, points, from, to, mode }) => {
       const { entities, conveyors, floor } = get()
-      const isPipe = buildingsById.get(buildingId)?.kind === 'pipe'
+      const kind = buildingsById.get(buildingId)?.kind
+      const poleId = kind === 'pipe' ? PIPE_SUPPORT : kind === 'hyper' ? HYPER_SUPPORT : BELT_POLE
       const newEnts: PlacedEntity[] = []
       // un extremo libre crea un poste (cintas) o soporte (tuberías) alineado con la cinta, como en el juego
       const n = points.length
@@ -433,7 +439,7 @@ export const useEditor = create<EditorState>((set, get) => {
         const dir = atStart
           ? { x: points[1].x - points[0].x, y: points[1].y - points[0].y }
           : { x: points[n - 1].x - points[n - 2].x, y: points[n - 1].y - points[n - 2].y }
-        const pole: PlacedEntity = { uid: newUid(), buildingId: isPipe ? PIPE_SUPPORT : BELT_POLE, x: e.x, y: e.y, rot: 0, floor, angle: deg(dir) }
+        const pole: PlacedEntity = { uid: newUid(), buildingId: poleId, x: e.x, y: e.y, rot: 0, floor, angle: deg(dir) }
         newEnts.push(pole)
         return { uid: pole.uid, port: -1 }
       }

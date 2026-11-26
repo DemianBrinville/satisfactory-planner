@@ -20,6 +20,7 @@ export type BuildingKind =
   | 'belt'
   | 'lift'
   | 'pipe'
+  | 'hyper'
   | 'splitter'
   | 'pipeJunction'
   | 'pump'
@@ -153,4 +154,4 @@ export const CATEGORIES: { id: CategoryId; name: string }[] = [
 ]
 
 /** Edificios que se dibujan como trazado (no como rectángulo colocable). */
-export const isPathKind = (k: BuildingKind) => k === 'belt' || k === 'pipe'
+export const isPathKind = (k: BuildingKind) => k === 'belt' || k === 'pipe' || k === 'hyper'

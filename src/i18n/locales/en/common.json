@@ -106,7 +106,10 @@
     "pump": "Pipeline Pump",
     "pipeJunction": "Pipeline Junction",
     "miner": "Miner",
-    "powerPole": "Power Pole"
+    "powerPole": "Power Pole",
+    "hyper": "Hypertube",
+    "hyperSupport": "Hypertube support",
+    "hyperJunction": "Hypertube junction"
   },
   "hotbar": {
     "variant": "variant",
@@ -125,7 +128,8 @@
     "pathHint": "Click a port or the ground to start and click again to finish the segment.",
     "consumption": "Power usage: {{mw}} MW",
     "cost": "Cost: {{list}}",
-    "perTwoMeters": " (about every 2 m)"
+    "perTwoMeters": " (about every 2 m)",
+    "perMeter": " (per meter)"
   },
   "subcategories": {
     "SC_Progression": "Progression",
@@ -283,7 +287,8 @@
     "controlsColors": "Belts: <ok>green</ok> balanced, <warn>yellow</warn> surplus, <bad>red</bad> shortage.",
     "powerUse": "Uses {{mw}} MW",
     "powerGen": " · Produces {{mw}} MW",
-    "noMaterials": "No materials."
+    "noMaterials": "No materials.",
+    "drawingHelpHyper": "Click a hypertube entrance, junction or floor hole (or the ground, which places a support) to start and click again to finish. If you finish on the ground, drawing continues from there. Up to 100 m per segment; it costs its materials for every meter."
   },
   "machine": {
     "recipe": "Recipe",
@@ -453,7 +458,7 @@
     "savePassword": "Save password"
   },
   "canvas": {
-    "tooLong": "Longer than {{max}} m: add a pole",
+    "tooLong": "Longer than {{max}} m: add a pole or support",
     "sameDirection": "That port has the same direction",
     "foundations": "{{n}} foundations",
     "occupied": "{{n}} occupied spots are skipped",
@@ -496,7 +501,9 @@
     "overloaded": " · overloaded!",
     "clock": " · clock {{pct}}",
     "noBelts": "No belts connected",
-    "pickRecipe": "Select the machine to choose a recipe"
+    "pickRecipe": "Select the machine to choose a recipe",
+    "continueHyper": "Click to keep drawing the hypertube",
+    "hyperInfo": "{{len}} m of {{max}} m per segment"
   },
   "cloud": {
     "localDraft": "Local draft",
