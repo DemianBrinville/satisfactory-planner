@@ -1,4 +1,5 @@
 import {
+  Calculator,
   Cloud,
   CloudOff,
   Copy,
@@ -21,12 +22,13 @@ import AccountMenu from './AccountMenu'
 import PowerSettingsButton from './PowerSettings'
 
 interface Props {
+  onCalculator: () => void
   onProgress: () => void
   onCommunity: () => void
 }
 
 /** Barra superior: plano actual, pisos, historial, herramientas y cuenta. */
-export default function Topbar({ onProgress, onCommunity }: Props) {
+export default function Topbar({ onCalculator, onProgress, onCommunity }: Props) {
   const { floor, setFloor, undo, redo, past, future, floorHeight, setFloorHeight } = useEditor()
   const cloud = useCloud()
 
@@ -69,6 +71,10 @@ export default function Topbar({ onProgress, onCommunity }: Props) {
             <Redo2 size={16} />
           </button>
         </div>
+        <button className="tb-btn" onClick={onCalculator} title="Calcular la cadena para producir X por minuto">
+          <Calculator size={16} />
+          <span>Calculadora</span>
+        </button>
         <button className="tb-btn" onClick={onProgress} title="Lo que tienes desbloqueado en tu partida">
           <ListChecks size={16} />
           <span>Progreso</span>

@@ -37,7 +37,7 @@ node scripts/extract-game-data.mjs "<ruta>/Satisfactory/CommunityResources/Docs/
 
 - Iconos propios para cada máquina, estructura y material (paleta, recetas, tooltips y en el plano).
 - Logo de la aplicación.
-- Calculadora de objetivo: "quiero X/min de tal producto" → arma la cadena de máquinas y la coloca en el plano.
+- Calculadora: trazar automáticamente las cintas entre las máquinas que coloca.
 - Mapa de yacimientos reales (ubicación y pureza de los nodos).
 - Detección de choques de cintas con máquinas y pendiente máxima de 35°.
 - Subproductos que bloquean (residuos nucleares, fluidos de refinería).

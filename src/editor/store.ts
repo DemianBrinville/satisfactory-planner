@@ -173,6 +173,8 @@ interface EditorState extends PlanDoc {
   undo: () => void
   redo: () => void
   load: (doc: PlanDoc) => void
+  /** agrega un grupo de máquinas ya configuradas (calculadora) y las deja seleccionadas */
+  addLayout: (items: { buildingId: string; recipeId: string; clock: number; floor: number; rect: { x0: number; y0: number } }[]) => void
   startWire: () => void
   routeKind: VehicleKind
   startRail: () => void
@@ -517,6 +519,26 @@ export const useEditor = create<EditorState>((set, get) => {
 
     load: (doc) =>
       set({ entities: doc.entities ?? [], conveyors: doc.conveyors ?? [], wires: doc.wires ?? [], rails: doc.rails ?? [], routes: doc.routes ?? [], power: { ...DEFAULT_POWER, ...doc.power }, floorHeight: doc.floorHeight ?? DEFAULT_FLOOR_HEIGHT, past: [], future: [], selection: [] }),
+    addLayout: (items) => {
+      const added: PlacedEntity[] = []
+      for (const it of items) {
+        const b = buildingsById.get(it.buildingId)
+        if (!b) continue
+        const r0 = worldRect(b, { x: 0, y: 0 }, 90)
+        added.push({
+          uid: newUid(),
+          buildingId: it.buildingId,
+          x: Math.round(it.rect.x0 - r0.x0),
+          y: Math.round(it.rect.y0 - r0.y0),
+          rot: 90,
+          floor: it.floor,
+          recipeId: it.recipeId,
+          clock: it.clock,
+        })
+      }
+      commit({ entities: [...get().entities, ...added] })
+      set({ selection: added.map((e) => e.uid), floor: items[0]?.floor ?? get().floor })
+    },
     startWire: () => set({ tool: 'wire', placingId: null, conveyorId: null, selection: [] }),
     startRail: () => set({ tool: 'rail', placingId: null, conveyorId: null, selection: [] }),
     startRoute: (routeKind, from) => set({ tool: 'route', routeKind, routeFrom: from ?? null, placingId: null, conveyorId: null, selection: [] }),

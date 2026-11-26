@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import AuthModal, { RecoveryModal } from './components/AuthModal'
+import CalculatorModal from './components/CalculatorModal'
 import CommunityModal from './components/CommunityModal'
 import Palette from './components/Palette'
 import PlannerCanvas from './components/PlannerCanvas'
@@ -13,6 +14,7 @@ const LAYOUT_KEY = 'satisfactory-planner:layout-v2'
 function App() {
   const [progressOpen, setProgressOpen] = useState(false)
   const [communityOpen, setCommunityOpen] = useState(false)
+  const [calcOpen, setCalcOpen] = useState(false)
   // paneles laterales plegables, cada uno por separado (se recuerda entre visitas)
   const [panels, setPanels] = useState<{ left: boolean; right: boolean }>(() => {
     try {
@@ -26,6 +28,7 @@ function App() {
   return (
     <div className={'app' + (panels.left ? '' : ' no-left') + (panels.right ? '' : ' no-right')}>
       <Topbar
+        onCalculator={() => setCalcOpen(true)}
         onProgress={() => setProgressOpen(true)}
         onCommunity={() => setCommunityOpen(true)}
       />
@@ -51,6 +54,7 @@ function App() {
       {panels.right && <SidePanel />}
       {progressOpen && <ProgressModal onClose={() => setProgressOpen(false)} />}
       {communityOpen && <CommunityModal onClose={() => setCommunityOpen(false)} />}
+      {calcOpen && <CalculatorModal onClose={() => setCalcOpen(false)} />}
       <AuthModal />
       <RecoveryModal />
     </div>
