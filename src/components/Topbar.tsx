@@ -3,7 +3,6 @@ import {
   Cloud,
   CloudOff,
   Copy,
-  Factory,
   Globe,
   Layers,
   ListChecks,
@@ -20,6 +19,7 @@ import { useCloud } from '../cloud/cloud'
 import { useEditor } from '../editor/store'
 import AccountMenu from './AccountMenu'
 import PowerSettingsButton from './PowerSettings'
+import { AppLogo } from './GameIcons'
 
 interface Props {
   onCalculator: () => void
@@ -36,8 +36,8 @@ export default function Topbar({ onCalculator, onProgress, onCommunity }: Props)
     <header className="topbar">
       <div className="tb-group">
         <div className="brand">
-          <span className="brand-logo">
-            <Factory size={16} />
+          <span className="brand-logo app-logo">
+            <AppLogo size={28} />
           </span>
           <span className="brand-name">Satisfactory Planner</span>
         </div>

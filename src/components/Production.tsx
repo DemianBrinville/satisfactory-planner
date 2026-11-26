@@ -1,6 +1,7 @@
 import { ArrowRight, CircleArrowDown, CircleArrowUp, CircleX } from 'lucide-react'
 import { itemName } from '../data/gameData'
 import type { NodeFlow } from '../editor/flow'
+import { ItemLabel } from './GameIcons'
 
 const fmt = (n: number) => n.toLocaleString('es', { maximumFractionDigits: 2 })
 const pct = (v: number) => `${Math.round(v * 1000) / 10} %`
@@ -36,7 +37,7 @@ export default function Production({ n, compact }: { n: NodeFlow; compact?: bool
       {n.inputs.map((x) => (
         <div key={x.item} className={'flowline' + (x.got + 0.01 < x.need ? (x.item === n.bottleneck ? ' bad' : ' warn') : '')}>
           <span className="io">
-            <ArrowRight size={13} className="in" /> {itemName(x.item)}
+            <ArrowRight size={13} className="in" /> <ItemLabel item={x.item} name={itemName(x.item)} size={14} />
           </span>
           <span>
             llega {fmt(x.got)} de {fmt(x.need)}/min
@@ -46,7 +47,7 @@ export default function Production({ n, compact }: { n: NodeFlow; compact?: bool
       {n.outputs.map((x) => (
         <div key={x.item} className={'flowline' + (x.taken + 0.01 < x.produce ? ' warn' : '')}>
           <span className="io">
-            <ArrowRight size={13} className="out" /> {itemName(x.item)}
+            <ArrowRight size={13} className="out" /> <ItemLabel item={x.item} name={itemName(x.item)} size={14} />
           </span>
           <span>
             {fmt(x.taken)} de {fmt(x.produce)}/min

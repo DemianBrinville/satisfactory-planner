@@ -3,6 +3,7 @@ import { CATEGORIES, game, isPathKind, itemName, type Building } from '../data/g
 import { useAvailability } from '../editor/progress'
 import { useEditor } from '../editor/store'
 import { RAIL, type VehicleKind } from '../editor/transport'
+import { BuildingIcon } from './GameIcons'
 
 /** Las "Rutas de vehículo" del menú del juego abren la herramienta de rutas. */
 const ROUTE_KINDS: Record<string, VehicleKind> = {
@@ -79,8 +80,11 @@ export default function Palette() {
                       return path ? startConveyor(b.id) : startPlacing(b.id)
                     }}
                   >
-                    <span className="name">{b.name}</span>
-                    <span className="dims">{dims}</span>
+                    <BuildingIcon id={b.id} size={26} />
+                    <span className="item-text">
+                      <span className="name">{b.name}</span>
+                      <span className="dims">{dims}</span>
+                    </span>
                   </button>
                 )
               })}

@@ -13,6 +13,7 @@ import { canLinkWorld, computeGrids } from '../editor/power'
 import { isVerticalConnector } from '../editor/geometry'
 import { useEditor, type PlacedEntity, type Purity } from '../editor/store'
 import { NONE } from '../editor/store'
+import { ItemLabel } from './GameIcons'
 
 const fmt = (n: number) => n.toLocaleString('es', { maximumFractionDigits: 2 })
 const pct = (clock: number) => `${Math.round(clock * 10000) / 100} %`
@@ -210,7 +211,7 @@ function Cost({ items }: { items: { item: string; amount: number }[] }) {
     <ul className="cost">
       {items.map((c) => (
         <li key={c.item}>
-          <span>{itemName(c.item)}</span>
+          <ItemLabel item={c.item} name={itemName(c.item)} />
           <b>{fmt(c.amount)}</b>
         </li>
       ))}
@@ -426,7 +427,7 @@ function RecipeCard({ r, clock }: { r: Recipe; clock: number }) {
         <div>
           {r.ingredients.map((i) => (
             <div key={i.item}>
-              <b>{fmt(i.amount * perMin)}</b> {itemName(i.item)}
+              <b>{fmt(i.amount * perMin)}</b> <ItemLabel item={i.item} name={itemName(i.item)} size={14} />
             </div>
           ))}
         </div>
@@ -434,7 +435,7 @@ function RecipeCard({ r, clock }: { r: Recipe; clock: number }) {
         <div>
           {r.products.map((p) => (
             <div key={p.item}>
-              <b>{fmt(p.amount * perMin)}</b> {itemName(p.item)}
+              <b>{fmt(p.amount * perMin)}</b> <ItemLabel item={p.item} name={itemName(p.item)} size={14} />
             </div>
           ))}
         </div>

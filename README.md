@@ -35,8 +35,7 @@ node scripts/extract-game-data.mjs "<ruta>/Satisfactory/CommunityResources/Docs/
 
 ## Pendientes
 
-- Iconos propios para cada máquina, estructura y material (paleta, recetas, tooltips y en el plano).
-- Logo de la aplicación.
+- Iconos propios dentro del plano (sobre cada máquina, el producto de su receta).
 - Calculadora: colocar también los taladros y extractores sobre yacimientos y evitar cruces de líneas.
 - Mapa de yacimientos reales (ubicación y pureza de los nodos).
 - Detección de choques de cintas con máquinas y pendiente máxima de 35°.

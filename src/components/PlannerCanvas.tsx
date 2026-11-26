@@ -64,6 +64,7 @@ import {
   type PowerResult,
 } from '../editor/power'
 import { NONE } from '../editor/store'
+import { ItemIcon } from './GameIcons'
 
 const COLORS: Record<string, string> = {
   machine: '#c9822b',
@@ -1407,7 +1408,7 @@ function ConveyorTooltip({ c, flow, head, at }: { c: Conveyor; flow?: EdgeFlow; 
         return (
           <div key={i} className="tt-item">
             <div>
-              <b>{itemName(i)}</b>: {fmt(f)} {unit}
+              <ItemIcon item={i} size={14} /> <b>{itemName(i)}</b>: {fmt(f)} {unit}
             </div>
             <div className="muted">
               llega {fmt(o)} · ideal para la receta final {fmt(d)}

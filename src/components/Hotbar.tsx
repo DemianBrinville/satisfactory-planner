@@ -2,6 +2,7 @@ import { buildingsById } from '../data/gameData'
 import { FAMILIES, HOTKEYS } from '../editor/families'
 import { isBuildingIdAvailable, useProgress } from '../editor/progress'
 import { useEditor } from '../editor/store'
+import { BuildingIcon } from './GameIcons'
 
 /** Barra rápida como la del juego: número → familia; E cambia la variante. */
 export default function Hotbar() {
@@ -24,6 +25,7 @@ export default function Hotbar() {
             title={b ? `${b.name} · E: siguiente variante` : `${f.name}: no disponible con tu progreso`}
           >
             <kbd>{key}</kbd>
+            {b && <BuildingIcon id={b.id} size={20} />}
             <span>{b ? short(b.name) : f.name}</span>
           </button>
         )

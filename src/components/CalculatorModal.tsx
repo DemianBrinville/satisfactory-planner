@@ -6,6 +6,7 @@ import { buildChain, totalLength } from '../editor/chainBuilder'
 import { entityRect, useEditor } from '../editor/store'
 import { useAvailability } from '../editor/progress'
 import Modal from './Modal'
+import { ItemLabel } from './GameIcons'
 
 const fmt = (n: number, d = 2) => n.toLocaleString('es', { maximumFractionDigits: d })
 const pct = (v: number) => `${fmt(v * 100)} %`
@@ -100,7 +101,7 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
                       setInputs(new Set())
                     }}
                   >
-                    {itemName(i)}
+                    <ItemLabel item={i} name={itemName(i)} />
                   </button>
                 </li>
               ))}
@@ -151,7 +152,9 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
                 const machine = buildingsById.get(s.building)?.name ?? s.building
                 return (
                   <tr key={s.item}>
-                    <td style={{ paddingLeft: 8 + s.depth * 12 }}>{itemName(s.item)}</td>
+                    <td style={{ paddingLeft: 8 + s.depth * 12 }}>
+                      <ItemLabel item={s.item} name={itemName(s.item)} />
+                    </td>
                     <td className="num">{fmt(s.rate)}</td>
                     <td>
                       {opts.length > 1 ? (
@@ -206,7 +209,7 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
                 return (
                   <div key={i} className="flowline">
                     <span>
-                      {itemName(i)}
+                      <ItemLabel item={i} name={itemName(i)} />
                       {!traido && game.items[i] && <small className="muted"> · {fmt(m.count)} {m.label}</small>}
                       {result.missing.has(i) && <small className="warn"> · sin receta disponible</small>}
                     </span>
@@ -220,7 +223,7 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
                   <p className="muted small">Hay que sacarlos (almacenar, usar o mandar al AWESOME Sink) o la máquina se frena.</p>
                   {[...result.byproducts].map(([i, v]) => (
                     <div key={i} className="flowline warn">
-                      <span>{itemName(i)}</span>
+                      <ItemLabel item={i} name={itemName(i)} />
                       <b>{fmt(v)}/min</b>
                     </div>
                   ))}
@@ -240,7 +243,7 @@ export default function CalculatorModal({ onClose }: { onClose: () => void }) {
               <h3>Para construir las máquinas</h3>
               {totals?.cost.map(([i, v]) => (
                 <div key={i} className="flowline">
-                  <span>{itemName(i)}</span>
+                  <ItemLabel item={i} name={itemName(i)} />
                   <b>{fmt(v, 0)}</b>
                 </div>
               ))}
