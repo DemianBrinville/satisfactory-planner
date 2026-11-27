@@ -420,7 +420,10 @@
     "marked": "已勾选 {{n}} / {{total}}",
     "markVisible": "勾选可见项",
     "unmarkVisible": "取消勾选可见项",
-    "altHelp": "替代配方需要在 M.A.M. 中分析硬盘获得。勾选你已经选择的配方。"
+    "altHelp": "替代配方需要在 M.A.M. 中分析硬盘获得。勾选你已经选择的配方。",
+    "fromSave": "从我的存档读取",
+    "fromSaveTitle": "精确勾选存档（.sav）中已解锁的内容",
+    "fromSaveDone": "完成：已从存档读取阶段 {{phase}} 和 {{n}} 项解锁。"
   },
   "mamTrees": {
     "Quartz": "石英",
@@ -754,5 +757,37 @@
   },
   "app": {
     "name": "Satisfactory Planner"
+  },
+  "import": {
+    "button": "导入存档",
+    "mapHint": "从存档中导入你的工厂，每座都放在地图上原来的位置。",
+    "title": "导入你的存档",
+    "intro": "选择一个存档文件（.sav），把你的工厂导入规划，每座都放在真实地图上原来的位置，并带上配方、时钟速度、传送带、管道和电线。文件在你的浏览器中读取，不会上传到任何地方。",
+    "where": "在 Windows 上，存档位于 <code>%LOCALAPPDATA%\\FactoryGame\\Saved\\SaveGames\\</code> 中以你的用户编号命名的文件夹里。",
+    "choose": "选择 .sav 文件",
+    "reading": "正在读取存档…",
+    "failed": "无法读取该文件：它看起来不是幸福工厂的存档。",
+    "empty": "该存档中没有规划器可以显示的工厂。",
+    "session": "存档「{{name}}」",
+    "factories_other": "{{count}} 座工厂",
+    "pickHelp": "在列表或地图上勾选要导入的工厂（滚轮：缩放 · 拖动：平移）。",
+    "factory": "工厂 {{n}}",
+    "structures_other": "{{count}} 个建筑",
+    "foundations": "地基和斜坡",
+    "architecture": "墙壁和建筑装饰（横梁、屋顶、走道等）",
+    "progress": "使用存档中的进度（阶段 {{phase}}，{{n}} 项解锁）",
+    "placeNew": "会放在真实地图上原来的位置，规划会与你的地基网格对齐。",
+    "placeKeep": "会按照你的规划在真实地图上已有的位置放置。",
+    "placeRight": "会放在你已有内容的右侧，规划会按照导入的工厂定位到真实地图上。",
+    "other": "其他文件",
+    "import": "导入",
+    "none": "请至少选择一座工厂。",
+    "summary": "已导入：{{structures}} 个建筑、{{segments}} 段传送带和管道、{{wires}} 条电线。可以用 Ctrl+Z 撤销。",
+    "addedPoles_other": "在两段线路没有立架就相连的地方添加了 {{count}} 个立架（游戏中它们位于墙上、天花板上或悬空）。",
+    "offGrid_other": "有 {{count}} 个部件没有与地基对齐：已旋转到最接近的直角。",
+    "skipped_other": "有 {{count}} 个部件在规划器中不存在，已略过。",
+    "floors": "高度按规划的层高 {{h}} 米划分为楼层。",
+    "portsNote": "规划器中的接口位置是近似的：传送带可能从与游戏中不同的一侧连接到机器。",
+    "progressDone": "你的进度已与存档一致。"
   }
 }

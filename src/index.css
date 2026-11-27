@@ -1001,6 +1001,52 @@ kbd {
   }
 }
 
+/* importar partida */
+.progress-msg {
+  margin: 0;
+  padding: 6px 16px;
+}
+.map-import {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+.map-import p {
+  margin: 0;
+}
+.import-save .map-view {
+  cursor: grab;
+}
+.import-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 210px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px;
+}
+.import-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.import-item.hover {
+  background: var(--panel-2);
+}
+.import-item input {
+  margin-top: 3px;
+}
+
 /* los grupos de botones no se achican por debajo de su contenido (si no, se enciman con el de al lado);
    lo que cede es el nombre del plano */
 .topbar > .tb-group:first-child,

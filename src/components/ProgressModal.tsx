@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { FileUp, Loader2 } from 'lucide-react'
+import { readSave, saveProgress } from '../editor/saveFile'
 import { buildingsById, game, itemName, recipesById, type Schematic } from '../data/gameData'
 import { ALT_SCHEMATICS, HUB_SCHEMATICS, MAM_SCHEMATICS, PHASE_TIERS, SHOP_SCHEMATICS, maxTierForPhase, useProgress } from '../editor/progress'
 
@@ -32,6 +34,23 @@ export default function ProgressModal({ onClose }: { onClose: () => void }) {
   const p = useProgress()
   const [tab, setTab] = useState<Tab>('hub')
   const unlocked = new Set(p.unlocked)
+  const file = useRef<HTMLInputElement>(null)
+  const [reading, setReading] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  // el progreso exacto de la partida reemplaza lo marcado a mano
+  const fromSave = async (f: File | undefined) => {
+    if (!f) return
+    setReading(true)
+    setMsg(null)
+    try {
+      const prog = saveProgress(await readSave(f))
+      p.load({ enabled: true, ...prog })
+      setMsg({ ok: true, text: t('progress.fromSaveDone', { n: prog.unlocked.length, phase: prog.phase }) })
+    } catch {
+      setMsg({ ok: false, text: t('import.failed') })
+    }
+    setReading(false)
+  }
 
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
@@ -42,8 +61,13 @@ export default function ProgressModal({ onClose }: { onClose: () => void }) {
             <input type="checkbox" checked={p.enabled} onChange={(e) => p.setEnabled(e.target.checked)} />
             {t('progress.filter')}
           </label>
+          <input ref={file} type="file" accept=".sav" hidden onChange={(e) => fromSave(e.target.files?.[0])} />
+          <button onClick={() => file.current?.click()} disabled={reading} title={t('progress.fromSaveTitle')}>
+            {reading ? <Loader2 size={14} className="spin" /> : <FileUp size={14} />} {t('progress.fromSave')}
+          </button>
           <button onClick={onClose}>{t('common.close')}</button>
         </header>
+        {msg && <p className={'small progress-msg ' + (msg.ok ? 'ok' : 'bad')}>{msg.text}</p>}
         <nav className="tabs">
           {(['hub', 'mam', 'alt', 'shop'] as Tab[]).map((id) => (
             <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>

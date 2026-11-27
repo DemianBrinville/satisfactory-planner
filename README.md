@@ -90,10 +90,24 @@ Ideas propuestas, pendientes de decidir: calculadora que elige las recetas ópti
 - **Selección:** al arrastrar el recuadro hasta el borde la vista se mueve sola; Shift suma, Ctrl quita y Ctrl+A selecciona todo el piso.
 - **Locomotoras:** su consumo (110 MW cada una, lo máximo al acelerar) se suma a la red de sus estaciones y al total del plano.
 - **Notas y regla:** con N (o el botón de la barra de abajo) un clic deja una nota de texto que se ve con cualquier zoom, se arrastra y se borra como una pieza y se guarda con el plano. Con M, la regla mide distancias en metros y en cimientos (arrastrando o con un clic en cada punta; Shift la deja horizontal o vertical).
+- **Importar partida (`.sav`):** desde *Mapa real* se elige un archivo de guardado. Se lee en el navegador, en un worker, con [satisfactory-file-parser](https://github.com/etothepii4/satisfactory-file-parser) (MIT), y se separa en fábricas: edificios de trabajo a menos de 32 m entre sí; postes y cimientos se suman a la más cercana. De las elegidas se traen:
+  - Los edificios con su receta, reloj, somersloops y combustible.
+  - Cintas, tuberías e hipertubos, con su recorrido real y conectados al puerto del plano más cercano a donde llegan en el juego; el giro de cada máquina se elige para que sus puertos calcen.
+  - Los cables y las vías.
+  - Los cimientos, en piezas livianas.
+
+  Así quedan en el plano:
+  - El plano se ubica en el mapa real con la cuadrícula de los cimientos (el giro más repetido).
+  - En cada fábrica, el nivel con más edificios es el piso 0.
+  - Las uniones de cinta usan el poste que hay debajo, con la altura de la cinta.
+  - Se puede deshacer con Ctrl+Z.
+
+  El progreso (fase e hitos) también se puede leer de la partida, ahí o desde *Mi progreso*.
 
 ## Pendientes
 
-- **i18n:** 10 idiomas (~675 claves). Los nombres del juego son los oficiales; los textos de la interfaz fuera del español conviene que los revisen jugadores nativos.
+- **Importar partida:** los puertos del plano son aproximados (los datos del juego no traen su posición), así que alguna cinta puede llegar por otro costado. Las piezas fuera de la cuadrícula principal se giran al ángulo recto más cercano. Exportar a plano del juego (`.sbp`) queda para después: la misma librería escribe planos.
+- **i18n:** 10 idiomas (~710 claves). Los nombres del juego son los oficiales; los textos de la interfaz fuera del español conviene que los revisen jugadores nativos.
 
 - Calculadora: evitar los cruces de líneas que quedan.
 - Detección de choques de cintas con máquinas y pendiente máxima de 35°.

@@ -423,7 +423,10 @@
     "marked": "{{n}} de {{total}} marcados",
     "markVisible": "Marcar visíveis",
     "unmarkVisible": "Desmarcar visíveis",
-    "altHelp": "As receitas alternativas se conseguem analisando Discos Rígidos no M.A.M. Marque as que você já escolheu."
+    "altHelp": "As receitas alternativas se conseguem analisando Discos Rígidos no M.A.M. Marque as que você já escolheu.",
+    "fromSave": "Ler do meu jogo salvo",
+    "fromSaveTitle": "Marca exatamente o que você tem desbloqueado num jogo salvo (.sav)",
+    "fromSaveDone": "Pronto: fase {{phase}} e {{n}} desbloqueios tirados do jogo salvo."
   },
   "mamTrees": {
     "Quartz": "Quartzo",
@@ -769,5 +772,42 @@
   },
   "app": {
     "name": "Satisfactory Planner"
+  },
+  "import": {
+    "button": "Importar jogo salvo",
+    "mapHint": "Traga suas fábricas de um jogo salvo, cada uma no seu lugar do mapa.",
+    "title": "Importar seu jogo salvo",
+    "intro": "Escolha um arquivo de jogo salvo (.sav) para trazer suas fábricas para o plano, cada uma no seu lugar do mapa real, com receitas, velocidades de relógio, esteiras, tubulações e cabos. O arquivo é lido no seu navegador: não é enviado para lugar nenhum.",
+    "where": "No Windows, os jogos salvos ficam em <code>%LOCALAPPDATA%\\FactoryGame\\Saved\\SaveGames\\</code>, dentro da pasta com o seu número de usuário.",
+    "choose": "Escolher arquivo .sav",
+    "reading": "Lendo o jogo salvo…",
+    "failed": "Não foi possível ler o arquivo: não parece um jogo salvo de Satisfactory.",
+    "empty": "O jogo salvo não tem fábricas que o planejador consiga mostrar.",
+    "session": "Jogo “{{name}}”",
+    "factories_one": "1 fábrica",
+    "factories_other": "{{count}} fábricas",
+    "pickHelp": "Marque as fábricas que quer trazer, na lista ou no mapa (roda: zoom · arrastar: mover).",
+    "factory": "Fábrica {{n}}",
+    "structures_one": "1 estrutura",
+    "structures_other": "{{count}} estruturas",
+    "foundations": "Fundações e rampas",
+    "architecture": "Paredes e arquitetura (vigas, telhados, passarelas…)",
+    "progress": "Usar o progresso do jogo salvo (fase {{phase}}, {{n}} desbloqueios)",
+    "placeNew": "Ficará no seu lugar do mapa real, com o plano alinhado à grade das suas fundações.",
+    "placeKeep": "Seguirá o lugar que o seu plano já tem no mapa real.",
+    "placeRight": "Ficará à direita do que você já tem, e o plano será posicionado no mapa real de acordo com a fábrica importada.",
+    "other": "Outro arquivo",
+    "import": "Importar",
+    "none": "Escolha pelo menos uma fábrica.",
+    "summary": "Importado: {{structures}} estruturas, {{segments}} trechos de esteira e tubulação e {{wires}} cabos. Você pode desfazer com Ctrl+Z.",
+    "addedPoles_one": "Foi adicionado 1 suporte onde dois trechos se uniam sem um (no jogo estavam numa parede, num teto ou no ar).",
+    "addedPoles_other": "Foram adicionados {{count}} suportes onde dois trechos se uniam sem um (no jogo estavam numa parede, num teto ou no ar).",
+    "offGrid_one": "1 peça não estava alinhada às suas fundações: foi girada para o ângulo reto mais próximo.",
+    "offGrid_other": "{{count}} peças não estavam alinhadas às suas fundações: foram giradas para o ângulo reto mais próximo.",
+    "skipped_one": "1 peça não existe no planejador e ficou de fora.",
+    "skipped_other": "{{count}} peças não existem no planejador e ficaram de fora.",
+    "floors": "As alturas são divididas em andares de {{h}} m, a altura entre andares do plano.",
+    "portsNote": "As portas do planejador são aproximadas: uma esteira pode chegar a uma máquina por um lado diferente do jogo.",
+    "progressDone": "Seu progresso agora é o do jogo salvo."
   }
 }

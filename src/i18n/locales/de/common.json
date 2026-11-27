@@ -423,7 +423,10 @@
     "marked": "{{n}} von {{total}} abgehakt",
     "markVisible": "Sichtbare abhaken",
     "unmarkVisible": "Sichtbare abwählen",
-    "altHelp": "Alternative Rezepte bekommt man durch Analyse von Festplatten im M.A.M. Hake die ab, die du schon gewählt hast."
+    "altHelp": "Alternative Rezepte bekommt man durch Analyse von Festplatten im M.A.M. Hake die ab, die du schon gewählt hast.",
+    "fromSave": "Aus meinem Spielstand lesen",
+    "fromSaveTitle": "Markiert genau das, was du in einem Spielstand (.sav) freigeschaltet hast",
+    "fromSaveDone": "Fertig: Phase {{phase}} und {{n}} Freischaltungen aus dem Spielstand übernommen."
   },
   "mamTrees": {
     "Quartz": "Quarz",
@@ -769,5 +772,42 @@
   },
   "app": {
     "name": "Satisfactory Planner"
+  },
+  "import": {
+    "button": "Spielstand importieren",
+    "mapHint": "Hol deine Fabriken aus einem Spielstand, jede an ihrem Platz auf der Karte.",
+    "title": "Spielstand importieren",
+    "intro": "Wähle eine Speicherdatei (.sav), um deine Fabriken in den Plan zu holen, jede an ihrem Platz auf der echten Karte, mit Rezepten, Taktraten, Förderbändern, Rohren und Stromleitungen. Die Datei wird in deinem Browser gelesen und nirgendwo hochgeladen.",
+    "where": "Unter Windows liegen die Spielstände in <code>%LOCALAPPDATA%\\FactoryGame\\Saved\\SaveGames\\</code>, im Ordner mit deiner Benutzernummer.",
+    "choose": ".sav-Datei wählen",
+    "reading": "Spielstand wird gelesen…",
+    "failed": "Die Datei konnte nicht gelesen werden: Sie sieht nicht wie ein Satisfactory-Spielstand aus.",
+    "empty": "Der Spielstand enthält keine Fabriken, die der Planer anzeigen kann.",
+    "session": "Spielstand „{{name}}“",
+    "factories_one": "1 Fabrik",
+    "factories_other": "{{count}} Fabriken",
+    "pickHelp": "Markiere die Fabriken, die du übernehmen willst, in der Liste oder auf der Karte (Mausrad: zoomen · Ziehen: verschieben).",
+    "factory": "Fabrik {{n}}",
+    "structures_one": "1 Bauwerk",
+    "structures_other": "{{count}} Bauwerke",
+    "foundations": "Fundamente und Rampen",
+    "architecture": "Wände und Architektur (Träger, Dächer, Laufstege…)",
+    "progress": "Fortschritt des Spielstands übernehmen (Phase {{phase}}, {{n}} Freischaltungen)",
+    "placeNew": "Sie landet an ihrem Platz auf der echten Karte, und der Plan wird am Raster deiner Fundamente ausgerichtet.",
+    "placeKeep": "Sie richtet sich nach dem Platz, den dein Plan schon auf der echten Karte hat.",
+    "placeRight": "Sie kommt rechts neben das, was du schon hast, und der Plan wird anhand der importierten Fabrik auf der echten Karte platziert.",
+    "other": "Andere Datei",
+    "import": "Importieren",
+    "none": "Wähle mindestens eine Fabrik.",
+    "summary": "Importiert: {{structures}} Bauwerke, {{segments}} Förderband- und Rohrabschnitte und {{wires}} Stromleitungen. Mit Strg+Z kannst du es rückgängig machen.",
+    "addedPoles_one": "1 Stütze wurde ergänzt, wo zwei Abschnitte ohne eine verbunden waren (im Spiel an einer Wand, einer Decke oder in der Luft).",
+    "addedPoles_other": "{{count}} Stützen wurden ergänzt, wo zwei Abschnitte ohne eine verbunden waren (im Spiel an einer Wand, einer Decke oder in der Luft).",
+    "offGrid_one": "1 Teil war nicht an deinen Fundamenten ausgerichtet: Es wurde auf den nächsten rechten Winkel gedreht.",
+    "offGrid_other": "{{count}} Teile waren nicht an deinen Fundamenten ausgerichtet: Sie wurden auf den nächsten rechten Winkel gedreht.",
+    "skipped_one": "1 Teil gibt es im Planer nicht; es wurde ausgelassen.",
+    "skipped_other": "{{count}} Teile gibt es im Planer nicht; sie wurden ausgelassen.",
+    "floors": "Die Höhen werden auf Etagen von {{h}} m verteilt, die Etagenhöhe des Plans.",
+    "portsNote": "Die Anschlüsse im Planer sind angenähert: Ein Förderband kann eine Maschine von einer anderen Seite erreichen als im Spiel.",
+    "progressDone": "Dein Fortschritt entspricht jetzt dem Spielstand."
   }
 }

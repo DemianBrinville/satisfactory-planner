@@ -216,6 +216,8 @@ interface EditorState extends PlanDoc {
   load: (doc: PlanDoc) => void
   /** agrega un bloque completo (máquinas, cintas, tuberías) en un solo paso de deshacer */
   addDoc: (doc: { entities: PlacedEntity[]; conveyors: Conveyor[]; wires?: Wire[] }) => void
+  /** agrega lo importado de una partida (un solo paso para deshacer) y, si corresponde, ubica el plano en el mapa */
+  importDoc: (doc: { entities: PlacedEntity[]; conveyors: Conveyor[]; wires: Wire[]; rails: Rail[]; map: MapPlacement | null }) => void
   /** agrega un grupo de máquinas ya configuradas (calculadora) y las deja seleccionadas */
   addLayout: (items: { buildingId: string; recipeId: string; clock: number; floor: number; rect: { x0: number; y0: number } }[]) => void
   startWire: () => void
@@ -643,6 +645,16 @@ export const useEditor = create<EditorState>((set, get) => {
         ...(doc.wires?.length ? { wires: [...(get().wires ?? []), ...doc.wires] } : {}),
       })
       set({ selection: [...doc.entities.map((e) => e.uid), ...doc.conveyors.map((c) => c.uid)] })
+    },
+    importDoc: (doc) => {
+      commit({
+        entities: [...get().entities, ...doc.entities],
+        conveyors: [...get().conveyors, ...doc.conveyors],
+        wires: [...(get().wires ?? []), ...doc.wires],
+        rails: [...(get().rails ?? []), ...doc.rails],
+      })
+      if (doc.map) set({ map: doc.map })
+      set({ selection: [], tool: 'select' })
     },
     addLayout: (items) => {
       const added: PlacedEntity[] = []

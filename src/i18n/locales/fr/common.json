@@ -423,7 +423,10 @@
     "marked": "{{n}} sur {{total}} cochés",
     "markVisible": "Cocher les visibles",
     "unmarkVisible": "Décocher les visibles",
-    "altHelp": "Les recettes alternatives s'obtiennent en analysant des disques durs dans le M.A.M. Coche celles que tu as déjà choisies."
+    "altHelp": "Les recettes alternatives s'obtiennent en analysant des disques durs dans le M.A.M. Coche celles que tu as déjà choisies.",
+    "fromSave": "Lire depuis ma partie",
+    "fromSaveTitle": "Coche exactement ce que tu as débloqué dans une sauvegarde (.sav)",
+    "fromSaveDone": "C'est fait : phase {{phase}} et {{n}} déblocages repris de la partie."
   },
   "mamTrees": {
     "Quartz": "Quartz",
@@ -769,5 +772,42 @@
   },
   "app": {
     "name": "Satisfactory Planner"
+  },
+  "import": {
+    "button": "Importer une partie",
+    "mapHint": "Récupère tes usines depuis une sauvegarde, chacune à sa place sur la carte.",
+    "title": "Importer ta partie",
+    "intro": "Choisis un fichier de sauvegarde (.sav) pour amener tes usines dans le plan, chacune à sa place sur la vraie carte, avec leurs recettes, cadences, convoyeurs, tuyaux et câbles. Le fichier est lu dans ton navigateur : il n'est envoyé nulle part.",
+    "where": "Sous Windows, les sauvegardes sont dans <code>%LOCALAPPDATA%\\FactoryGame\\Saved\\SaveGames\\</code>, dans le dossier portant ton numéro d'utilisateur.",
+    "choose": "Choisir un fichier .sav",
+    "reading": "Lecture de la partie…",
+    "failed": "Impossible de lire le fichier : il ne ressemble pas à une sauvegarde de Satisfactory.",
+    "empty": "La partie ne contient aucune usine que le planificateur peut afficher.",
+    "session": "Partie « {{name}} »",
+    "factories_one": "1 usine",
+    "factories_other": "{{count}} usines",
+    "pickHelp": "Coche les usines à importer, dans la liste ou sur la carte (molette : zoom · glisser : déplacer).",
+    "factory": "Usine {{n}}",
+    "structures_one": "1 structure",
+    "structures_other": "{{count}} structures",
+    "foundations": "Fondations et rampes",
+    "architecture": "Murs et architecture (poutres, toits, passerelles…)",
+    "progress": "Utiliser la progression de la partie (phase {{phase}}, {{n}} déblocages)",
+    "placeNew": "Elle sera à sa place sur la vraie carte, avec le plan aligné sur la grille de tes fondations.",
+    "placeKeep": "Elle suivra l'emplacement que ton plan a déjà sur la vraie carte.",
+    "placeRight": "Elle ira à droite de ce que tu as déjà, et le plan sera placé sur la vraie carte d'après l'usine importée.",
+    "other": "Autre fichier",
+    "import": "Importer",
+    "none": "Choisis au moins une usine.",
+    "summary": "Importé : {{structures}} structures, {{segments}} tronçons de convoyeur et de tuyau et {{wires}} câbles. Tu peux annuler avec Ctrl+Z.",
+    "addedPoles_one": "1 poteau a été ajouté là où deux tronçons se rejoignaient sans poteau (dans le jeu, sur un mur, un plafond ou en l'air).",
+    "addedPoles_other": "{{count}} poteaux ont été ajoutés là où deux tronçons se rejoignaient sans poteau (dans le jeu, sur un mur, un plafond ou en l'air).",
+    "offGrid_one": "1 pièce n'était pas alignée sur tes fondations : elle a été tournée à l'angle droit le plus proche.",
+    "offGrid_other": "{{count}} pièces n'étaient pas alignées sur tes fondations : elles ont été tournées à l'angle droit le plus proche.",
+    "skipped_one": "1 pièce n'existe pas dans le planificateur et a été laissée de côté.",
+    "skipped_other": "{{count}} pièces n'existent pas dans le planificateur et ont été laissées de côté.",
+    "floors": "Les hauteurs sont réparties en étages de {{h}} m, la hauteur d'étage du plan.",
+    "portsNote": "Les ports du planificateur sont approximatifs : un convoyeur peut arriver à une machine par un autre côté que dans le jeu.",
+    "progressDone": "Ta progression correspond maintenant à la partie."
   }
 }

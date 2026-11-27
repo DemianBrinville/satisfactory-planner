@@ -1,10 +1,11 @@
-import { Compass, Crosshair, Map as MapIcon, RotateCcw } from 'lucide-react'
+import { Compass, Crosshair, FileUp, Map as MapIcon, RotateCcw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { itemName } from '../data/gameData'
 import { locale } from '../i18n/format'
 import { entityRect, layerOf, useEditor } from '../editor/store'
 import { DEFAULT_MAP, MAP_BOUNDS, MAP_IMAGE, SPOTS, spotColor, toGame, toPlan, type MapPlacement } from '../editor/worldMap'
+import ImportSave from './ImportSave'
 import Modal from './Modal'
 
 const fmt = (n: number, d = 0) => n.toLocaleString(locale(), { maximumFractionDigits: d })
@@ -18,6 +19,7 @@ export default function MapButton() {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [picking, setPicking] = useState(false)
+  const [importing, setImporting] = useState(false)
   const map = useEditor((s) => s.map)
   const setMap = useEditor((s) => s.setMap)
   const ref = useRef<HTMLDivElement>(null)
@@ -76,9 +78,16 @@ export default function MapButton() {
               </div>
             </>
           )}
+          <div className="map-import">
+            <p className="muted small">{t('import.mapHint')}</p>
+            <button className="btn" onClick={() => (setImporting(true), setOpen(false))}>
+              <FileUp size={15} /> {t('import.button')}
+            </button>
+          </div>
           <p className="muted small">{t('map.source')}</p>
         </div>
       )}
+      {importing && <ImportSave onClose={() => setImporting(false)} />}
       {picking && <MapPicker initial={map ?? null} onClose={() => setPicking(false)} onApply={(m) => (setMap(m), setPicking(false))} />}
     </div>
   )
