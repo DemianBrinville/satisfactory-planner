@@ -1001,8 +1001,20 @@ kbd {
   }
 }
 
+/* los grupos de botones no se achican por debajo de su contenido (si no, se enciman con el de al lado);
+   lo que cede es el nombre del plano */
+.topbar > .tb-group:first-child,
+.topbar > .tb-group.tools,
+.topbar > .tb-group.end {
+  flex-shrink: 0;
+}
+.topbar > .tb-group.plan {
+  min-width: 0;
+  overflow: hidden;
+}
+
 /* barra superior en pantallas medianas: los botones de herramientas quedan solo con el icono */
-@media (max-width: 1440px) {
+@media (max-width: 1600px) {
   .tb-btn.tb-collapse > span {
     display: none;
   }
@@ -1031,5 +1043,18 @@ kbd {
   }
   .tb-short {
     display: inline;
+  }
+}
+
+/* pantallas más angostas: la cuenta solo con su inicial y el idioma sin el icono */
+@media (max-width: 1280px) {
+  .account-name {
+    display: none;
+  }
+  .lang-select > svg {
+    display: none;
+  }
+  .lang-select {
+    margin-right: 0;
   }
 }
