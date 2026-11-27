@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useTranslation } from 'react-i18next'
-import './i18n'
+import { i18nReady } from './i18n'
 import App from './App.tsx'
 import './index.css'
 import './redesign.css'
@@ -13,8 +13,11 @@ function Root() {
   return <App key={i18n.resolvedLanguage} />
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <Root />
-  </StrictMode>,
+// se dibuja cuando el idioma detectado ya está descargado (español e inglés vienen incluidos)
+i18nReady.finally(() =>
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <Root />
+    </StrictMode>,
+  ),
 )

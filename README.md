@@ -28,10 +28,10 @@ npm run dev
 node scripts/extract-game-data.mjs "<ruta>/Satisfactory/CommunityResources/Docs/es-ES.json" [--refresh-wiki]
 ```
 
-### Nombres en inglés e iconos
+### Nombres en otros idiomas e iconos
 
 ```bash
-node scripts/extract-names.mjs "<ruta>/Satisfactory/CommunityResources/Docs/en-US.json"   # src/data/game-names-en.json
+node scripts/extract-names.mjs "<ruta>/Satisfactory/CommunityResources/Docs"   # src/data/names/<idioma>.json (en, de, fr, pt, ru, pl, ja, ko, zh)
 node scripts/fetch-wiki-icons.mjs [--force]   # public/icons/*.png y src/data/icon-manifest.json
 ```
 
@@ -50,10 +50,11 @@ La imagen del mapa (`public/map/map.jpg`, 5000 × 5000 px) es la del juego publi
 
 ### Idiomas (i18n)
 
-- i18next + react-i18next. Toda la interfaz está traducida al español y al inglés; los textos que se arman fuera de React (notas de la calculadora, errores de la nube) usan `i18n.t` y se recalculan al cambiar de idioma porque la app se vuelve a montar. Los textos de la interfaz están en `src/i18n/locales/<idioma>/common.json` y se piden por clave (`t('topbar.calculator')`); las claves están tipadas, así que una clave inexistente no compila.
+- i18next + react-i18next. Toda la interfaz está traducida a 10 idiomas: español, inglés, alemán, francés, portugués (Brasil), ruso, polaco, japonés, coreano y chino simplificado. Español e inglés van en el paquete principal; los demás (textos y nombres del juego) se descargan solo al elegirlos; los textos que se arman fuera de React (notas de la calculadora, errores de la nube) usan `i18n.t` y se recalculan al cambiar de idioma porque la app se vuelve a montar. Los textos de la interfaz están en `src/i18n/locales/<idioma>/common.json` y se piden por clave (`t('topbar.calculator')`); las claves están tipadas, así que una clave inexistente no compila.
 - El idioma se detecta del navegador y se guarda en `localStorage`; si el navegador pide uno no soportado se usa inglés.
 - Los nombres del juego (ítems, edificios, recetas, hitos) salen de los archivos oficiales del juego en cada idioma, no de las traducciones.
-- Para sumar un idioma: crear su `common.json`, agregarlo a `SUPPORTED` y `resources` en `src/i18n/index.ts` y generar sus nombres con `extract-names.mjs`.
+- Para sumar un idioma: crear su `common.json`, agregarlo a `SUPPORTED` y `LANGUAGE_NAMES` en `src/i18n/index.ts` y generar sus nombres con `extract-names.mjs`.
+- `node scripts/check-i18n.mjs` compara cada idioma con el inglés: claves que faltan o sobran, variables `{{...}}`, etiquetas y las formas de plural que pide cada idioma (ruso y polaco tienen tres).
 
 ### Supabase
 
@@ -92,7 +93,7 @@ Ideas propuestas, pendientes de decidir: calculadora que elige las recetas ópti
 
 ## Pendientes
 
-- **i18n:** toda la interfaz está en claves con español e inglés (~445 claves). Falta revisar el inglés con jugadores nativos y sumar más idiomas (los nombres del juego ya existen en los `Docs/*.json` de cada idioma).
+- **i18n:** 10 idiomas (~675 claves). Los nombres del juego son los oficiales; los textos de la interfaz fuera del español conviene que los revisen jugadores nativos.
 
 - Calculadora: evitar los cruces de líneas que quedan.
 - Detección de choques de cintas con máquinas y pendiente máxima de 35°.

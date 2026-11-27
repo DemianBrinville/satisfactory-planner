@@ -19,7 +19,7 @@ import { useState } from 'react'
 import { useCloud } from '../cloud/cloud'
 import { useEditor } from '../editor/store'
 import { Trans, useTranslation } from 'react-i18next'
-import { SUPPORTED } from '../i18n'
+import { LANGUAGE_NAMES, SUPPORTED, changeLanguage } from '../i18n'
 import AccountMenu from './AccountMenu'
 import PowerSettingsButton from './PowerSettings'
 import ProblemsButton from './Problems'
@@ -174,10 +174,10 @@ function LanguageSelect() {
   return (
     <label className="lang-select" title={t('language.label')}>
       <Languages size={15} />
-      <select value={i18n.resolvedLanguage} onChange={(e) => i18n.changeLanguage(e.target.value)} aria-label={t('language.label')}>
+      <select value={i18n.resolvedLanguage} onChange={(e) => changeLanguage(e.target.value)} aria-label={t('language.label')}>
         {SUPPORTED.map((l) => (
           <option key={l} value={l}>
-            {t(`language.${l}`)}
+            {LANGUAGE_NAMES[l]}
           </option>
         ))}
       </select>

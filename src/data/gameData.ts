@@ -1,5 +1,4 @@
 import raw from './game-data.json'
-import namesEn from './game-names-en.json'
 
 export type CategoryId =
   | 'especial'
@@ -167,13 +166,23 @@ const NAMES_ES = {
   recipes: Object.fromEntries(game.recipes.map((r) => [r.id, r.name])),
   schematics: Object.fromEntries(game.schematics.map((s) => [s.id, s.name])),
 }
-const NAMES: Record<'es' | 'en', typeof NAMES_ES> = { es: NAMES_ES, en: namesEn as typeof NAMES_ES }
-let gameLanguage: 'es' | 'en' = 'es'
+type Names = typeof NAMES_ES
+/** nombres de cada idioma, cargados cuando se eligen (data/names/<idioma>.json, sacados del juego) */
+const NAME_FILES = import.meta.glob<{ default: Names }>('./names/*.json')
+const NAMES: Record<string, Names> = { es: NAMES_ES }
+let gameLanguage = 'es'
 export const getGameLanguage = () => gameLanguage
 
-export function setGameLanguage(lang: 'es' | 'en') {
-  gameLanguage = lang
-  const n = NAMES[lang]
+/** Trae los nombres del juego de un idioma (si no están cargados). */
+export async function loadGameNames(lang: string) {
+  if (NAMES[lang]) return
+  const file = NAME_FILES[`./names/${lang}.json`]
+  if (file) NAMES[lang] = (await file()).default
+}
+
+export function setGameLanguage(lang: string) {
+  const n = NAMES[lang] ?? NAMES_ES
+  gameLanguage = NAMES[lang] ? lang : 'es'
   for (const [id, it] of Object.entries(game.items)) it.name = n.items[id] ?? NAMES_ES.items[id]
   for (const b of game.buildings) {
     const x = n.buildings[b.id] ?? NAMES_ES.buildings[b.id]

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const outDir = path.join(root, 'public', 'icons')
 const manifestPath = path.join(root, 'src', 'data', 'icon-manifest.json')
-const names = JSON.parse(fs.readFileSync(path.join(root, 'src/data/game-names-en.json'), 'utf8'))
+const names = JSON.parse(fs.readFileSync(path.join(root, 'src/data/names/en.json'), 'utf8'))
 const force = process.argv.includes('--force')
 const UA = { headers: { 'User-Agent': 'satisfactory-planner-icons (community tool)' } }
 const API = 'https://satisfactory.wiki.gg/api.php'
