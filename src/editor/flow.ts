@@ -134,9 +134,57 @@ export function computeFlows(
   return lastResult
 }
 
+/**
+ * Cada grupo de estructuras conectadas (por cintas, tuberías o rutas) se calcula por separado y su resultado se
+ * guarda mientras ninguna de sus piezas cambie: en un plano grande, mover una máquina recalcula solo su línea.
+ */
+let groupCache = new Map<string, { ents: PlacedEntity[]; convs: Conveyor[]; routes: Route[]; result: FlowResult }>()
+
 function computeFlowsUncached(entities: PlacedEntity[], baseConveyors: Conveyor[], routes: Route[], floorHeight: number): FlowResult {
   // los hipertubos llevan jugadores, no carga: no entran en el cálculo de flujos
   baseConveyors = baseConveyors.filter((c) => buildingsById.get(c.buildingId)?.kind !== 'hyper')
+  // grupos conectados
+  const parent = new Map<string, string>()
+  const find = (x: string): string => {
+    let r = x
+    while (parent.get(r) !== r) r = parent.get(r)!
+    parent.set(x, r)
+    return r
+  }
+  for (const e of entities) parent.set(e.uid, e.uid)
+  const join = (a: string, b: string) => parent.has(a) && parent.has(b) && parent.set(find(a), find(b))
+  for (const c of baseConveyors) join(c.from.uid, c.to.uid)
+  for (const r of routes) join(r.from, r.to)
+  const groups = new Map<string, { ents: PlacedEntity[]; convs: Conveyor[]; routes: Route[] }>()
+  const groupOf = (uid: string) => {
+    const k = find(uid)
+    let g = groups.get(k)
+    if (!g) groups.set(k, (g = { ents: [], convs: [], routes: [] }))
+    return g
+  }
+  for (const e of entities) groupOf(e.uid).ents.push(e)
+  for (const c of baseConveyors) if (parent.has(c.from.uid)) groupOf(c.from.uid).convs.push(c)
+  for (const r of routes) if (parent.has(r.from)) groupOf(r.from).routes.push(r)
+
+  const edges = new Map<string, EdgeFlow>()
+  const nodes = new Map<string, NodeFlow>()
+  const next = new Map<string, { ents: PlacedEntity[]; convs: Conveyor[]; routes: Route[]; result: FlowResult }>()
+  const same = <T,>(a: T[], b: T[]) => a.length === b.length && a.every((x, i) => x === b[i])
+  for (const g of groups.values()) {
+    // una estructura suelta, sin cintas: no tiene flujo
+    if (!g.convs.length && !g.routes.length) continue
+    const key = g.ents[0].uid + ':' + g.ents.length + ':' + floorHeight
+    const old = groupCache.get(key)
+    const result = old && same(old.ents, g.ents) && same(old.convs, g.convs) && same(old.routes, g.routes) ? old.result : computeGroupFlows(g.ents, g.convs, g.routes, floorHeight)
+    next.set(key, { ...g, result })
+    for (const [k, v] of result.edges) edges.set(k, v)
+    for (const [k, v] of result.nodes) nodes.set(k, v)
+  }
+  groupCache = next
+  return { edges, nodes }
+}
+
+function computeGroupFlows(entities: PlacedEntity[], baseConveyors: Conveyor[], routes: Route[], floorHeight: number): FlowResult {
   // oferta ideal (todas las máquinas abastecidas): sirve de referencia para repartir la demanda
   // entre entradas cuando todavía no llega nada (p. ej. una cadena de uniones sin taladros conectados)
   const ideal = computeFlowsRaw(entities, baseConveyors, routes, floorHeight, 'supply')
@@ -525,10 +573,16 @@ function computeFlowsRaw(
     }
   }
 
+  // Barridas alternadas (hacia adelante y hacia atrás) hasta que nada cambie. Solo se recalcula una estructura
+  // cuando cambió algo en sus cintas vecinas: el resultado es el mismo que recalcular todo en cada barrida,
+  // pero en planos grandes casi todo se asienta en las primeras pasadas y no se vuelve a tocar.
+  const EPS = 1e-9
   const maxIter = Math.min(400, 40 + conveyors.length)
-  for (let iter = 0; iter < maxIter; iter++) {
-    let delta = 0
+  const dirty = new Set(order.map((e) => e.uid))
+  for (let iter = 0; iter < maxIter && dirty.size; iter++) {
     for (const e of iter % 2 ? reverse : order) {
+      if (!dirty.has(e.uid)) continue
+      dirty.delete(e.uid)
       const b = buildingsById.get(e.buildingId)
       if (!b) continue
       const ins = inEdges.get(e.uid) ?? []
@@ -537,23 +591,23 @@ function computeFlowsRaw(
       for (const c of outs) nOffer.set(c.uid, new Map())
       for (const c of ins) nDemand.set(c.uid, new Map())
       processNode(e, b, ins, outs)
-      // capacidad de cada cinta
+      // capacidad de cada cinta; si cambia lo que ofrece, lo de adelante se vuelve a calcular
       for (const c of outs) {
         const o = nOffer.get(c.uid)!
         const v = capRates(o, capOf(c.uid, o))
-        delta = Math.max(delta, rateDiff(offer.get(c.uid)!, v))
+        if (rateDiff(offer.get(c.uid)!, v) > EPS) dirty.add(c.to.uid)
         offer.set(c.uid, v)
       }
       // la demanda es el ideal de las recetas: no se recorta por la capacidad de la cinta
-      // (el aviso de "la cinta no alcanza" se muestra aparte); solo los sumideros se limitan a la cinta
+      // (el aviso de "la cinta no alcanza" se muestra aparte); solo los sumideros se limitan a la cinta.
+      // Si cambia lo que pide, lo de atrás se vuelve a calcular
       for (const c of ins) {
         const d = nDemand.get(c.uid)!
         if (d.has('*')) d.set('*', capOf(c.uid, offer.get(c.uid)))
-        delta = Math.max(delta, rateDiff(demand.get(c.uid)!, d))
+        if (rateDiff(demand.get(c.uid)!, d) > EPS) dirty.add(c.from.uid)
         demand.set(c.uid, d)
       }
     }
-    if (iter >= 1 && delta < 1e-6) break
   }
 
   const edges = new Map<string, EdgeFlow>()
