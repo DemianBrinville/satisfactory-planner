@@ -367,7 +367,7 @@
     "machines": "Máquinas",
     "power": "Consumo eléctrico",
     "buildCost": "Para construir las máquinas",
-    "wireSummary": "Con conexiones: {{segments}} tramos ({{meters}} m) con uniones, divisores y uniones de tuberías en manifold. Abajo van los taladros y extractores, con la mejor marca que tengas desbloqueada y el reloj justo, y el producto final sale por la derecha. Si dos líneas se cruzan, en el juego una pasa por encima con un poste más alto.",
+    "wireSummary": "Con conexiones: {{segments}} tramos ({{meters}} m) con uniones, divisores y uniones de tuberías en manifold. Abajo van los taladros y extractores, con la marca más barata que alcanza entre las que tienes desbloqueadas y el reloj justo, y el producto final sale por la derecha. Si dos líneas se cruzan, en el juego una pasa por encima con un poste más alto.",
     "wire": "Conectar con cintas y tuberías",
     "placeHint": "Se coloca a la derecha de lo que ya tienes, con recetas y relojes configurados.",
     "place": "Colocar en el plano",

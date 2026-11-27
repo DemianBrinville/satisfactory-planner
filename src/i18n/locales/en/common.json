@@ -367,7 +367,7 @@
     "machines": "Machines",
     "power": "Power usage",
     "buildCost": "To build the machines",
-    "wireSummary": "With connections: {{segments}} segments ({{meters}} m) with mergers, splitters and pipeline junctions in manifolds. The miners and extractors go at the bottom, with the best tier you have unlocked and the exact clock, and the final product exits to the right. Where two lines cross, in the game one goes over the other on a taller pole.",
+    "wireSummary": "With connections: {{segments}} segments ({{meters}} m) with mergers, splitters and pipeline junctions in manifolds. The miners and extractors go at the bottom, with the cheapest unlocked tier that is enough and the exact clock, and the final product exits to the right. Where two lines cross, in the game one goes over the other on a taller pole.",
     "wire": "Connect with belts and pipes",
     "placeHint": "It is placed to the right of what you already have, with recipes and clocks set.",
     "place": "Place on the plan",
