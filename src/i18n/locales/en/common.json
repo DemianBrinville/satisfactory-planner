@@ -756,5 +756,20 @@
     "total": "Measures {{n}}/min (the belt carries up to {{cap}}/min)",
     "empty": "Nothing goes through this belt.",
     "hint": " · click on a belt to attach it"
+  },
+  "note": {
+    "button": "Note",
+    "title": "Note",
+    "empty": "Note",
+    "hint": " · click: drop a note · Esc: exit",
+    "placeholder": "What goes here, what is missing, reminders…",
+    "help": "Drag it on the plan to move it; Delete removes it. It is saved with the plan and readable at any zoom.",
+    "delete": "Delete note"
+  },
+  "measure": {
+    "button": "Measure",
+    "title": "Ruler: measure distances",
+    "hint": " · drag or click each end · Shift: horizontal or vertical only · Esc: exit",
+    "length": "{{m}} m · {{f}} foundations"
   }
 }

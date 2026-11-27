@@ -1,3 +1,4 @@
+import { Ruler, StickyNote } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { buildingsById } from '../data/gameData'
 import { FAMILIES, HOTKEYS } from '../editor/families'
@@ -8,7 +9,7 @@ import { BuildingIcon } from './GameIcons'
 /** Barra rápida como la del juego: número → familia; E cambia la variante. */
 export default function Hotbar() {
   const { t } = useTranslation()
-  const { lastByFamily, selectFamily, conveyorId, placingId } = useEditor()
+  const { lastByFamily, selectFamily, conveyorId, placingId, tool, startNote, startMeasure, cancelTool } = useEditor()
   useProgress() // re-render cuando cambia el progreso
   const active = conveyorId ?? placingId
   return (
@@ -35,6 +36,17 @@ export default function Hotbar() {
       <span className="hint">
         <kbd>E</kbd> {t('hotbar.variant')}
       </span>
+      {/* herramientas del planificador (no son piezas del juego) */}
+      <button className={'slot tool' + (tool === 'note' ? ' active' : '')} onClick={() => (tool === 'note' ? cancelTool() : startNote())} title={t('note.title')}>
+        <kbd>N</kbd>
+        <StickyNote size={18} />
+        <span>{t('note.button')}</span>
+      </button>
+      <button className={'slot tool' + (tool === 'measure' ? ' active' : '')} onClick={() => (tool === 'measure' ? cancelTool() : startMeasure())} title={t('measure.title')}>
+        <kbd>M</kbd>
+        <Ruler size={18} />
+        <span>{t('measure.button')}</span>
+      </button>
     </div>
   )
 }

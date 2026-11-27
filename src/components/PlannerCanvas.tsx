@@ -114,6 +114,7 @@ type Interaction =
   | { type: 'box'; start: Vec; mode: 'replace' | 'add' | 'remove' }
   | { type: 'area'; start: Vec }
   | { type: 'waypoint'; uid: string; i: number }
+  | { type: 'measure' }
   | null
 
 /** Extremo candidato para la herramienta de cintas. */
@@ -162,6 +163,8 @@ export default function PlannerCanvas() {
   const [screen, setScreen] = useState<Vec>({ x: 0, y: 0 })
   const [drag, setDrag] = useState<Vec>({ x: 0, y: 0 })
   const [box, setBox] = useState<WRect | null>(null)
+  /** regla: de a hasta b; done = medida terminada (queda a la vista hasta otra o Esc) */
+  const [measure, setMeasure] = useState<{ a: Vec; b: Vec; done: boolean } | null>(null)
   /** última posición del mouse en pantalla (para mover la vista sola mientras se selecciona) */
   const screenRef = useRef<Vec>({ x: 0, y: 0 })
   /** relleno de cimientos en curso: anclaje inicial y actual */
@@ -198,6 +201,7 @@ export default function PlannerCanvas() {
   const headIssues = useMemo(() => computeHeadLift(entities, conveyors, s.floorHeight, flows), [entities, conveyors, s.floorHeight, flows])
   useEffect(() => {
     if (tool !== 'wire') setWireFrom(null)
+    if (tool !== 'measure') setMeasure(null)
     if (tool !== 'rail') setRailDraft(null)
   }, [tool])
   useEffect(() => {
@@ -280,6 +284,8 @@ export default function PlannerCanvas() {
       if (ctrl && e.key.toLowerCase() === 'x') st.cutSelection()
       if (ctrl && e.key.toLowerCase() === 'v') st.startPaste()
       if (!ctrl && !e.altKey && (e.key === 'e' || e.key === 'E')) st.cycleVariant(e.shiftKey ? -1 : 1)
+      if (!ctrl && !e.altKey && (e.key === 'n' || e.key === 'N')) (st.tool === 'note' ? st.cancelTool() : st.startNote())
+      if (!ctrl && !e.altKey && (e.key === 'm' || e.key === 'M')) (st.tool === 'measure' ? st.cancelTool() : st.startMeasure())
       if (!ctrl && !e.altKey) {
         const hk = HOTKEYS.find((h) => h.key === e.key)
         if (hk) st.selectFamily(hk.family)
@@ -348,6 +354,17 @@ export default function PlannerCanvas() {
   }, [entities, flows])
   const hitOrder = useMemo(() => [...visible].sort((a, b) => layerRank(b) - layerRank(a)), [visible])
   const used = useMemo(() => usedPorts(conveyors), [conveyors])
+
+  const notesHere = (s.notes ?? NONE).filter((n) => n.floor === floor)
+  /** nota bajo el mouse (su recuadro tiene tamaño fijo en pantalla) */
+  const hitNote = (p: Vec) => {
+    for (let i = notesHere.length - 1; i >= 0; i--) {
+      const n = notesHere[i]
+      const { w, h } = noteSize(n.text)
+      if (p.x >= n.x && p.y >= n.y && p.x <= n.x + w / view.scale && p.y <= n.y + h / view.scale) return n
+    }
+    return null
+  }
 
   const hitEntity = (p: Vec): PlacedEntity | null => {
     return (
@@ -763,6 +780,26 @@ export default function PlannerCanvas() {
       routeClick(p)
       return
     }
+    if (st.tool === 'note') {
+      st.addNote(p)
+      return
+    }
+    if (st.tool === 'measure') {
+      // regla: arrastrar mide de una; o un clic en cada punta
+      if (!measure || measure.done) {
+        setMeasure({ a: p, b: p, done: false })
+        inter.current = { type: 'measure' }
+      } else setMeasure({ ...measure, b: measureEnd(measure.a, p, e.evt.shiftKey), done: true })
+      return
+    }
+    // notas: se seleccionan y se arrastran como las estructuras
+    const hn = hitNote(p)
+    if (hn) {
+      const sel = st.selection.includes(hn.uid) ? st.selection : e.evt.shiftKey ? [...st.selection, hn.uid] : [hn.uid]
+      if (!st.selection.includes(hn.uid)) st.select([hn.uid], e.evt.shiftKey)
+      inter.current = { type: 'move', start: p, step: Math.min(1, moveStepFor(sel)) }
+      return
+    }
     // punto de paso de la ruta seleccionada: se arrastra
     const wi = waypointAt(p)
     if (editRoute && wi >= 0) {
@@ -819,6 +856,7 @@ export default function PlannerCanvas() {
     setMouse(p)
     setScreen(pos)
     screenRef.current = pos
+    if (tool === 'measure' && measure && !measure.done && !inter.current) setMeasure({ ...measure, b: measureEnd(measure.a, p, e.evt.shiftKey) })
     const it = inter.current
     if (!it) return
     // si se soltó el botón fuera del lienzo, no quedó registrado: se termina acá
@@ -837,6 +875,8 @@ export default function PlannerCanvas() {
       setWpDrag({ uid: it.uid, i: it.i, pos: snapPt(p) })
     } else if (it.type === 'box') {
       setBox(normRect(it.start, p))
+    } else if (it.type === 'measure') {
+      setMeasure((m) => (m ? { ...m, b: measureEnd(m.a, p, e.evt.shiftKey) } : m))
     } else if (it.type === 'area') {
       const st = useEditor.getState()
       const b = st.placingId ? buildingsById.get(st.placingId) : null
@@ -869,6 +909,9 @@ export default function PlannerCanvas() {
         if (ok) st.moveSelection(drag.x, drag.y)
       }
       setDrag({ x: 0, y: 0 })
+    } else if (it?.type === 'measure') {
+      // si se arrastró, la medida queda hecha; si fue un clic, falta la otra punta
+      setMeasure((m) => (m && Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y) > 0.3 ? { ...m, done: true } : m))
     } else if (it?.type === 'box' && box) {
       const tiny = box.x1 - box.x0 < 0.3 && box.y1 - box.y0 < 0.3
       if (!tiny) {
@@ -1141,6 +1184,19 @@ export default function PlannerCanvas() {
               const fill = power.autoOff.has(e.uid) ? '#e05046' : e.switchOn === false ? '#e8c547' : '#5fd35a'
               return <Circle key={'sw' + e.uid} x={(r.x0 + r.x1) / 2} y={(r.y0 + r.y1) / 2} radius={Math.max(0.35, 3 / view.scale)} fill={fill} stroke="#000" strokeWidth={1 / view.scale} />
             })}
+          {/* notas: tamaño fijo en pantalla, para leerlas con cualquier zoom */}
+          {notesHere.map((n) => {
+            const { w, h } = noteSize(n.text)
+            const sel = selSet.has(n.uid)
+            const dx = dragging && sel ? drag.x : 0
+            const dy = dragging && sel ? drag.y : 0
+            return (
+              <Group key={n.uid} x={n.x + dx} y={n.y + dy} scaleX={1 / view.scale} scaleY={1 / view.scale} listening={false}>
+                <Rect width={w} height={h} fill="rgba(250, 236, 170, 0.95)" stroke={sel ? '#4fe0c0' : '#b39b3c'} strokeWidth={sel ? 2.5 : 1} cornerRadius={4} />
+                <Text x={8} y={6} text={n.text || i18n.t('note.empty')} fontSize={NOTE_FONT} lineHeight={NOTE_LINE / NOTE_FONT} fill={n.text ? '#2b2414' : '#8c7a3a'} />
+              </Group>
+            )
+          })}
           {/* problemas del plano en este piso (la lista está en el botón Problemas de la barra superior) */}
           {problemsHere.map((p) => (
             <Group key={p.id} x={p.at.x} y={p.at.y}>
@@ -1162,6 +1218,7 @@ export default function PlannerCanvas() {
         </Layer>
         {/* capa aparte para lo que sigue al mouse: moverlo no redibuja la fábrica */}
         <Layer x={view.offsetX} y={view.offsetY} scaleX={view.scale} scaleY={view.scale} listening={false}>
+          {measure && <MeasureLine m={measure} scale={view.scale} />}
           {ghost && (
             <EntityShape
               e={{ uid: 'ghost', buildingId: ghost.b.id, x: ghost.anchor.x, y: ghost.anchor.y, rot: ghost.angle !== undefined ? 0 : 'rot' in ghost && ghost.rot !== undefined ? ghost.rot : placingRot, floor, angle: ghost.angle ?? s.placingAngle }}
@@ -1357,6 +1414,8 @@ export default function PlannerCanvas() {
         {tool === 'place' && placingId && isBeltMonitor(placingId) && i18n.t('monitor.hint')}
         {tool === 'route' && i18n.t('canvas.hintRoute')}
         {box && i18n.t('canvas.hintBox')}
+        {tool === 'note' && i18n.t('note.hint')}
+        {tool === 'measure' && i18n.t('measure.hint')}
       </div>
     </div>
   )
@@ -2079,6 +2138,49 @@ function EntityTooltip({ e, flows, power, at }: { e: PlacedEntity; flows: FlowRe
         b.kind === 'machine' && <div className="muted">{e.recipeId ? i18n.t('canvas.noBelts') : i18n.t('canvas.pickRecipe')}</div>
       )}
     </div>
+  )
+}
+
+const NOTE_FONT = 13
+const NOTE_LINE = 17
+/** Tamaño en pantalla del recuadro de una nota. */
+function noteSize(text: string) {
+  const lines = (text || ' '.repeat(6)).split(/\r?\n/)
+  const longest = Math.max(4, ...lines.map((l) => l.length))
+  return { w: Math.min(360, longest * 7.2 + 16), h: lines.length * NOTE_LINE + 12 }
+}
+
+/** Punta de la regla: de a medio metro; con Shift, solo horizontal o vertical. */
+function measureEnd(a: Vec, p: Vec, axis: boolean): Vec {
+  let b = { x: Math.round(p.x * 2) / 2, y: Math.round(p.y * 2) / 2 }
+  if (axis) b = Math.abs(b.x - a.x) >= Math.abs(b.y - a.y) ? { x: b.x, y: a.y } : { x: a.x, y: b.y }
+  return b
+}
+
+/** Regla: línea con sus puntas y la medida en metros y en cimientos (y los catetos si va en diagonal). */
+function MeasureLine({ m, scale }: { m: { a: Vec; b: Vec; done: boolean }; scale: number }) {
+  const dx = m.b.x - m.a.x
+  const dy = m.b.y - m.a.y
+  const len = Math.hypot(dx, dy)
+  const fs = 12 / scale
+  const label =
+    i18n.t('measure.length', { m: fmtM(len), f: fmtM(inFoundations(len)) }) +
+    (Math.abs(dx) > 0.01 && Math.abs(dy) > 0.01 ? ` (${fmtM(Math.abs(dx))} × ${fmtM(Math.abs(dy))} m)` : '')
+  const w = label.length * fs * 0.6
+  const mx = (m.a.x + m.b.x) / 2
+  const my = (m.a.y + m.b.y) / 2 - 14 / scale
+  return (
+    <Group listening={false}>
+      <Line points={[m.a.x, m.a.y, m.b.x, m.b.y]} stroke="#4fe0c0" strokeWidth={2 / scale} dash={m.done ? undefined : [6 / scale, 4 / scale]} />
+      <Circle x={m.a.x} y={m.a.y} radius={4 / scale} fill="#4fe0c0" />
+      <Circle x={m.b.x} y={m.b.y} radius={4 / scale} fill="#4fe0c0" />
+      {len > 0.01 && (
+        <Group x={mx} y={my}>
+          <Rect x={-w / 2 - 4 / scale} y={-fs * 0.7} width={w + 8 / scale} height={fs * 1.4} fill="rgba(20,21,23,0.92)" cornerRadius={3 / scale} />
+          <Text text={label} fontSize={fs} fill="#4fe0c0" width={w} x={-w / 2} y={-fs * 0.5} align="center" />
+        </Group>
+      )}
+    </Group>
   )
 }
 

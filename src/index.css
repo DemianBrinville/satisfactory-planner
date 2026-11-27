@@ -1058,3 +1058,19 @@ kbd {
     margin-right: 0;
   }
 }
+
+/* notas y regla */
+.hotbar .slot.tool {
+  border-color: #3d6f93;
+}
+.note-text {
+  width: 100%;
+  box-sizing: border-box;
+  background: #2b2c30;
+  color: var(--text);
+  border: 1px solid #3a3b40;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font: inherit;
+  resize: vertical;
+}

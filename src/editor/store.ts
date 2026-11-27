@@ -87,6 +87,15 @@ export interface Rail {
   points: Vec[]
 }
 
+/** Nota de texto sobre el plano. */
+export interface Note {
+  uid: string
+  floor: number
+  x: number
+  y: number
+  text: string
+}
+
 /** Ajustes de energía del plano. */
 export interface PowerSettings {
   /** se supone una red capaz de sostener todo: no hace falta tender cables */
@@ -109,6 +118,8 @@ export interface PlanDoc {
   floorHeight?: number
   /** ubicación del plano en el mapa real del juego (fondo y yacimientos) */
   map?: MapPlacement
+  /** notas de texto */
+  notes?: Note[]
 }
 
 export interface View {
@@ -118,7 +129,7 @@ export interface View {
   offsetY: number
 }
 
-export type Tool = 'select' | 'place' | 'paste' | 'conveyor' | 'wire' | 'rail' | 'route'
+export type Tool = 'select' | 'place' | 'paste' | 'conveyor' | 'wire' | 'rail' | 'route' | 'note' | 'measure'
 
 /** Grupo copiado: coordenadas relativas al anclaje de referencia. */
 export interface Clipboard {
@@ -210,6 +221,12 @@ interface EditorState extends PlanDoc {
   startWire: () => void
   routeKind: VehicleKind
   startRail: () => void
+  /** herramienta de notas: un clic deja una nota y la selecciona para escribirla */
+  startNote: () => void
+  addNote: (at: Vec) => string
+  updateNote: (uid: string, patch: Partial<Note>) => void
+  /** regla: medir distancias (no se guarda en el plano) */
+  startMeasure: () => void
   startRoute: (kind: VehicleKind, from?: string) => void
   /** estación de origen elegida para la ruta en curso */
   routeFrom: string | null
@@ -232,6 +249,7 @@ export const snapshot = (s: PlanDoc): PlanDoc => ({
   wires: s.wires,
   rails: s.rails,
   routes: s.routes,
+  notes: s.notes,
 })
 
 const remember = (m: Record<string, string>, id: string) => {
@@ -344,6 +362,7 @@ export const useEditor = create<EditorState>((set, get) => {
       entities: entities.filter((e) => !gone.has(e.uid)),
       wires: (get().wires ?? []).filter((w) => !gone.has(w.uid) && !gone.has(w.from) && !gone.has(w.to)),
       rails: (get().rails ?? []).filter((r) => !gone.has(r.uid)),
+      notes: (get().notes ?? []).filter((n) => !gone.has(n.uid)),
       // trenes con horario: se quitan las paradas borradas (con menos de dos, el tren deja de existir)
       routes: (get().routes ?? [])
         .map((r) => {
@@ -368,6 +387,7 @@ export const useEditor = create<EditorState>((set, get) => {
     power: DEFAULT_POWER,
     rails: [],
     routes: [],
+    notes: [],
     routeKind: 'truck',
     floorHeight: DEFAULT_FLOOR_HEIGHT,
     past: [],
@@ -522,6 +542,7 @@ export const useEditor = create<EditorState>((set, get) => {
           if (a || b) return reroute(c, nextEntities) ?? []
           return [c]
         }),
+        notes: (get().notes ?? []).map((n) => (sel.has(n.uid) ? { ...n, x: n.x + dx, y: n.y + dy } : n)),
         // rutas con las dos estaciones movidas (o la ruta seleccionada): los puntos de paso acompañan
         routes: (get().routes ?? []).map((r) =>
           r.waypoints && ((sel.has(r.from) && sel.has(r.to)) || sel.has(r.uid))
@@ -614,7 +635,7 @@ export const useEditor = create<EditorState>((set, get) => {
       }),
 
     load: (doc) =>
-      set({ entities: doc.entities ?? [], conveyors: doc.conveyors ?? [], wires: doc.wires ?? [], rails: doc.rails ?? [], routes: doc.routes ?? [], power: { ...DEFAULT_POWER, ...doc.power }, floorHeight: doc.floorHeight ?? DEFAULT_FLOOR_HEIGHT, map: doc.map, past: [], future: [], selection: [] }),
+      set({ entities: doc.entities ?? [], conveyors: doc.conveyors ?? [], wires: doc.wires ?? [], rails: doc.rails ?? [], routes: doc.routes ?? [], power: { ...DEFAULT_POWER, ...doc.power }, floorHeight: doc.floorHeight ?? DEFAULT_FLOOR_HEIGHT, map: doc.map, notes: doc.notes ?? [], past: [], future: [], selection: [] }),
     addDoc: (doc) => {
       commit({
         entities: [...get().entities, ...doc.entities],
@@ -645,6 +666,15 @@ export const useEditor = create<EditorState>((set, get) => {
     },
     startWire: () => set({ tool: 'wire', placingId: null, conveyorId: null, selection: [] }),
     startRail: () => set({ tool: 'rail', placingId: null, conveyorId: null, selection: [] }),
+    startNote: () => set({ tool: 'note', placingId: null, conveyorId: null, selection: [] }),
+    addNote: (at) => {
+      const uid = newUid()
+      commit({ notes: [...(get().notes ?? []), { uid, floor: get().floor, x: Math.round(at.x * 10) / 10, y: Math.round(at.y * 10) / 10, text: '' }] })
+      set({ tool: 'select', selection: [uid] })
+      return uid
+    },
+    updateNote: (uid, patch) => commit({ notes: (get().notes ?? []).map((n) => (n.uid === uid ? { ...n, ...patch } : n)) }),
+    startMeasure: () => set({ tool: 'measure', placingId: null, conveyorId: null, selection: [] }),
     startRoute: (routeKind, from) => set({ tool: 'route', routeKind, routeFrom: from ?? null, placingId: null, conveyorId: null, selection: [] }),
     routeFrom: null,
     setRouteFrom: (routeFrom) => set({ routeFrom }),
@@ -711,6 +741,7 @@ useEditor.subscribe((s, prev) => {
     s.wires !== prev.wires ||
     s.rails !== prev.rails ||
     s.routes !== prev.routes ||
+    s.notes !== prev.notes ||
     s.power !== prev.power ||
     s.floorHeight !== prev.floorHeight ||
     s.map !== prev.map

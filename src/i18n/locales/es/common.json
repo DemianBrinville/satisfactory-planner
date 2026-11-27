@@ -733,7 +733,7 @@
     "noGroup": "Sin grupo (se corta primero)",
     "groupN": "Grupo {{n}}",
     "groupHelp": "Cuando falta energía se cortan primero los que no tienen grupo y después del grupo 8 al 1. Pon en el grupo 1 lo que no puede pararse, como lo que fabrica el combustible de los generadores.",
-    "gameNote": "En el juego los interruptores se colocan apagados; acá empiezan encendidos para que la red quede unida mientras planeas."
+    "gameNote": "En el juego los interruptores se colocan apagados; aquí empiezan encendidos para que la red quede unida mientras planeas."
   },
   "valve": {
     "help": "Limita el caudal de la tubería. Tiene sentido de entrada y salida: el fluido pasa de la entrada a la salida.",
@@ -742,7 +742,7 @@
   },
   "designer": {
     "zone": "Zona de construcción · {{m}} × {{m}} × {{m}} m",
-    "help": "Solo se puede construir adentro de la zona marcada: {{m}} × {{m}} m ({{n}} × {{n}} cimientos) y {{m}} m de alto. Lo que armes ahí se guarda como plano en el juego; acá puedes guardarlo como bloque.",
+    "help": "Solo se puede construir adentro de la zona marcada: {{m}} × {{m}} m ({{n}} × {{n}} cimientos) y {{m}} m de alto. Lo que armes ahí se guarda como plano en el juego; aquí puedes guardarlo como bloque.",
     "inside_one": "{{count}} estructura adentro de la zona.",
     "inside_other": "{{count}} estructuras adentro de la zona.",
     "outside_one": "{{count}} estructura se sale de la zona: en el juego no se podría construir así.",
@@ -756,5 +756,20 @@
     "total": "Mide {{n}}/min (la cinta lleva hasta {{cap}}/min)",
     "empty": "No pasa nada por esta cinta.",
     "hint": " · clic sobre una cinta para acoplarlo"
+  },
+  "note": {
+    "button": "Nota",
+    "title": "Nota",
+    "empty": "Nota",
+    "hint": " · clic: dejar una nota · Esc: salir",
+    "placeholder": "Qué va aquí, qué falta, recordatorios…",
+    "help": "Arrástrala en el plano para moverla; Supr la borra. Se guarda con el plano y se ve con cualquier zoom.",
+    "delete": "Borrar nota"
+  },
+  "measure": {
+    "button": "Medir",
+    "title": "Regla: medir distancias",
+    "hint": " · arrastra o haz clic en cada punta · Shift: solo horizontal o vertical · Esc: salir",
+    "length": "{{m}} m · {{f}} cimientos"
   }
 }

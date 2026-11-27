@@ -314,7 +314,7 @@ export const useCloud = create<CloudState>((set, get) => ({
 let suppressSave = false
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 useEditor.subscribe((s, prev) => {
-  if (suppressSave || (s.entities === prev.entities && s.conveyors === prev.conveyors && s.wires === prev.wires && s.rails === prev.rails && s.routes === prev.routes && s.power === prev.power && s.floorHeight === prev.floorHeight && s.map === prev.map)) return
+  if (suppressSave || (s.entities === prev.entities && s.conveyors === prev.conveyors && s.wires === prev.wires && s.rails === prev.rails && s.routes === prev.routes && s.power === prev.power && s.floorHeight === prev.floorHeight && s.map === prev.map && s.notes === prev.notes)) return
   const { currentId } = useCloud.getState()
   if (!currentId) return
   useCloud.setState({ saveState: 'saving' })

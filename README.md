@@ -88,6 +88,7 @@ Ideas propuestas, pendientes de decidir: calculadora que elige las recetas ópti
 - **Calculadora con el mapa real:** con el plano ubicado en el mapa, los taladros y extractores de petróleo van sobre los yacimientos libres más cercanos al bloque (valorando la pureza), con la marca más barata que alcanza en cada uno; la materia prima entra al bloque por un poste suelto y las notas dicen dónde quedó cada extractor.
 - **Selección:** al arrastrar el recuadro hasta el borde la vista se mueve sola; Shift suma, Ctrl quita y Ctrl+A selecciona todo el piso.
 - **Locomotoras:** su consumo (110 MW cada una, lo máximo al acelerar) se suma a la red de sus estaciones y al total del plano.
+- **Notas y regla:** con N (o el botón de la barra de abajo) un clic deja una nota de texto que se ve con cualquier zoom, se arrastra y se borra como una pieza y se guarda con el plano. Con M, la regla mide distancias en metros y en cimientos (arrastrando o con un clic en cada punta; Shift la deja horizontal o vertical).
 
 ## Pendientes
 

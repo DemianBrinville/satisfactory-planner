@@ -2,7 +2,7 @@ import { fmtPct } from '../i18n/format'
 import i18n from '../i18n'
 import { Trans, useTranslation } from 'react-i18next'
 import { locale } from '../i18n/format'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { buildingsById, game, itemName, recipePowerRange, recipesById, type Building, type Recipe } from '../data/gameData'
 import { summarize } from '../editor/costs'
 import { conveyorCost, pathLength } from '../editor/conveyors'
@@ -32,7 +32,7 @@ import {
   isPrioritySwitch,
 } from '../editor/power'
 import { isVerticalConnector } from '../editor/geometry'
-import { groupOf, useEditor, type PlacedEntity, type Purity } from '../editor/store'
+import { groupOf, useEditor, type Note, type PlacedEntity, type Purity } from '../editor/store'
 import { designerContents, designerZone } from '../editor/designer'
 import { useBlocks } from '../cloud/blocks'
 import { NONE } from '../editor/store'
@@ -77,6 +77,8 @@ export default function SidePanel() {
   const configurable =
     singleB && (singleB.kind === 'machine' || singleB.kind === 'miner' || singleB.kind === 'extractor' || singleB.kind === 'generator')
   const selRoute = (routes.find((r) => selection.includes(r.uid)) ?? null) as import('../editor/transport').Route | null
+  const notes = useEditor((s) => s.notes) ?? NONE
+  const selNote = selection.length === 1 ? notes.find((n) => n.uid === selection[0]) ?? null : null
   const hasSelection = selEntities.length + selConveyors.length + selWires.length + selRails.length > 0
 
   return (
@@ -147,6 +149,7 @@ export default function SidePanel() {
       {single && singleB && isPowerSwitch(singleB.id) && <SwitchPanel e={single} power={power} />}
       {single && singleB && singleB.kind === 'valve' && <ValvePanel e={single} flows={flows} />}
       {single && singleB && singleB.kind === 'designer' && <DesignerPanel e={single} />}
+      {selNote && <NotePanel n={selNote} />}
       {single && singleB && configurable && (
         <MachinePanel e={single} b={singleB} node={flows.nodes.get(single.uid)} />
       )}
@@ -393,6 +396,45 @@ export function fmtHours(h: number): string {
   if (m < 60) return i18n.t('battery.minutes', { m })
   const hh = Math.floor(m / 60)
   return m % 60 ? i18n.t('battery.hoursMinutes', { h: hh, m: m % 60 }) : i18n.t('battery.hours', { h: hh })
+}
+
+/** Nota: se escribe acá; se mueve arrastrándola en el plano. */
+function NotePanel({ n }: { n: Note }) {
+  const { t } = useTranslation()
+  const [text, setText] = useState(n.text)
+  useEffect(() => setText(n.text), [n.uid, n.text])
+  // lo escrito se guarda al salir del cuadro y también si el panel se cierra (clic en el plano, otra selección)
+  const latest = useRef({ uid: n.uid, text: n.text, saved: n.text })
+  latest.current.text = text
+  useEffect(() => {
+    latest.current = { uid: n.uid, text: n.text, saved: n.text }
+    return () => {
+      const l = latest.current
+      const cur = useEditor.getState().notes?.find((x) => x.uid === l.uid)
+      if (cur && l.text !== l.saved && cur.text !== l.text) useEditor.getState().updateNote(l.uid, { text: l.text })
+    }
+  }, [n.uid, n.text])
+  const save = () => text !== n.text && useEditor.getState().updateNote(n.uid, { text })
+  return (
+    <section className="machine">
+      <h2>{t('note.title')}</h2>
+      <textarea
+        className="note-text"
+        autoFocus
+        rows={4}
+        maxLength={500}
+        value={text}
+        placeholder={t('note.placeholder')}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => e.stopPropagation()}
+      />
+      <p className="muted small">{t('note.help')}</p>
+      <button className="btn" onClick={() => (save(), useEditor.getState().deleteSelection())}>
+        {t('note.delete')}
+      </button>
+    </section>
+  )
 }
 
 /** Diseñador de planos: zona de construcción, lo que hay adentro y lo que se sale; guardar lo de adentro como bloque. */
